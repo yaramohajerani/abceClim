@@ -1,9 +1,8 @@
 """
 Simple Climate Economic Model Example
 
-This demonstrates how the Climate Framework can be easily integrated
-with any agent-based economic model to add geographical distribution,
-climate stress modeling, and visualization capabilities.
+This demonstrates how the simplified Climate Framework can be easily integrated
+with any agent-based economic model using abcEconomics' built-in functionality.
 """
 
 import sys
@@ -42,37 +41,31 @@ class SimpleHousehold(Agent):
         print(f"    Initializing SimpleHousehold {self.id}")
         self.create('money', 20)
         print(f"    SimpleHousehold {self.id} initialized with {self.possession('money')} money")
-        # Households don't need climate capabilities in this simple model
 
 def run_simple_climate_model():
-    """Run a simple climate economic model using the Climate Framework."""
+    """Run a simple climate economic model using the simplified Climate Framework."""
     
     # Simulation parameters
     simulation_parameters = {
         'name': 'simple_climate_model',
         'trade_logging': 'off',
         'random_seed': 42,
-        'rounds': 3,  # Reduce rounds for debugging
+        'rounds': 5,
         'climate_stress_enabled': True,
-        'acute_stress_probability': 0.2,  # 20% chance per round
-        'chronic_stress_factor': 0.95,   # 5% productivity reduction over time
+        'acute_stress_probability': 0.3,  # 30% chance per round
         'create_visualizations': True
     }
     
     print("Creating simulation...")
     # Create simulation
-    w = Simulation(path='auto')
+    w = Simulation(path='simple_model_output')
     
     print("Building agents...")
     # Build agents
-    firms = w.build_agents(SimpleFirm, 'firm', 5)
-    households = w.build_agents(SimpleHousehold, 'household', 15)
+    firms = w.build_agents(SimpleFirm, 'firm', 8)
+    households = w.build_agents(SimpleHousehold, 'household', 20)
     
-    print(f"Built agents: firms={type(firms)}, households={type(households)}")
-    
-    # Debug: Check what we actually have
-    print(f"Firms num_agents: {firms.num_agents}")
-    print(f"Households num_agents: {households.num_agents}")
+    print(f"Built agents: {firms.num_agents} firms, {households.num_agents} households")
     
     # Create the climate framework
     print("Creating climate framework...")
@@ -86,81 +79,63 @@ def run_simple_climate_model():
     
     # Assign geographical locations
     print("Assigning geographical locations...")
-    try:
-        climate_framework.assign_geographical_locations(agent_groups)
-        print("Geographical assignment completed successfully!")
-    except Exception as e:
-        print(f"Error in geographical assignment: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
-    
-    # Get agent counts for display
-    firm_count = firms.num_agents
-    household_count = households.num_agents
+    climate_framework.assign_geographical_locations(agent_groups)
     
     print(f"\nStarting simple climate model with:")
-    print(f"  {firm_count} firms")
-    print(f"  {household_count} households")
+    print(f"  {firms.num_agents} firms")
+    print(f"  {households.num_agents} households")
     print(f"  Distributed across 5 continents")
+    print(f"  Using abcEconomics' panel_log for data collection")
+    
+    # Set up data collection using abcEconomics' panel_log
+    goods_to_track = {
+        'firm': ['money', 'goods'],
+        'household': ['money']
+    }
     
     # Run simulation
     for r in range(simulation_parameters['rounds']):
         print(f"\nRound {r}...")
         
-        try:
-            print(f"  Advancing round {r}...")
-            w.advance_round(r)
-            print(f"  Round {r} advanced successfully")
-            
-            # Apply climate stress using the framework
-            climate_events = {}
-            if simulation_parameters['climate_stress_enabled']:
-                print(f"  Applying climate stress...")
-                climate_events = climate_framework.apply_geographical_climate_stress(agent_groups)
-                print(f"  Climate events: {climate_events}")
-            
-            # Simple economic activities
-            print(f"  Firms producing...")
-            firms.produce()
-            print(f"  Firms selling...")
-            firms.sell_goods()
-            
-            # Collect data using the framework
-            print(f"  Collecting data...")
-            climate_framework.collect_round_data(r, agent_groups, climate_events)
-            
-            print(f"Round {r} completed successfully!")
-            
-        except Exception as e:
-            print(f"Error in round {r}: {e}")
-            import traceback
-            traceback.print_exc()
-            break
+        print(f"  Advancing round...")
+        w.advance_round(r)
+        
+        # Apply climate stress using the framework
+        climate_events = {}
+        if simulation_parameters['climate_stress_enabled']:
+            print(f"  Applying climate stress...")
+            climate_events = climate_framework.apply_geographical_climate_stress(agent_groups)
+        
+        # Simple economic activities
+        print(f"  Firms producing...")
+        firms.produce()
+        print(f"  Firms selling...")
+        firms.sell_goods()
+        
+        # Collect data using abcEconomics' panel_log (the proper way!)
+        print(f"  Collecting data using abcEconomics panel_log...")
+        climate_framework.collect_panel_data(agent_groups, goods_to_track)
+        
+        print(f"Round {r} completed successfully!")
     
     # Finalize simulation
     print("\nFinalizing simulation...")
-    try:
-        w.finalize()
-        print("Simulation finalized successfully!")
-    except Exception as e:
-        print(f"Error finalizing simulation: {e}")
-        import traceback
-        traceback.print_exc()
+    w.finalize()
+    print("Simulation finalized successfully!")
     
-    # Create visualizations
+    # Create simplified visualizations focused on climate aspects
     if simulation_parameters['create_visualizations']:
         try:
-            print("Creating visualizations using Climate Framework...")
-            climate_framework.create_visualizations(
+            print("Creating climate visualizations...")
+            climate_framework.create_simplified_visualizations(
                 agent_groups,
-                model_name="Simple Climate Economic Model",
-                save_path="simple_climate_model_analysis.png"
+                simulation_path="simple_model_output",
+                model_name="Simple Climate Economic Model"
             )
             
-            # Export data
-            climate_framework.export_data("simple_climate_model_data.csv")
-            print("Visualizations and data export completed!")
+            # Export climate summary
+            climate_framework.export_climate_summary("simple_climate_summary.csv")
+            print("Climate visualizations and summary completed!")
         except Exception as e:
             print(f"Error creating visualizations: {e}")
             import traceback
@@ -168,21 +143,23 @@ def run_simple_climate_model():
     
     # Print summary
     try:
-        total_climate_events = sum(len(events) for events in climate_framework.results['climate_events'])
-        print(f"\nSummary: Successfully completed {len(climate_framework.results['round'])} rounds")
+        total_climate_events = sum(len(events) for events in climate_framework.climate_events_history)
+        print(f"\nSummary: Successfully completed {len(climate_framework.climate_events_history)} rounds")
         print(f"Total climate events occurred: {total_climate_events}")
+        print(f"Geographical assignments: {len(climate_framework.geographical_assignments)} agent types")
     except Exception as e:
         print(f"Error creating summary: {e}")
     
-    return climate_framework.results
+    return climate_framework
 
 if __name__ == '__main__':
-    results = run_simple_climate_model()
-    print(f"Simple model completed with {len(results['round'])} rounds!")
-    print("\nThis demonstrates how any economic model can easily use the Climate Framework!")
-    print("Key benefits:")
-    print("  ✓ Automatic geographical distribution")
-    print("  ✓ Built-in climate stress modeling")
-    print("  ✓ Comprehensive visualizations")
-    print("  ✓ Data export for analysis")
-    print("  ✓ Reusable across different models") 
+    climate_framework = run_simple_climate_model()
+    print(f"\nSimple model completed with {len(climate_framework.climate_events_history)} rounds!")
+    print("\nKey improvements in simplified approach:")
+    print("  ✓ Uses abcEconomics' panel_log() for data collection")
+    print("  ✓ Focuses on climate-specific capabilities")
+    print("  ✓ Works with abcEconomics' group-based design")
+    print("  ✓ Generates climate-focused visualizations")
+    print("  ✓ Exports geographical and climate summaries")
+    print("  ✓ Much more robust and compatible with abcEconomics")
+    print("\nFor economic data analysis, check the abcEconomics output files in 'simple_model_output/'!") 

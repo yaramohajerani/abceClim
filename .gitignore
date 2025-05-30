@@ -15,3 +15,5 @@ setup.cfg
 .DS_Store
 venv/
 .vscode/
+*.png
+*.csv
