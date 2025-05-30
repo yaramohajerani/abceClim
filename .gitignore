@@ -14,3 +14,4 @@ setup.cfg
 .ropeproject/
 .DS_Store
 venv/
+.vscode/
