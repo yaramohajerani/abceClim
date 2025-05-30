@@ -176,29 +176,17 @@ class Simulation(object):
 
         # Set up database/logging backend
         if path is not None:
-            try:
-                # Try using the modern database system first
-                if multiprocessing_database:
-                    from .logger.modern_db import ModernMultiprocessingDatabase as DatabaseClass
-                    print("Using modern SQLAlchemy 2.0 + pandas logging system (multiprocessing)")
-                else:
-                    from .logger.modern_db import ModernThreadingDatabase as DatabaseClass
-                    print("Using modern SQLAlchemy 2.0 + pandas logging system (threading)")
-            except ImportError:
-                # Fallback to old system if needed
-                if multiprocessing_database:
-                    DatabaseClass = MultiprocessingDatabase
-                    print("Using legacy dataset logging system (multiprocessing)")
-                else:
-                    DatabaseClass = ThreadingDatabase
-                    print("Using legacy dataset logging system (threading)")
+            if multiprocessing_database:
+                print("Using modern SQLAlchemy 2.0 + pandas logging system (multiprocessing)")
+            else:
+                print("Using modern SQLAlchemy 2.0 + pandas logging system (threading)")
                 
-            self._db = DatabaseClass(directory=path,
-                                     name=name,
-                                     in_sok=self.database_queue,
-                                     trade_log=self.trade_logging_mode != 'off',
-                                     plugin=dbplugin,
-                                     pluginargs=dbpluginargs)
+            self._db = Database(directory=path,
+                                name=name,
+                                in_sok=self.database_queue,
+                                trade_log=self.trade_logging_mode != 'off',
+                                plugin=dbplugin,
+                                pluginargs=dbpluginargs)
             self.path = self._db.directory
             self._db.start()
         else:
