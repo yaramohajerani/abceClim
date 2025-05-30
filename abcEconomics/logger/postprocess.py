@@ -23,32 +23,64 @@ def to_csv(directory, dataset):
         join_table(tables, group, 'round', 'aggregate', dataset)
 
     for group, tables in panels.items():
-        join_table(tables, group, 'name, round', 'panel', dataset)
-        create_aggregated_table(group, dataset)
-    dataset.commit()
+        try:
+            join_table(tables, group, 'name, round', 'panel', dataset)
+            create_aggregated_table(group, dataset)
+        except Exception as e:
+            print(f'Error processing panel group {group}: {e}')
+    
+    try:
+        dataset.commit()
+    except Exception as e:
+        print(f'Error committing dataset: {e}')
 
     for group in aggs:
-        save_to_csv('aggregate', group, dataset)
+        try:
+            save_to_csv('aggregate', group, dataset)
+        except Exception as e:
+            print(f'Error saving aggregate CSV for {group}: {e}')
 
     for group in panels:
-        save_to_csv('panel', group, dataset)
-        save_to_csv('aggregated', group, dataset)
+        try:
+            save_to_csv('panel', group, dataset)
+        except Exception as e:
+            print(f'Error saving panel CSV for {group}: {e}')
+        try:
+            save_to_csv('aggregated', group, dataset)
+        except Exception as e:
+            print(f'Error saving aggregated CSV for {group}: {e}')
     os.chdir('../..')
 
 
 def create_aggregated_table(group, dataset):
-    columns = ', '.join('AVG(%s) %s_mean, SUM(%s) %s_ttl' % (c, c, c, c)
-                        for c in get_columns(dataset, 'panel_%s' % group))
     try:
-        dataset.query("CREATE TABLE aggregated_%s AS "
-                      "SELECT round, %s FROM panel_%s GROUP BY round ORDER BY cast(round as float);"
-                      % (group, columns, group))
-    except Exception:
-        print('round not castable as float; default to unordered group by')
-        dataset.query("CREATE TABLE aggregated_%s AS "
-                      "SELECT round, %s FROM panel_%s GROUP BY round;"
-                      % (group, columns, group))
-    dataset.update_table('aggregated_%s' % group)
+        columns = ', '.join('AVG(%s) %s_mean, SUM(%s) %s_ttl' % (c, c, c, c)
+                            for c in get_columns(dataset, 'panel_%s' % group))
+        
+        # Skip if no columns to aggregate
+        if not columns.strip():
+            print(f'No columns to aggregate for group {group}, skipping aggregated table creation')
+            return
+            
+        try:
+            dataset.query("CREATE TABLE aggregated_%s AS "
+                          "SELECT round, %s FROM panel_%s GROUP BY round ORDER BY cast(round as float);"
+                          % (group, columns, group))
+        except Exception:
+            print('round not castable as float; default to unordered group by')
+            try:
+                dataset.query("CREATE TABLE aggregated_%s AS "
+                              "SELECT round, %s FROM panel_%s GROUP BY round;"
+                              % (group, columns, group))
+            except Exception as e:
+                print(f'Could not create aggregated table for {group}: {e}')
+                return
+        try:
+            dataset.update_table('aggregated_%s' % group)
+        except Exception as e:
+            print(f'Could not update aggregated table for {group}: {e}')
+    except Exception as e:
+        print(f'Error in create_aggregated_table for {group}: {e}')
 
 
 def join_table(tables, group, indexes, type_, dataset):

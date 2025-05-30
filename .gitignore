@@ -12,3 +12,5 @@ docs/builddir/
 setup.cfg
 .idea/
 .ropeproject/
+.DS_Store
+venv/

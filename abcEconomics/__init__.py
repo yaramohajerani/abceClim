@@ -174,15 +174,35 @@ class Simulation(object):
         else:
             Database = ThreadingDatabase
 
-        self._db = Database(
-            path,
-            name,
-            self.database_queue,
-            trade_log=self.trade_logging_mode != 'off',
-            plugin=dbplugin,
-            pluginargs=dbpluginargs)
-        self.path = self._db.directory
-        self._db.start()
+        # Set up database/logging backend
+        if path is not None:
+            try:
+                # Try using the modern database system first
+                if multiprocessing_database:
+                    from .logger.modern_db import ModernMultiprocessingDatabase as DatabaseClass
+                    print("Using modern SQLAlchemy 2.0 + pandas logging system (multiprocessing)")
+                else:
+                    from .logger.modern_db import ModernThreadingDatabase as DatabaseClass
+                    print("Using modern SQLAlchemy 2.0 + pandas logging system (threading)")
+            except ImportError:
+                # Fallback to old system if needed
+                if multiprocessing_database:
+                    DatabaseClass = MultiprocessingDatabase
+                    print("Using legacy dataset logging system (multiprocessing)")
+                else:
+                    DatabaseClass = ThreadingDatabase
+                    print("Using legacy dataset logging system (threading)")
+                
+            self._db = DatabaseClass(directory=path,
+                                     name=name,
+                                     in_sok=self.database_queue,
+                                     trade_log=self.trade_logging_mode != 'off',
+                                     plugin=dbplugin,
+                                     pluginargs=dbpluginargs)
+            self.path = self._db.directory
+            self._db.start()
+        else:
+            self._db = None
 
         if random_seed is None or random_seed == 0:
             random_seed = time.time()

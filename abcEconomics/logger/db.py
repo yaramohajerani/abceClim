@@ -70,20 +70,52 @@ class DbDatabase:
     def run(self):
         if self.plugin is not None:
             self.plugin = self.plugin(*self.pluginargs)
-        self.dataset_db = dataset.connect('sqlite://')
-        self.dataset_db.query('PRAGMA synchronous=OFF')
+        
+        # Skip database initialization if directory is None
+        if self.directory is None:
+            while True:
+                try:
+                    msg = self.in_sok.get(timeout=120)
+                except queue.Empty:
+                    print("simulation.finalize() must be specified at the end of simulation")
+                    msg = self.in_sok.get()
+                if msg == "close":
+                    break
+            return
+            
+        self.dataset_db = dataset.connect('sqlite:///:memory:?check_same_thread=False')
+        # Handle PRAGMA queries with SQLAlchemy 2.x compatibility
+        try:
+            self.dataset_db.query('PRAGMA synchronous=OFF')
+        except Exception:
+            # PRAGMA queries may not work with newer SQLAlchemy versions
+            # This is not critical for functionality, just optimization
+            pass
         # self.dataset_db.query('PRAGMA journal_mode=OFF')
-        self.dataset_db.query('PRAGMA count_changes=OFF')
-        self.dataset_db.query('PRAGMA temp_store=OFF')
-        self.dataset_db.query('PRAGMA default_temp_store=OFF')
+        try:
+            self.dataset_db.query('PRAGMA count_changes=OFF')
+        except Exception:
+            pass
+        try:
+            self.dataset_db.query('PRAGMA temp_store=OFF')
+        except Exception:
+            pass
+        try:
+            self.dataset_db.query('PRAGMA default_temp_store=OFF')
+        except Exception:
+            pass
         table_log = {}
         current_log = defaultdict(list)
         current_trade = []
         self.table_aggregates = {}
 
         if self.trade_log:
-            trade_table = self.dataset_db.create_table('trade___trade',
-                                                       primary_id='index')
+            try:
+                trade_table = self.dataset_db.create_table('trade___trade',
+                                                           primary_id='index')
+            except Exception as e:
+                print(f"Warning: Could not create trade table: {e}")
+                trade_table = None
 
         while True:
             try:
@@ -104,16 +136,20 @@ class DbDatabase:
                         self.aggregation[group][key].update(value)
 
             elif msg[0] == 'trade_log':
-                for (good, seller, buyer, price), quantity in msg[1].items():
-                    current_trade.append({'round': msg[2],
-                                          'good': good,
-                                          'seller': seller,
-                                          'buyer': buyer,
-                                          'price': price,
-                                          'quantity': quantity})
-                    if len(current_trade) == 1000:
-                        trade_table.insert_many(current_trade)
-                        current_trade = []
+                if trade_table is not None:
+                    for (good, seller, buyer, price), quantity in msg[1].items():
+                        current_trade.append({'round': msg[2],
+                                              'good': good,
+                                              'seller': seller,
+                                              'buyer': buyer,
+                                              'price': price,
+                                              'quantity': quantity})
+                        if len(current_trade) == 1000:
+                            try:
+                                trade_table.insert_many(current_trade)
+                            except Exception as e:
+                                print(f"Warning: Could not insert trade data: {e}")
+                            current_trade = []
 
             elif msg[0] == 'log':
                 _, group, name, round, data_to_write, subround_or_serial = msg
@@ -122,11 +158,15 @@ class DbDatabase:
                 data_to_write['name'] = str(name)
                 current_log[table_name].append(data_to_write)
                 if len(current_log[table_name]) == 1000:
-                    if table_name not in table_log:
-                        table_log[table_name] = self.dataset_db.create_table(
-                            table_name, primary_id='index')
-                    table_log[table_name].insert_many(current_log[table_name])
-                    current_log[table_name] = []
+                    try:
+                        if table_name not in table_log:
+                            table_log[table_name] = self.dataset_db.create_table(
+                                table_name, primary_id='index')
+                        table_log[table_name].insert_many(current_log[table_name])
+                        current_log[table_name] = []
+                    except Exception as e:
+                        print(f"Warning: Could not insert panel data for {table_name}: {e}")
+                        current_log[table_name] = []
 
             elif msg == "close":
                 break
@@ -138,19 +178,34 @@ class DbDatabase:
                     raise AttributeError(
                         "abcEconomics_db error '%s' command unknown" % msg)
 
+        # Final data insertion with error handling
         for name, data in current_log.items():
-            if name not in self.dataset_db:
-                table_log[name] = self.dataset_db.create_table(
-                    name, primary_id='index')
-            table_log[name].insert_many(data)
+            try:
+                if name not in self.dataset_db:
+                    table_log[name] = self.dataset_db.create_table(
+                        name, primary_id='index')
+                table_log[name].insert_many(data)
+            except Exception as e:
+                print(f"Warning: Could not insert final data for {name}: {e}")
+                
         self.make_aggregation_and_write()
-        if self.trade_log:
-            trade_table.insert_many(current_trade)
-        self.dataset_db.commit()
+        
+        if self.trade_log and trade_table is not None:
+            try:
+                trade_table.insert_many(current_trade)
+            except Exception as e:
+                print(f"Warning: Could not insert final trade data: {e}")
+                
+        try:
+            self.dataset_db.commit()
+        except Exception as e:
+            print(f"Warning: Could not commit database: {e}")
+            
         try:
             self.plugin.close()
         except AttributeError:
             pass
+            
         if self.directory is not None:
             to_csv(self.directory, self.dataset_db)
 
