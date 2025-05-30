@@ -1,8 +1,8 @@
-*Note:* This is a fork of [abcEconomics](https://github.com/AB-CE/abce) ([docs](https://abce.readthedocs.io/)) that updates some of the deprecated functionality for new Python libraries, since abcEcon was archived in early 2024. In particular, the logging functionality of the original repository is no longer functional with updated libraries, which is replaced with a new logging system in this fork. More importantly, this repo builds on the original framework to focus on climate risk propagation in an economic network. **This is work in progress and is by no means finished, so you may often see temporary placeholder values for various parameters and experimental methodologies. Therefore, do not use this code for any real study or application (yet).** If you have any thoughts or would like to contribute, please [reach out](mailto:yara@pluripotent.tech). 
-
 # Climate Economics Agent-Based Modeling based on abcEconomics
 
 A reusable framework for adding geographical distribution, climate stress modeling, and comprehensive visualization capabilities to agent-based economic models built with abcEconomics.
+
+This is a fork of [abcEconomics](https://github.com/AB-CE/abce) that updates some of the deprecated functionality to work with up-to-date libraries, since abcEcon was archived in early 2024. In particular, the logging functionality of the original repository is no longer functional with updated libraries, which is replaced with a new logging system in this fork. More importantly, this repo builds on the original framework to focus on climate risk propagation in an economic network. **This is work in progress and is by no means finished, so you may often see temporary placeholder values for various parameters and experimental methodologies. Therefore, do not use this code for any real study or application (yet).** If you have any thoughts or would like to contribute, please [reach out](mailto:yara@pluripotent.tech).
 
 ## Overview
 
