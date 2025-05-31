@@ -96,8 +96,8 @@ class SupplyChainVisualizer:
         filename = f'{model_name.lower().replace(" ", "_")}_supply_chain_analysis.png'
         save_path = os.path.join(simulation_path, filename)
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        plt.show()
-        
+        #plt.show()
+        plt.close()
         print(f"Supply chain analysis saved to '{save_path}'")
         
         # Also create the core climate visualizations
