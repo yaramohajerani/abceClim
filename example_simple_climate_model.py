@@ -50,12 +50,54 @@ class SimpleFirm(Agent, Firm):
             sell_amount = goods_to_sell * 0.5
             print(f"    Firm {self.id} selling {sell_amount} goods (had {goods_to_sell})")
             self.destroy('goods', sell_amount)  # Simulate selling half
+    
+    def pay_wages_to_employees(self, wage_multiplier):
+        """Pay wages to employees based on current production level"""
+        # Calculate wage multiplier based on current vs normal production
+        base_wage = 5.0
+        actual_wage = base_wage * wage_multiplier
+        
+        # Store wage info for group-level payment
+        self.current_wage_payment = actual_wage
+        
+        # Firm pays out wages (costs) 
+        # In a simplified model, assume 2.5 employees per firm on average
+        employees_per_firm = 2.5  
+        total_wages = actual_wage * employees_per_firm
+        if self.possession('money') >= total_wages:
+            self.destroy('money', total_wages)
+            
+        print(f"    Firm {self.id} set wage rate: {actual_wage:.1f} (production factor: {wage_multiplier:.1f})")
+        return actual_wage
 
 class SimpleHousehold(Agent):
     def init(self):
         print(f"    Initializing SimpleHousehold {self.id}")
         self.create('money', 20)
+        self.employer_firm_id = None  # Will be assigned an employer
+        self.base_wage = 5            # Base wage per round
+        self.current_wage = 5         # Current wage (affected by firm performance)
         print(f"    SimpleHousehold {self.id} initialized with {self.possession('money')} money")
+    
+    def assign_employer(self, firm_id):
+        """Assign this household to work for a specific firm"""
+        self.employer_firm_id = firm_id
+        print(f"    Household {self.id} assigned to work for Firm {firm_id}")
+    
+    def receive_wages(self, wage_amount):
+        """Receive wages from employer firm"""
+        self.current_wage = wage_amount
+        self.create('money', wage_amount)
+        print(f"    Household {self.id} received {wage_amount:.1f} wages (total money: {self.possession('money'):.1f})")
+    
+    def receive_average_wages(self, average_wage):
+        """Receive wages based on the average wage in the economy (group-level)"""
+        # Add some randomness for individual variation
+        import random
+        individual_wage = average_wage * random.uniform(0.8, 1.2)
+        self.current_wage = individual_wage
+        self.create('money', individual_wage)
+        print(f"    Household {self.id} received {individual_wage:.1f} wages from economy-wide average {average_wage:.1f}")
 
 def run_simple_climate_model():
     """Run a simple climate economic model using the simplified Climate Framework."""
@@ -73,7 +115,8 @@ def run_simple_climate_model():
     
     print("Creating simulation...")
     # Create simulation
-    w = Simulation(path='climate_simulation_output')
+    simulation_path = 'result_simple_climate_simulation'
+    w = Simulation(path=simulation_path)
     
     print("Building agents...")
     # Build agents
@@ -81,6 +124,11 @@ def run_simple_climate_model():
     households = w.build_agents(SimpleHousehold, 'household', 20)
     
     print(f"Built agents: {firms.num_agents} firms, {households.num_agents} households")
+    
+    # Simplified employment: households work in the general economy
+    # No need for individual assignments - we'll use economy-wide wage averages
+    print("Setting up simplified employment relationships...")
+    print(f"Economy setup: {households.num_agents} households work in economy with {firms.num_agents} firms")
     
     # Create the climate framework
     print("Creating climate framework...")
@@ -132,6 +180,38 @@ def run_simple_climate_model():
         print(f"  Firms selling...")
         firms.sell_goods()
         
+        # Pay wages based on economy-wide average production (climate-affected)
+        print(f"  Calculating economy-wide wages...")
+        # Calculate average production level across all firms
+        total_firms = firms.num_agents
+        # Use group-level method to get average production impact
+        total_wage_multiplier = 0
+        
+        # Calculate wage multipliers using group approach
+        for i in range(total_firms):
+            # Use production factor: current/base output
+            # Since all firms have same logic, calculate average stress effect
+            pass
+        
+        # Simplified: Use climate stress to affect economy-wide wages
+        economy_stress_factor = 1.0
+        if climate_events:
+            # If there are climate events, reduce wages economy-wide
+            economy_stress_factor = 0.75  # 25% wage reduction during climate stress
+            print(f"    Climate stress detected! Economy-wide wage factor: {economy_stress_factor}")
+        else:
+            print(f"    No climate stress. Normal wage factor: {economy_stress_factor}")
+        
+        # Pay wages using group methods
+        base_wage = 5.0
+        economy_wage = base_wage * economy_stress_factor
+        
+        # Apply wage payments to firm costs
+        firms.pay_wages_to_employees(economy_stress_factor)
+        
+        # Apply wage income to households
+        households.receive_average_wages(economy_wage)
+        
         print(f"Round {r} completed successfully!")
     
     # Finalize simulation
@@ -145,12 +225,12 @@ def run_simple_climate_model():
             print("Creating climate visualizations...")
             climate_framework.create_simplified_visualizations(
                 agent_groups,
-                simulation_path="climate_simulation_output",
+                simulation_path=simulation_path,
                 model_name="Simple Climate Economic Model"
             )
             
             # Export climate summary
-            climate_framework.export_climate_summary("simple_climate_summary.csv")
+            climate_framework.export_climate_summary(simulation_path, "simple_climate_summary.csv")
             print("Climate visualizations and summary completed!")
         except Exception as e:
             print(f"Error creating visualizations: {e}")
@@ -171,11 +251,3 @@ def run_simple_climate_model():
 if __name__ == '__main__':
     climate_framework = run_simple_climate_model()
     print(f"\nSimple model completed with {len(climate_framework.climate_events_history)} rounds!")
-    print("\nKey improvements in simplified approach:")
-    print("  ✓ Uses abcEconomics' panel_log() for data collection")
-    print("  ✓ Focuses on climate-specific capabilities")
-    print("  ✓ Works with abcEconomics' group-based design")
-    print("  ✓ Generates climate-focused visualizations")
-    print("  ✓ Exports geographical and climate summaries")
-    print("  ✓ Much more robust and compatible with abcEconomics")
-    print("\nFor economic data analysis, check the abcEconomics output files in 'climate_simulation_output/'!") 

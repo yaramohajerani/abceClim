@@ -166,6 +166,10 @@ class ClimateFramework:
         plt.style.use('seaborn-v0_8')
         sns.set_palette("husl")
         
+        # Ensure simulation path exists
+        if simulation_path and not os.path.exists(simulation_path):
+            os.makedirs(simulation_path, exist_ok=True)
+        
         # Create figure with subplots
         fig = plt.figure(figsize=(15, 10))
         fig.suptitle(f'{model_name} - Climate Framework Analysis', fontsize=16, fontweight='bold')
@@ -188,12 +192,17 @@ class ClimateFramework:
         
         plt.tight_layout()
         
-        # Save visualization
-        save_path = f'{model_name.lower().replace(" ", "_")}_climate_analysis.png'
+        # Save visualization to simulation directory
+        filename = f'{model_name.lower().replace(" ", "_")}_climate_analysis.png'
+        if simulation_path:
+            save_path = os.path.join(simulation_path, filename)
+        else:
+            save_path = filename
+        
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         plt.show()
         
-        print(f"Climate visualizations saved as '{save_path}'")
+        print(f"Climate visualizations saved to '{save_path}'")
         
         # Create second figure showing simulation results
         if simulation_path:
@@ -329,12 +338,13 @@ class ClimateFramework:
             
             plt.tight_layout()
             
-            # Save results visualization
-            results_save_path = f'{model_name.lower().replace(" ", "_")}_simulation_results.png'
+            # Save results visualization to simulation directory
+            filename = f'{model_name.lower().replace(" ", "_")}_simulation_results.png'
+            results_save_path = os.path.join(simulation_path, filename)
             plt.savefig(results_save_path, dpi=300, bbox_inches='tight')
             plt.show()
             
-            print(f"Simulation results visualization saved as '{results_save_path}'")
+            print(f"Simulation results visualization saved to '{results_save_path}'")
             
         except Exception as e:
             print(f"Error creating simulation results visualization: {e}")
@@ -784,7 +794,7 @@ class ClimateFramework:
             'government': list(CONTINENTS.keys())  # All continents
         }
     
-    def export_climate_summary(self, filename: str = "climate_summary.csv"):
+    def export_climate_summary(self, simulation_path: str = None, filename: str = "climate_summary.csv"):
         """Export a summary of climate events and geographical assignments."""
         # Create summary data
         summary_data = []
@@ -813,8 +823,18 @@ class ClimateFramework:
         
         if summary_data:
             df = pd.DataFrame(summary_data)
-            df.to_csv(filename, index=False)
-            print(f"Climate summary exported to {filename}")
+            
+            # Save to simulation directory if provided
+            if simulation_path:
+                # Ensure simulation path exists
+                if not os.path.exists(simulation_path):
+                    os.makedirs(simulation_path, exist_ok=True)
+                save_path = os.path.join(simulation_path, filename)
+            else:
+                save_path = filename
+                
+            df.to_csv(save_path, index=False)
+            print(f"Climate summary exported to '{save_path}'")
             return df
         else:
             print("No climate data to export")
