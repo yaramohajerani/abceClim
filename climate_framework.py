@@ -158,6 +158,10 @@ class ClimateFramework:
         
         print(f"Climate visualizations saved as '{save_path}'")
         
+        # Create second figure showing simulation results
+        if simulation_path:
+            self._create_simulation_results_visualization(simulation_path, model_name)
+        
         # Try to load and display abcEconomics data if available
         if simulation_path:
             self._try_load_abceconomics_data(simulation_path)
@@ -252,6 +256,458 @@ class ClimateFramework:
         else:
             ax.text(0.5, 0.5, 'No agent data available', 
                    ha='center', va='center', transform=ax.transAxes)
+    
+    def _create_simulation_results_visualization(self, simulation_path: str, model_name: str):
+        """Create a comprehensive visualization of simulation results and economic impacts."""
+        try:
+            # Load abcEconomics data
+            economic_data = self._load_economic_data(simulation_path)
+            
+            if not economic_data:
+                print("No economic data available for results visualization")
+                return
+            
+            # Create second figure for simulation results
+            fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+            fig.suptitle(f'{model_name} - Simulation Results & Economic Impact Analysis', 
+                        fontsize=16, fontweight='bold')
+            
+            # 1. Economic Performance Over Time
+            self._plot_economic_performance(axes[0, 0], economic_data)
+            
+            # 2. Climate Events vs Economic Activity
+            self._plot_climate_impact_analysis(axes[0, 1], economic_data)
+            
+            # 3. Agent Performance Comparison
+            self._plot_agent_performance(axes[0, 2], economic_data)
+            
+            # 4. Geographic Economic Analysis
+            self._plot_geographic_economic_analysis(axes[1, 0], economic_data)
+            
+            # 5. Production vs Consumption Trends
+            self._plot_production_consumption_trends(axes[1, 1], economic_data)
+            
+            # 6. Summary Statistics
+            self._plot_summary_statistics(axes[1, 2], economic_data)
+            
+            plt.tight_layout()
+            
+            # Save results visualization
+            results_save_path = f'{model_name.lower().replace(" ", "_")}_simulation_results.png'
+            plt.savefig(results_save_path, dpi=300, bbox_inches='tight')
+            plt.show()
+            
+            print(f"Simulation results visualization saved as '{results_save_path}'")
+            
+        except Exception as e:
+            print(f"Error creating simulation results visualization: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _load_economic_data(self, simulation_path: str) -> Dict[str, pd.DataFrame]:
+        """Load economic data from abcEconomics output files."""
+        economic_data = {}
+        
+        try:
+            if os.path.exists(simulation_path):
+                csv_files = [f for f in os.listdir(simulation_path) if f.endswith('.csv')]
+                
+                for csv_file in csv_files:
+                    file_path = os.path.join(simulation_path, csv_file)
+                    try:
+                        df = pd.read_csv(file_path)
+                        # Use the base filename as the key
+                        key = csv_file.replace('.csv', '')
+                        economic_data[key] = df
+                        print(f"Loaded {len(df)} rows from {csv_file}")
+                    except Exception as e:
+                        print(f"Could not load {csv_file}: {e}")
+                        
+        except Exception as e:
+            print(f"Error loading economic data: {e}")
+        
+        return economic_data
+    
+    def _plot_economic_performance(self, ax, economic_data: Dict[str, pd.DataFrame]):
+        """Plot overall economic performance over time."""
+        ax.set_title('Economic Performance Over Time', fontweight='bold')
+        
+        # Look for firm data
+        firm_data = None
+        for key, df in economic_data.items():
+            if 'firm' in key.lower() and 'money' in df.columns:
+                firm_data = df
+                break
+        
+        if firm_data is not None and len(firm_data) > 0:
+            # Aggregate by round
+            if 'round' in firm_data.columns:
+                round_summary = firm_data.groupby('round').agg({
+                    'money': ['sum', 'mean'],
+                    'goods': ['sum', 'mean'] if 'goods' in firm_data.columns else 'count'
+                }).reset_index()
+                
+                # Flatten column names
+                round_summary.columns = ['round', 'total_money', 'avg_money', 'total_goods', 'avg_goods']
+                
+                # Plot trends
+                ax2 = ax.twinx()
+                
+                line1 = ax.plot(round_summary['round'], round_summary['total_money'], 
+                               'b-o', linewidth=2, label='Total Money')
+                line2 = ax2.plot(round_summary['round'], round_summary['total_goods'], 
+                                'r-s', linewidth=2, label='Total Goods')
+                
+                ax.set_xlabel('Round')
+                ax.set_ylabel('Total Money', color='b')
+                ax2.set_ylabel('Total Goods', color='r')
+                
+                # Combine legends
+                lines = line1 + line2
+                labels = [l.get_label() for l in lines]
+                ax.legend(lines, labels, loc='upper left')
+                
+                # Highlight climate event rounds
+                for round_num, events in enumerate(self.climate_events_history):
+                    if events:
+                        ax.axvline(x=round_num, color='red', linestyle='--', alpha=0.7, linewidth=1)
+                        ax.text(round_num, ax.get_ylim()[1] * 0.9, 'Climate\nEvent', 
+                               ha='center', va='top', fontsize=8, color='red')
+            else:
+                ax.text(0.5, 0.5, 'No round data available', ha='center', va='center', transform=ax.transAxes)
+        else:
+            ax.text(0.5, 0.5, 'No firm economic data available', ha='center', va='center', transform=ax.transAxes)
+        
+        ax.grid(True, alpha=0.3)
+    
+    def _plot_climate_impact_analysis(self, ax, economic_data: Dict[str, pd.DataFrame]):
+        """Plot the correlation between climate events and economic activity."""
+        ax.set_title('Climate Events vs Economic Activity', fontweight='bold')
+        
+        if not self.climate_events_history:
+            ax.text(0.5, 0.5, 'No climate events recorded', ha='center', va='center', transform=ax.transAxes)
+            return
+        
+        # Create impact analysis
+        rounds = list(range(len(self.climate_events_history)))
+        climate_intensity = []
+        economic_activity = []
+        
+        # Calculate climate intensity per round
+        for events in self.climate_events_history:
+            intensity = len(events) if events else 0
+            climate_intensity.append(intensity)
+        
+        # Calculate economic activity (if available)
+        firm_data = None
+        for key, df in economic_data.items():
+            if 'firm' in key.lower() and 'goods' in df.columns:
+                firm_data = df
+                break
+        
+        if firm_data is not None and 'round' in firm_data.columns:
+            for r in rounds:
+                round_data = firm_data[firm_data['round'] == r]
+                activity = round_data['goods'].sum() if len(round_data) > 0 else 0
+                economic_activity.append(activity)
+        else:
+            economic_activity = [0] * len(rounds)
+        
+        # Create dual axis plot
+        ax2 = ax.twinx()
+        
+        bars = ax.bar([r - 0.2 for r in rounds], climate_intensity, width=0.4, 
+                     color='red', alpha=0.7, label='Climate Events')
+        line = ax2.plot(rounds, economic_activity, 'b-o', linewidth=2, label='Economic Activity')
+        
+        ax.set_xlabel('Round')
+        ax.set_ylabel('Number of Climate Events', color='red')
+        ax2.set_ylabel('Total Goods Production', color='blue')
+        ax.set_xticks(rounds)
+        
+        # Add correlation info
+        if len(climate_intensity) > 1 and len(economic_activity) > 1:
+            correlation = np.corrcoef(climate_intensity, economic_activity)[0, 1]
+            ax.text(0.02, 0.98, f'Correlation: {correlation:.3f}', transform=ax.transAxes, 
+                   fontsize=10, verticalalignment='top', 
+                   bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+        
+        # Legend
+        lines = [bars] + line
+        labels = ['Climate Events', 'Economic Activity']
+        ax.legend(lines, labels, loc='upper right')
+        
+        ax.grid(True, alpha=0.3)
+    
+    def _plot_agent_performance(self, ax, economic_data: Dict[str, pd.DataFrame]):
+        """Plot individual agent performance comparison."""
+        ax.set_title('Agent Performance Comparison', fontweight='bold')
+        
+        # Look for the most recent round data
+        firm_data = None
+        for key, df in economic_data.items():
+            if 'firm' in key.lower() and 'money' in df.columns:
+                firm_data = df
+                break
+        
+        if firm_data is not None and len(firm_data) > 0:
+            # Get latest round data
+            if 'round' in firm_data.columns:
+                latest_round = firm_data['round'].max()
+                latest_data = firm_data[firm_data['round'] == latest_round]
+            else:
+                latest_data = firm_data
+            
+            if len(latest_data) > 0:
+                # Create performance metrics
+                agents = latest_data['name'].tolist()
+                money = latest_data['money'].tolist()
+                goods = latest_data['goods'].tolist() if 'goods' in latest_data.columns else [0] * len(agents)
+                
+                # Map agents to continents based on geographical assignments
+                agent_continents = []
+                continent_colors = []
+                
+                for agent_name in agents:
+                    # Extract agent type and id from name (e.g., 'firm0' -> 'firm', 0)
+                    agent_type = ''.join([c for c in agent_name if not c.isdigit()])
+                    try:
+                        agent_id = int(''.join([c for c in agent_name if c.isdigit()]))
+                        
+                        if agent_type in self.geographical_assignments and agent_id in self.geographical_assignments[agent_type]:
+                            continent = self.geographical_assignments[agent_type][agent_id]['continent']
+                            agent_continents.append(continent)
+                            continent_colors.append(CONTINENTS[continent]['color'])
+                        else:
+                            agent_continents.append('Unknown')
+                            continent_colors.append('gray')
+                    except:
+                        agent_continents.append('Unknown')
+                        continent_colors.append('gray')
+                
+                # Create scatter plot
+                scatter = ax.scatter(money, goods, c=continent_colors, s=100, alpha=0.7)
+                
+                # Add agent labels
+                for i, agent in enumerate(agents):
+                    ax.annotate(agent, (money[i], goods[i]), xytext=(5, 5), 
+                               textcoords='offset points', fontsize=8)
+                
+                ax.set_xlabel('Money')
+                ax.set_ylabel('Goods')
+                
+                # Create legend for continents
+                unique_continents = list(set(agent_continents))
+                legend_elements = []
+                for continent in unique_continents:
+                    if continent in CONTINENTS:
+                        legend_elements.append(plt.Line2D([0], [0], marker='o', color='w', 
+                                                        markerfacecolor=CONTINENTS[continent]['color'], 
+                                                        markersize=10, label=continent))
+                
+                if legend_elements:
+                    ax.legend(handles=legend_elements, loc='upper right', fontsize=8)
+            else:
+                ax.text(0.5, 0.5, 'No agent data available', ha='center', va='center', transform=ax.transAxes)
+        else:
+            ax.text(0.5, 0.5, 'No firm data available', ha='center', va='center', transform=ax.transAxes)
+        
+        ax.grid(True, alpha=0.3)
+    
+    def _plot_geographic_economic_analysis(self, ax, economic_data: Dict[str, pd.DataFrame]):
+        """Plot economic performance by geographical region."""
+        ax.set_title('Economic Performance by Continent', fontweight='bold')
+        
+        # Initialize continent data
+        continent_data = {continent: {'money': 0, 'goods': 0, 'agents': 0} 
+                         for continent in CONTINENTS.keys()}
+        
+        # Look for latest economic data
+        firm_data = None
+        for key, df in economic_data.items():
+            if 'firm' in key.lower() and 'money' in df.columns:
+                firm_data = df
+                break
+        
+        if firm_data is not None and len(firm_data) > 0:
+            # Get latest round
+            if 'round' in firm_data.columns:
+                latest_round = firm_data['round'].max()
+                latest_data = firm_data[firm_data['round'] == latest_round]
+            else:
+                latest_data = firm_data
+            
+            # Aggregate by continent
+            for _, row in latest_data.iterrows():
+                agent_name = row['name']
+                # Extract agent type and id
+                agent_type = ''.join([c for c in agent_name if not c.isdigit()])
+                try:
+                    agent_id = int(''.join([c for c in agent_name if c.isdigit()]))
+                    
+                    if agent_type in self.geographical_assignments and agent_id in self.geographical_assignments[agent_type]:
+                        continent = self.geographical_assignments[agent_type][agent_id]['continent']
+                        continent_data[continent]['money'] += row['money']
+                        continent_data[continent]['goods'] += row.get('goods', 0)
+                        continent_data[continent]['agents'] += 1
+                except:
+                    continue
+            
+            # Create bar chart
+            continents = list(continent_data.keys())
+            money_values = [continent_data[c]['money'] for c in continents]
+            goods_values = [continent_data[c]['goods'] for c in continents]
+            colors = [CONTINENTS[c]['color'] for c in continents]
+            
+            x = np.arange(len(continents))
+            width = 0.35
+            
+            ax2 = ax.twinx()
+            bars1 = ax.bar(x - width/2, money_values, width, label='Money', color=colors, alpha=0.7)
+            bars2 = ax2.bar(x + width/2, goods_values, width, label='Goods', color=colors, alpha=0.5)
+            
+            ax.set_xlabel('Continent')
+            ax.set_ylabel('Total Money', color='navy')
+            ax2.set_ylabel('Total Goods', color='darkred')
+            ax.set_xticks(x)
+            ax.set_xticklabels(continents, rotation=45)
+            
+            # Add value labels
+            for i, (money, goods) in enumerate(zip(money_values, goods_values)):
+                ax.text(i - width/2, money + max(money_values) * 0.01, f'{money}', 
+                       ha='center', va='bottom', fontsize=8)
+                ax2.text(i + width/2, goods + max(goods_values) * 0.01, f'{goods:.1f}', 
+                        ha='center', va='bottom', fontsize=8)
+            
+            # Legend
+            lines1, labels1 = ax.get_legend_handles_labels()
+            lines2, labels2 = ax2.get_legend_handles_labels()
+            ax.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
+        else:
+            ax.text(0.5, 0.5, 'No economic data by continent available', 
+                   ha='center', va='center', transform=ax.transAxes)
+        
+        ax.grid(True, alpha=0.3)
+    
+    def _plot_production_consumption_trends(self, ax, economic_data: Dict[str, pd.DataFrame]):
+        """Plot production and consumption trends over time."""
+        ax.set_title('Production & Consumption Trends', fontweight='bold')
+        
+        firm_data = None
+        household_data = None
+        
+        # Find firm and household data
+        for key, df in economic_data.items():
+            if 'firm' in key.lower():
+                firm_data = df
+            elif 'household' in key.lower():
+                household_data = df
+        
+        if firm_data is not None and 'round' in firm_data.columns:
+            # Production trends (from firms)
+            firm_summary = firm_data.groupby('round').agg({
+                'goods': 'sum' if 'goods' in firm_data.columns else 'count',
+                'money': 'sum'
+            }).reset_index()
+            
+            ax.plot(firm_summary['round'], firm_summary['goods'], 
+                   'g-o', linewidth=2, label='Goods Production', markersize=6)
+            
+            # If we have household data, show money trends
+            if household_data is not None and 'round' in household_data.columns:
+                household_summary = household_data.groupby('round').agg({
+                    'money': 'sum'
+                }).reset_index()
+                
+                ax2 = ax.twinx()
+                ax2.plot(household_summary['round'], household_summary['money'], 
+                        'b-s', linewidth=2, label='Household Money', markersize=6)
+                ax2.set_ylabel('Household Money', color='blue')
+                
+                # Combine legends
+                lines1, labels1 = ax.get_legend_handles_labels()
+                lines2, labels2 = ax2.get_legend_handles_labels()
+                ax.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
+            else:
+                ax.legend()
+            
+            ax.set_xlabel('Round')
+            ax.set_ylabel('Goods Production', color='green')
+            
+            # Highlight climate events
+            for round_num, events in enumerate(self.climate_events_history):
+                if events:
+                    ax.axvline(x=round_num, color='red', linestyle='--', alpha=0.5)
+        else:
+            ax.text(0.5, 0.5, 'No production/consumption data available', 
+                   ha='center', va='center', transform=ax.transAxes)
+        
+        ax.grid(True, alpha=0.3)
+    
+    def _plot_summary_statistics(self, ax, economic_data: Dict[str, pd.DataFrame]):
+        """Plot key summary statistics from the simulation."""
+        ax.set_title('Simulation Summary Statistics', fontweight='bold')
+        
+        stats_text = []
+        
+        # Basic simulation info
+        stats_text.append(f"Simulation Rounds: {len(self.climate_events_history)}")
+        stats_text.append(f"Total Climate Events: {sum(len(events) for events in self.climate_events_history)}")
+        
+        # Agent distribution
+        total_agents = sum(len(assignments) for assignments in self.geographical_assignments.values())
+        stats_text.append(f"Total Agents: {total_agents}")
+        
+        for agent_type, assignments in self.geographical_assignments.items():
+            stats_text.append(f"  {agent_type.replace('_', ' ').title()}s: {len(assignments)}")
+        
+        # Economic summary (if available)
+        firm_data = None
+        for key, df in economic_data.items():
+            if 'firm' in key.lower() and 'money' in df.columns:
+                firm_data = df
+                break
+        
+        if firm_data is not None and len(firm_data) > 0:
+            if 'round' in firm_data.columns:
+                latest_round = firm_data['round'].max()
+                latest_data = firm_data[firm_data['round'] == latest_round]
+            else:
+                latest_data = firm_data
+            
+            total_money = latest_data['money'].sum()
+            total_goods = latest_data['goods'].sum() if 'goods' in latest_data.columns else 0
+            avg_money = latest_data['money'].mean()
+            avg_goods = latest_data['goods'].mean() if 'goods' in latest_data.columns else 0
+            
+            stats_text.append(f"\nEconomic Summary (Final Round):")
+            stats_text.append(f"  Total Money: {total_money}")
+            stats_text.append(f"  Total Goods: {total_goods:.1f}")
+            stats_text.append(f"  Avg Money per Agent: {avg_money:.1f}")
+            stats_text.append(f"  Avg Goods per Agent: {avg_goods:.1f}")
+        
+        # Climate impact summary
+        affected_continents = set()
+        for events in self.climate_events_history:
+            affected_continents.update(events.keys())
+        
+        if affected_continents:
+            stats_text.append(f"\nClimate Impact Summary:")
+            stats_text.append(f"  Affected Continents: {', '.join(affected_continents)}")
+            
+            for continent in affected_continents:
+                event_count = sum(1 for events in self.climate_events_history if continent in events)
+                stats_text.append(f"    {continent}: {event_count} events")
+        
+        # Display statistics
+        stats_text_str = '\n'.join(stats_text)
+        ax.text(0.05, 0.95, stats_text_str, transform=ax.transAxes, fontsize=10,
+               verticalalignment='top', fontfamily='monospace',
+               bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8))
+        
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.axis('off')
     
     def _try_load_abceconomics_data(self, simulation_path):
         """Try to load and display data from abcEconomics output."""
