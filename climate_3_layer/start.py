@@ -135,17 +135,26 @@ def main(simulation_parameters):
     print("Simulation completed!")
     print(f"Results saved to: {actual_simulation_path}")
     
-    # Create visualizations using the updated framework
+    # Create visualizations using the custom supply chain visualizer
     if simulation_parameters['create_visualizations']:
-        print("Creating visualizations using Climate Framework...")
-        climate_framework.create_simplified_visualizations(
-            agent_groups, 
+        print("Creating specialized supply chain visualizations...")
+        
+        # Import the custom supply chain visualizer
+        from supply_chain_visualizations import SupplyChainVisualizer
+        
+        # Create the specialized visualizer
+        supply_chain_viz = SupplyChainVisualizer(climate_framework)
+        
+        # Create comprehensive supply chain analysis
+        supply_chain_viz.create_comprehensive_supply_chain_analysis(
             simulation_path=actual_simulation_path,
             model_name="Climate 3-Layer Supply Chain Model"
         )
         
-        # Export climate summary using new method
+        # Export climate summary using climate framework
         climate_framework.export_climate_summary(actual_simulation_path, "climate_3_layer_summary.csv")
+        
+        print("Specialized supply chain visualizations completed!")
     
     # Print summary
     total_climate_events = sum(len(events) for events in climate_framework.climate_events_history)
