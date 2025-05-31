@@ -280,13 +280,22 @@ def create_animated_supply_chain(visualization_data, simulation_path):
     
     print("🎞️ Creating animated supply chain visualization...")
     
-    # Set up the animation plot
-    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 12))
+    # Set up the animation plot with more subplots including geographical map
+    fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, figsize=(16, 18))
     fig.suptitle('REAL Climate 3-Layer Supply Chain Evolution (Animated)', fontsize=16, fontweight='bold')
+    
+    # Define continent positions for the world map (simplified layout)
+    continent_positions = {
+        'North America': (1, 3, 1.5, 1),     # (x, y, width, height)
+        'South America': (1.2, 1.5, 1, 1.2),
+        'Europe': (3, 3.2, 0.8, 0.6),
+        'Africa': (3.2, 2, 0.8, 1.5),
+        'Asia': (4.5, 2.5, 2, 1.8)
+    }
     
     def animate(frame):
         # Clear all subplots
-        for ax in [ax1, ax2, ax3, ax4]:
+        for ax in [ax1, ax2, ax3, ax4, ax5, ax6]:
             ax.clear()
         
         if frame >= len(visualization_data['rounds']):
@@ -296,6 +305,7 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         agent_data = visualization_data['agent_data'][frame]
         production_data = visualization_data['production_data'][frame]
         wealth_data = visualization_data['wealth_data'][frame]
+        climate_events = visualization_data['climate_events'][frame]
         
         # Plot 1: Agent network with real stress status
         ax1.set_title(f'Supply Chain Network - Round {round_num}')
@@ -400,19 +410,168 @@ def create_animated_supply_chain(visualization_data, simulation_path):
             ax4.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(wealth_amounts)*0.01, 
                     f'${amount:.0f}', ha='center', va='bottom', fontsize=9)
         
+        # NEW Plot 5: Geographical Distribution World Map
+        ax5.set_title(f'Global Climate Impact Map - Round {round_num}')
+        ax5.set_xlim(0, 7)
+        ax5.set_ylim(0, 5)
+        ax5.set_aspect('equal')
+        
+        # Draw continent shapes (simplified rectangles)
+        continent_colors = {}
+        for continent in continent_positions.keys():
+            # Default color
+            base_color = '#90EE90'  # Light green for normal
+            
+            # Check if this continent has climate stress
+            if climate_events and continent in climate_events:
+                if 'stress' in str(climate_events[continent]):
+                    base_color = '#FF6B6B'  # Red for climate stress
+            
+            continent_colors[continent] = base_color
+            
+            # Draw continent rectangle
+            x, y, width, height = continent_positions[continent]
+            continent_rect = plt.Rectangle((x, y), width, height, 
+                                         facecolor=base_color, 
+                                         edgecolor='black', 
+                                         alpha=0.6)
+            ax5.add_patch(continent_rect)
+            
+            # Add continent label
+            ax5.text(x + width/2, y + height/2, continent.replace(' ', '\n'), 
+                    ha='center', va='center', fontsize=8, fontweight='bold')
+        
+        # Place agents on their continents
+        agent_counts_by_continent = {}
+        for agent in agent_data:
+            continent = agent['continent']
+            if continent not in agent_counts_by_continent:
+                agent_counts_by_continent[continent] = {
+                    'commodity_producer': 0,
+                    'intermediary_firm': 0, 
+                    'final_goods_firm': 0,
+                    'household': 0
+                }
+            agent_counts_by_continent[continent][agent['type']] += 1
+        
+        # Draw agent indicators on continents
+        for continent, counts in agent_counts_by_continent.items():
+            if continent in continent_positions:
+                x, y, width, height = continent_positions[continent]
+                
+                # Position agents within continent bounds
+                agent_positions_in_continent = [
+                    (x + 0.2, y + height - 0.2),  # Top-left: commodity
+                    (x + width - 0.2, y + height - 0.2),  # Top-right: intermediary
+                    (x + 0.2, y + 0.2),  # Bottom-left: final goods
+                    (x + width - 0.2, y + 0.2)   # Bottom-right: households
+                ]
+                
+                agent_types = ['commodity_producer', 'intermediary_firm', 'final_goods_firm', 'household']
+                agent_colors = ['#8B4513', '#DAA520', '#00FF00', '#4169E1']
+                agent_symbols = ['o', 's', '^', 'D']
+                
+                for i, agent_type in enumerate(agent_types):
+                    if counts[agent_type] > 0:
+                        pos_x, pos_y = agent_positions_in_continent[i]
+                        
+                        # Check if agents of this type in this continent are stressed
+                        stressed_agents = [a for a in agent_data 
+                                         if a['continent'] == continent 
+                                         and a['type'] == agent_type 
+                                         and a['climate_stressed']]
+                        
+                        color = '#FF0000' if stressed_agents else agent_colors[i]
+                        size = 150 if stressed_agents else 80
+                        
+                        ax5.scatter(pos_x, pos_y, c=color, s=size, marker=agent_symbols[i], 
+                                  alpha=0.9, edgecolors='black', linewidth=1)
+                        
+                        # Add count label
+                        ax5.text(pos_x, pos_y - 0.15, str(counts[agent_type]), 
+                               ha='center', va='center', fontsize=6, fontweight='bold')
+        
+        # Add climate event indicators
+        if climate_events:
+            climate_text = "Climate Events This Round:\n"
+            for continent, event in climate_events.items():
+                climate_text += f"🌪️ {continent}: {event}\n"
+            ax5.text(0.1, 4.5, climate_text, fontsize=8, 
+                    bbox=dict(boxstyle='round', facecolor='yellow', alpha=0.7))
+        
+        # Add legend for agent types
+        legend_elements = []
+        agent_type_names = ['Commodity Producers', 'Intermediary Firms', 'Final Goods Firms', 'Households']
+        agent_colors = ['#8B4513', '#DAA520', '#00FF00', '#4169E1']
+        agent_symbols = ['o', 's', '^', 'D']
+        
+        for i, (name, color, symbol) in enumerate(zip(agent_type_names, agent_colors, agent_symbols)):
+            legend_elements.append(plt.Line2D([0], [0], marker=symbol, color='w', 
+                                            markerfacecolor=color, markersize=8, 
+                                            label=name, markeredgecolor='black', markeredgewidth=0.5))
+        
+        # Add stress indicator to legend
+        legend_elements.append(plt.Line2D([0], [0], marker='o', color='w', 
+                                        markerfacecolor='#FF0000', markersize=10, 
+                                        label='Climate Stressed', markeredgecolor='black', markeredgewidth=0.5))
+        
+        ax5.legend(handles=legend_elements, loc='upper right', fontsize=8, 
+                  title='Agent Types', title_fontsize=9, framealpha=0.8)
+        
+        ax5.axis('off')  # Remove axes for cleaner world map look
+        
+        # Plot 6: Climate Impact Timeline
+        ax6.set_title('Climate Events Timeline')
+        
+        # Show climate events over time up to current frame
+        event_timeline = []
+        continent_list = list(continent_positions.keys())
+        
+        for i in range(frame + 1):
+            round_events = visualization_data['climate_events'][i]
+            for continent in continent_list:
+                if round_events and continent in round_events:
+                    if 'stress' in str(round_events[continent]):
+                        event_timeline.append((i, continent))
+        
+        if event_timeline:
+            rounds_with_events = [event[0] for event in event_timeline]
+            continents_with_events = [event[1] for event in event_timeline]
+            
+            # Create a simple timeline plot
+            y_positions = {cont: i for i, cont in enumerate(continent_list)}
+            
+            for round_event, continent in event_timeline:
+                ax6.scatter(round_event, y_positions[continent], 
+                          c='red', s=100, alpha=0.7, marker='X')
+            
+            ax6.set_yticks(range(len(continent_list)))
+            ax6.set_yticklabels(continent_list)
+            ax6.set_xlabel('Round')
+            ax6.set_ylabel('Continent')
+            ax6.set_xlim(-0.5, frame + 0.5)
+            ax6.grid(True, alpha=0.3)
+        else:
+            ax6.text(0.5, 0.5, 'No Climate Events Yet', 
+                    transform=ax6.transAxes, ha='center', va='center', fontsize=12)
+            ax6.set_xlim(0, 1)
+            ax6.set_ylim(0, 1)
+        
         plt.tight_layout()
     
     # Create animation
     num_frames = len(visualization_data['rounds'])
-    anim = animation.FuncAnimation(fig, animate, frames=num_frames, interval=1000, repeat=True)
+    anim = animation.FuncAnimation(fig, animate, frames=num_frames, interval=1500, repeat=True)
     
     # Save animation
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{simulation_path}/climate_3layer_animation_{timestamp}.gif"
     
     print(f"💾 Saving animation as {filename}...")
-    anim.save(filename, writer='pillow', fps=1)
+    anim.save(filename, writer='pillow', fps=0.67)  # Slower fps for better readability
     print(f"✅ Animation saved: {filename}")
+    
+    plt.close()  # Clean up memory
     
     return filename
 
