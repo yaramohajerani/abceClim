@@ -384,40 +384,72 @@ class ClimateFramework:
         """Plot overall economic performance over time."""
         ax.set_title('Economic Performance Over Time', fontweight='bold')
         
-        # Look for firm data
-        firm_data = None
-        for key, df in economic_data.items():
-            if 'firm' in key.lower() and 'money' in df.columns:
-                firm_data = df
-                break
+        # Look for any firm/producer data that has production metrics
+        production_data = None
+        production_column = None
         
-        if firm_data is not None and len(firm_data) > 0:
+        # Try to find production data in order of preference
+        for key, df in economic_data.items():
+            if len(df) > 0 and 'round' in df.columns:
+                # Look for different types of production columns
+                if 'goods' in df.columns:
+                    production_data = df
+                    production_column = 'goods'
+                    break
+                elif 'commodity' in df.columns:
+                    production_data = df
+                    production_column = 'commodity'
+                    break
+                elif 'final_good' in df.columns:
+                    production_data = df
+                    production_column = 'final_good'
+                    break
+                elif 'intermediate_good' in df.columns:
+                    production_data = df
+                    production_column = 'intermediate_good'
+                    break
+        
+        if production_data is not None and len(production_data) > 0:
             # Aggregate by round
-            if 'round' in firm_data.columns:
-                round_summary = firm_data.groupby('round').agg({
-                    'money': ['sum', 'mean'],
-                    'goods': ['sum', 'mean'] if 'goods' in firm_data.columns else 'count'
-                }).reset_index()
+            if 'round' in production_data.columns:
+                agg_dict = {production_column: ['sum', 'mean']}
+                if 'money' in production_data.columns:
+                    agg_dict['money'] = ['sum', 'mean']
+                
+                round_summary = production_data.groupby('round').agg(agg_dict).reset_index()
                 
                 # Flatten column names
-                round_summary.columns = ['round', 'total_money', 'avg_money', 'total_goods', 'avg_goods']
+                new_columns = ['round']
+                for col in round_summary.columns[1:]:
+                    if isinstance(col, tuple):
+                        new_columns.append(f"{col[1]}_{col[0]}")
+                    else:
+                        new_columns.append(col)
+                round_summary.columns = new_columns
                 
-                # Plot trends
-                ax2 = ax.twinx()
+                # Plot production trends
+                production_col = f"sum_{production_column}"
+                if production_col in round_summary.columns:
+                    ax.plot(round_summary['round'], round_summary[production_col], 
+                           'g-o', linewidth=2, label=f'Total {production_column.replace("_", " ").title()}', markersize=6)
                 
-                line1 = ax.plot(round_summary['round'], round_summary['total_money'], 
-                               'b-o', linewidth=2, label='Total Money')
-                line2 = ax2.plot(round_summary['round'], round_summary['total_goods'], 
-                                'r-s', linewidth=2, label='Total Goods')
+                # If we have money data, add it on a second axis
+                money_col = "sum_money"
+                if money_col in round_summary.columns:
+                    ax2 = ax.twinx()
+                    ax2.plot(round_summary['round'], round_summary[money_col], 
+                            'b-s', linewidth=2, label='Total Money', markersize=6)
+                    ax2.set_ylabel('Total Money', color='blue')
+                    
+                    # Combine legends
+                    lines1, labels1 = ax.get_legend_handles_labels()
+                    lines2, labels2 = ax2.get_legend_handles_labels()
+                    ax.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
+                else:
+                    ax.legend()
                 
                 ax.set_xlabel('Round')
-                ax.set_ylabel('Total Money', color='b')
-                ax2.set_ylabel('Total Goods', color='r')
-                
-                # Combine legends
-                lines = line1 + line2
-                labels = [l.get_label() for l in lines]
-                ax.legend(lines, labels, loc='upper left')
+                ax.set_ylabel(f'Total {production_column.replace("_", " ").title()}', color='green')
                 
                 # Highlight climate event rounds
                 for round_num, events in enumerate(self.climate_events_history):
@@ -428,7 +460,7 @@ class ClimateFramework:
             else:
                 ax.text(0.5, 0.5, 'No round data available', ha='center', va='center', transform=ax.transAxes)
         else:
-            ax.text(0.5, 0.5, 'No firm economic data available', ha='center', va='center', transform=ax.transAxes)
+            ax.text(0.5, 0.5, 'No production data available', ha='center', va='center', transform=ax.transAxes)
         
         ax.grid(True, alpha=0.3)
     
@@ -495,58 +527,83 @@ class ClimateFramework:
         """Plot individual agent performance comparison."""
         ax.set_title('Agent Performance Comparison', fontweight='bold')
         
-        # Look for the most recent round data
-        firm_data = None
-        for key, df in economic_data.items():
-            if 'firm' in key.lower() and 'money' in df.columns:
-                firm_data = df
-                break
+        # Look for the most recent round data from any producer/firm type
+        agent_data = None
+        x_column = None
+        y_column = None
         
-        if firm_data is not None and len(firm_data) > 0:
+        for key, df in economic_data.items():
+            if len(df) > 0 and 'name' in df.columns:
+                # Look for production data
+                if 'commodity_producer' in key.lower() and 'commodity' in df.columns:
+                    agent_data = df
+                    x_column = 'commodity'
+                    y_column = 'commodity'  # Same for both axes in this case
+                    break
+                elif 'final_goods_firm' in key.lower() and 'final_good' in df.columns:
+                    agent_data = df
+                    x_column = 'final_good'
+                    y_column = 'final_good'
+                    break
+                elif 'firm' in key.lower() and 'money' in df.columns and 'goods' in df.columns:
+                    agent_data = df
+                    x_column = 'money'
+                    y_column = 'goods'
+                    break
+        
+        if agent_data is not None and len(agent_data) > 0:
             # Get latest round data
-            if 'round' in firm_data.columns:
-                latest_round = firm_data['round'].max()
-                latest_data = firm_data[firm_data['round'] == latest_round]
+            if 'round' in agent_data.columns:
+                latest_round = agent_data['round'].max()
+                latest_data = agent_data[agent_data['round'] == latest_round]
             else:
-                latest_data = firm_data
+                latest_data = agent_data
             
             if len(latest_data) > 0:
                 # Create performance metrics
                 agents = latest_data['name'].tolist()
-                money = latest_data['money'].tolist()
-                goods = latest_data['goods'].tolist() if 'goods' in latest_data.columns else [0] * len(agents)
+                x_values = latest_data[x_column].tolist()
+                
+                # For y-axis, use the same column or a different one if available
+                if y_column in latest_data.columns:
+                    y_values = latest_data[y_column].tolist()
+                else:
+                    y_values = x_values  # Fallback to same values
                 
                 # Map agents to continents based on geographical assignments
                 agent_continents = []
                 continent_colors = []
                 
                 for agent_name in agents:
-                    # Extract agent type and id from name (e.g., 'firm0' -> 'firm', 0)
-                    agent_type = ''.join([c for c in agent_name if not c.isdigit()])
-                    try:
-                        agent_id = int(''.join([c for c in agent_name if c.isdigit()]))
-                        
-                        if agent_type in self.geographical_assignments and agent_id in self.geographical_assignments[agent_type]:
-                            continent = self.geographical_assignments[agent_type][agent_id]['continent']
-                            agent_continents.append(continent)
-                            continent_colors.append(CONTINENTS[continent]['color'])
-                        else:
-                            agent_continents.append('Unknown')
-                            continent_colors.append('gray')
-                    except:
-                        agent_continents.append('Unknown')
-                        continent_colors.append('gray')
+                    # Extract agent type and id from name (e.g., 'commodity_producer0' -> 'commodity_producer', 0)
+                    # Handle different naming patterns
+                    continent = 'Unknown'
+                    color = 'gray'
+                    
+                    for agent_type in self.geographical_assignments:
+                        if agent_type in agent_name:
+                            try:
+                                agent_id = int(''.join([c for c in agent_name if c.isdigit()]))
+                                if agent_id in self.geographical_assignments[agent_type]:
+                                    continent = self.geographical_assignments[agent_type][agent_id]['continent']
+                                    color = CONTINENTS[continent]['color']
+                                    break
+                            except:
+                                continue
+                    
+                    agent_continents.append(continent)
+                    continent_colors.append(color)
                 
                 # Create scatter plot
-                scatter = ax.scatter(money, goods, c=continent_colors, s=100, alpha=0.7)
+                scatter = ax.scatter(x_values, y_values, c=continent_colors, s=100, alpha=0.7)
                 
                 # Add agent labels
                 for i, agent in enumerate(agents):
-                    ax.annotate(agent, (money[i], goods[i]), xytext=(5, 5), 
+                    ax.annotate(agent.replace('_', ' '), (x_values[i], y_values[i]), xytext=(5, 5), 
                                textcoords='offset points', fontsize=8)
                 
-                ax.set_xlabel('Money')
-                ax.set_ylabel('Goods')
+                ax.set_xlabel(x_column.replace('_', ' ').title())
+                ax.set_ylabel(y_column.replace('_', ' ').title())
                 
                 # Create legend for continents
                 unique_continents = list(set(agent_continents))
@@ -562,7 +619,7 @@ class ClimateFramework:
             else:
                 ax.text(0.5, 0.5, 'No agent data available', ha='center', va='center', transform=ax.transAxes)
         else:
-            ax.text(0.5, 0.5, 'No firm data available', ha='center', va='center', transform=ax.transAxes)
+            ax.text(0.5, 0.5, 'No agent performance data available', ha='center', va='center', transform=ax.transAxes)
         
         ax.grid(True, alpha=0.3)
     
@@ -645,36 +702,55 @@ class ClimateFramework:
         """Plot production and consumption trends over time."""
         ax.set_title('Production & Consumption Trends', fontweight='bold')
         
-        firm_data = None
+        # Look for production data from any type of producer/firm
+        production_data = None
+        production_column = None
+        
+        # Look for household consumption data
         household_data = None
         
-        # Find firm and household data
+        # Find the best production and consumption data
         for key, df in economic_data.items():
-            if 'firm' in key.lower():
-                firm_data = df
-            elif 'household' in key.lower():
-                household_data = df
+            if len(df) > 0 and 'round' in df.columns:
+                # Look for production data
+                if 'commodity_producer' in key.lower() and 'commodity' in df.columns:
+                    production_data = df
+                    production_column = 'commodity'
+                elif 'final_goods_firm' in key.lower() and 'final_good' in df.columns:
+                    production_data = df
+                    production_column = 'final_good'
+                elif 'firm' in key.lower() and 'goods' in df.columns:
+                    production_data = df
+                    production_column = 'goods'
+                
+                # Look for household consumption data
+                if 'household' in key.lower():
+                    if 'final_good' in df.columns:
+                        household_data = df
+                    elif 'money' in df.columns and household_data is None:
+                        household_data = df  # Fallback to money if no consumption data
         
-        if firm_data is not None and 'round' in firm_data.columns:
-            # Production trends (from firms)
-            firm_summary = firm_data.groupby('round').agg({
-                'goods': 'sum' if 'goods' in firm_data.columns else 'count',
-                'money': 'sum'
+        if production_data is not None and 'round' in production_data.columns:
+            # Production trends
+            production_summary = production_data.groupby('round').agg({
+                production_column: 'sum'
             }).reset_index()
             
-            ax.plot(firm_summary['round'], firm_summary['goods'], 
-                   'g-o', linewidth=2, label='Goods Production', markersize=6)
+            ax.plot(production_summary['round'], production_summary[production_column], 
+                   'g-o', linewidth=2, label=f'{production_column.replace("_", " ").title()} Production', markersize=6)
             
-            # If we have household data, show money trends
+            # If we have household data, show it on a second axis
             if household_data is not None and 'round' in household_data.columns:
+                household_column = 'final_good' if 'final_good' in household_data.columns else 'money'
                 household_summary = household_data.groupby('round').agg({
-                    'money': 'sum'
+                    household_column: 'sum'
                 }).reset_index()
                 
                 ax2 = ax.twinx()
-                ax2.plot(household_summary['round'], household_summary['money'], 
-                        'b-s', linewidth=2, label='Household Money', markersize=6)
-                ax2.set_ylabel('Household Money', color='blue')
+                color = 'blue' if household_column == 'money' else 'purple'
+                ax2.plot(household_summary['round'], household_summary[household_column], 
+                        color=color, linestyle='-', marker='s', linewidth=2, label=f'Household {household_column.replace("_", " ").title()}', markersize=6)
+                ax2.set_ylabel(f'Household {household_column.replace("_", " ").title()}', color=color)
                 
                 # Combine legends
                 lines1, labels1 = ax.get_legend_handles_labels()
@@ -684,7 +760,7 @@ class ClimateFramework:
                 ax.legend()
             
             ax.set_xlabel('Round')
-            ax.set_ylabel('Goods Production', color='green')
+            ax.set_ylabel(f'{production_column.replace("_", " ").title()} Production', color='green')
             
             # Highlight climate events
             for round_num, events in enumerate(self.climate_events_history):
