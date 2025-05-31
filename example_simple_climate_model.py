@@ -19,12 +19,27 @@ class SimpleFirm(Agent, Firm):
         print(f"    Initializing SimpleFirm {self.id}")
         self.create('money', 50)
         self.current_output_quantity = 10.0  # Will be used by climate framework
+        self.base_output_quantity = 10.0     # Store base production
         self.create('goods', self.current_output_quantity)
+        self.climate_stressed = False        # Track if currently stressed
         print(f"    SimpleFirm {self.id} initialized with {self.possession('money')} money and {self.possession('goods')} goods")
     
+    def apply_climate_stress(self, stress_factor):
+        """Apply climate stress by reducing production capacity"""
+        self.climate_stressed = True
+        self.current_output_quantity = self.base_output_quantity * stress_factor
+        print(f"    Firm {self.id}: CLIMATE STRESS applied! Production reduced to {self.current_output_quantity:.1f} (was {self.base_output_quantity})")
+    
+    def reset_climate_stress(self):
+        """Reset production to normal levels"""
+        if self.climate_stressed:
+            self.climate_stressed = False
+            self.current_output_quantity = self.base_output_quantity
+            print(f"    Firm {self.id}: Climate stress cleared, production restored to {self.current_output_quantity}")
+    
     def produce(self):
-        # Simple production that can be affected by climate stress
-        print(f"    Firm {self.id} producing {self.current_output_quantity} goods")
+        # Production based on current climate-adjusted capacity
+        print(f"    Firm {self.id} producing {self.current_output_quantity} goods (stressed: {self.climate_stressed})")
         self.create('goods', self.current_output_quantity)
     
     def sell_goods(self):
@@ -58,7 +73,7 @@ def run_simple_climate_model():
     
     print("Creating simulation...")
     # Create simulation
-    w = Simulation(path='simple_model_output')
+    w = Simulation(path='climate_simulation_output')
     
     print("Building agents...")
     # Build agents
@@ -106,15 +121,16 @@ def run_simple_climate_model():
             print(f"  Applying climate stress...")
             climate_events = climate_framework.apply_geographical_climate_stress(agent_groups)
         
-        # Simple economic activities
+        # Simple economic activities - production happens AFTER climate stress
         print(f"  Firms producing...")
         firms.produce()
+        
+        # Collect data RIGHT AFTER production to capture climate impact
+        print(f"  Collecting post-production data...")
+        climate_framework.collect_panel_data(agent_groups, goods_to_track)
+        
         print(f"  Firms selling...")
         firms.sell_goods()
-        
-        # Collect data using abcEconomics' panel_log (the proper way!)
-        print(f"  Collecting data using abcEconomics panel_log...")
-        climate_framework.collect_panel_data(agent_groups, goods_to_track)
         
         print(f"Round {r} completed successfully!")
     
@@ -129,7 +145,7 @@ def run_simple_climate_model():
             print("Creating climate visualizations...")
             climate_framework.create_simplified_visualizations(
                 agent_groups,
-                simulation_path="simple_model_output",
+                simulation_path="climate_simulation_output",
                 model_name="Simple Climate Economic Model"
             )
             
@@ -162,4 +178,4 @@ if __name__ == '__main__':
     print("  ✓ Generates climate-focused visualizations")
     print("  ✓ Exports geographical and climate summaries")
     print("  ✓ Much more robust and compatible with abcEconomics")
-    print("\nFor economic data analysis, check the abcEconomics output files in 'simple_model_output/'!") 
+    print("\nFor economic data analysis, check the abcEconomics output files in 'climate_simulation_output/'!") 
