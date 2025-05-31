@@ -1,6 +1,12 @@
 import abcEconomics as abce
+import sys
+import os
+# Add the root directory to Python path to find the climate framework
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from climate_framework import add_climate_capabilities
 
 
+@add_climate_capabilities
 class Household(abce.Agent, abce.Household):
     def init(self):
         """ Households provide labor to firms across all three layers and consume final goods.

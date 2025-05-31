@@ -29,7 +29,7 @@ simulation_parameters = {
     'name': 'climate_3_layer_geo',
     'trade_logging': 'off',
     'random_seed': 42,  # Fixed seed for reproducible results
-    'rounds': 15,
+    'rounds': 8,  # Reduced for reliable completion
     'climate_stress_enabled': True,
     'acute_stress_probability': 0.15,  # 15% chance per round
     'chronic_stress_factor': 0.96,     # 4% productivity reduction over time
@@ -38,7 +38,8 @@ simulation_parameters = {
 }
 
 def main(simulation_parameters):
-    w = Simulation(path='auto')  # Re-enable logging to get results
+    simulation_path = 'climate_3_layer_result'
+    w = Simulation(path=simulation_path)  # Use specific path for better organization
 
     # Build agents for each layer with geographical distribution
     commodity_producers = w.build_agents(CommodityProducer, 'commodity_producer', 3)
@@ -62,11 +63,19 @@ def main(simulation_parameters):
     climate_framework.assign_geographical_locations(agent_groups)
     
     print(f"\nStarting climate 3-layer geographical simulation with:")
-    print(f"  {len(commodity_producers)} commodity producers")
-    print(f"  {len(intermediary_firms)} intermediary firms") 
-    print(f"  {len(final_goods_firms)} final goods firms")
-    print(f"  {len(households)} households")
+    print(f"  {commodity_producers.num_agents} commodity producers")
+    print(f"  {intermediary_firms.num_agents} intermediary firms") 
+    print(f"  {final_goods_firms.num_agents} final goods firms")
+    print(f"  {households.num_agents} households")
     print(f"  Distributed across 5 continents")
+
+    # Set up data collection for different agent types
+    goods_to_track = {
+        'commodity_producer': ['commodity'],
+        'intermediary_firm': ['intermediate_good'],
+        'final_goods_firm': ['final_good'],
+        'household': ['final_good']
+    }
 
     for r in range(simulation_parameters['rounds']):
         print(f"Round {r}...", end=" ")
@@ -106,36 +115,37 @@ def main(simulation_parameters):
         households.panel_log(goods=['final_good'])
         households.consumption()
         
-        # Collect data using the framework
-        climate_framework.collect_round_data(r, agent_groups, climate_events)
+        # Collect data using the new framework method
+        climate_framework.collect_panel_data(agent_groups, goods_to_track)
         
         print("completed")
     
     print("\nFinalizing simulation...")
     w.finalize()
     print("Simulation completed!")
-    print(f"Results saved to: {w.path}")
+    print(f"Results saved to: {simulation_path}")
     
-    # Create visualizations using the framework
+    # Create visualizations using the updated framework
     if simulation_parameters['create_visualizations']:
         print("Creating visualizations using Climate Framework...")
-        climate_framework.create_visualizations(
+        climate_framework.create_simplified_visualizations(
             agent_groups, 
-            model_name="Climate 3-Layer Supply Chain Model",
-            save_path="climate_3_layer_geographical_analysis.png"
+            simulation_path=simulation_path,
+            model_name="Climate 3-Layer Supply Chain Model"
         )
         
-        # Export data for further analysis
-        climate_framework.export_data("climate_3_layer_simulation_data.csv")
+        # Export climate summary using new method
+        climate_framework.export_climate_summary(simulation_path, "climate_3_layer_summary.csv")
     
     # Print summary
-    total_climate_events = sum(len(events) for events in climate_framework.results['climate_events'])
-    print(f"\nSummary: Successfully completed {len(climate_framework.results['round'])} rounds")
+    total_climate_events = sum(len(events) for events in climate_framework.climate_events_history)
+    print(f"\nSummary: Successfully completed {len(climate_framework.climate_events_history)} rounds")
     print(f"Total climate events occurred: {total_climate_events}")
+    print(f"Geographical assignments: {len(climate_framework.geographical_assignments)} agent types")
     
-    return climate_framework.results
+    return climate_framework
 
 
 if __name__ == '__main__':
     results = main(simulation_parameters)
-    print(f"Final result summary: {len(results['round'])} rounds completed") 
+    print(f"Final result summary: {len(results.climate_events_history)} rounds completed") 

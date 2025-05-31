@@ -1,14 +1,20 @@
 import abcEconomics as abce
 import random
+import sys
+import os
+# Add the root directory to Python path to find the climate framework
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from climate_framework import add_climate_capabilities
 
 
+@add_climate_capabilities
 class IntermediaryFirm(abce.Agent, abce.Firm):
     def init(self):
         """ Intermediary firms are the second layer in the supply chain.
         They use labor and commodities to produce intermediate goods that will be used by final goods firms.
         They are also vulnerable to climate stress but typically less than commodity producers.
         """
-        self.create('money', 15)  # Initial capital
+        self.create('money', 75)  # Increased initial capital for longer simulation
         self.create('commodity', 2)  # Initial stock to avoid bootstrapping issues
         
         # Production parameters
@@ -20,6 +26,7 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
         # Climate stress parameters (generally less vulnerable than commodity producers)
         self.climate_vulnerability = 0.1 + (self.id * 0.05)  # Lower base vulnerability
         self.chronic_stress_accumulated = 1.0  # Multiplicative factor
+        self.climate_stressed = False  # Track if currently stressed
         
         # Pricing
         self.price = {'intermediate_good': 2}
@@ -57,6 +64,20 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
                 if quantity_per_firm > 0:
                     self.sell(('final_goods_firm', final_firm_id), 'intermediate_good', 
                              quantity_per_firm, self.price['intermediate_good'])
+
+    def apply_climate_stress(self, stress_factor):
+        """ Apply climate stress by reducing production capacity """
+        self.climate_stressed = True
+        original_quantity = self.current_output_quantity
+        self.current_output_quantity = self.base_output_quantity * stress_factor * self.chronic_stress_accumulated
+        print(f"  Intermediary Firm {self.id}: CLIMATE STRESS applied! Production: {original_quantity:.2f} -> {self.current_output_quantity:.2f}")
+
+    def reset_climate_stress(self):
+        """ Reset production to normal levels """
+        if self.climate_stressed:
+            self.climate_stressed = False
+            self.current_output_quantity = self.base_output_quantity * self.chronic_stress_accumulated
+            print(f"  Intermediary Firm {self.id}: Climate stress cleared, production restored to {self.current_output_quantity:.2f}")
 
     def apply_acute_stress(self):
         """ Apply acute climate stress (temporary productivity shock) """

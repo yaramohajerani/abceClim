@@ -1,14 +1,20 @@
 import abcEconomics as abce
 import random
+import sys
+import os
+# Add the root directory to Python path to find the climate framework
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from climate_framework import add_climate_capabilities
 
 
+@add_climate_capabilities
 class CommodityProducer(abce.Agent, abce.Firm):
     def init(self):
         """ Commodity producers are the first layer in the supply chain.
         They use labor to produce raw commodities that will be used by intermediary firms.
         They are vulnerable to climate stress which affects their productivity.
         """
-        self.create('money', 10)  # Initial capital
+        self.create('money', 50)  # Increased initial capital for longer simulation
         
         # Production parameters
         self.inputs = {"labor": 1}
@@ -19,6 +25,7 @@ class CommodityProducer(abce.Agent, abce.Firm):
         # Climate stress parameters
         self.climate_vulnerability = 0.3 + (self.id * 0.1)  # Different vulnerabilities
         self.chronic_stress_accumulated = 1.0  # Multiplicative factor
+        self.climate_stressed = False  # Track if currently stressed
         
         # Pricing
         self.price = {'commodity': 1}
@@ -50,6 +57,20 @@ class CommodityProducer(abce.Agent, abce.Firm):
                 if quantity_per_firm > 0:
                     self.sell(('intermediary_firm', intermediary_id), 'commodity', 
                              quantity_per_firm, self.price['commodity'])
+
+    def apply_climate_stress(self, stress_factor):
+        """ Apply climate stress by reducing production capacity """
+        self.climate_stressed = True
+        original_quantity = self.current_output_quantity
+        self.current_output_quantity = self.base_output_quantity * stress_factor * self.chronic_stress_accumulated
+        print(f"  Commodity Producer {self.id}: CLIMATE STRESS applied! Production: {original_quantity:.2f} -> {self.current_output_quantity:.2f}")
+
+    def reset_climate_stress(self):
+        """ Reset production to normal levels """
+        if self.climate_stressed:
+            self.climate_stressed = False
+            self.current_output_quantity = self.base_output_quantity * self.chronic_stress_accumulated
+            print(f"  Commodity Producer {self.id}: Climate stress cleared, production restored to {self.current_output_quantity:.2f}")
 
     def apply_acute_stress(self):
         """ Apply acute climate stress (temporary productivity shock) """
