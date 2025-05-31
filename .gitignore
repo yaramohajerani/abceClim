@@ -1,4 +1,54 @@
+# Simulation result folders
+result*/
+result_*/
+
+# Python cache files
+__pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
+
+# Database files
+*.db
+*.sqlite
+
+# Temporary files
+*.tmp
+temp/
+
 build/*
 dist/*
 **/result*/*
@@ -10,10 +60,6 @@ abce/build/
 docs/_build/
 docs/builddir/
 setup.cfg
-.idea/
 .ropeproject/
-.DS_Store
-venv/
-.vscode/
 *.png
 *.csv

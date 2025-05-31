@@ -161,6 +161,11 @@ class ClimateFramework:
                                        model_name: str = "Climate Economic Model"):
         """
         Create simplified visualizations focusing on geographical and climate aspects.
+        
+        Args:
+            agent_groups: Dictionary mapping agent type names to abcEconomics agent groups
+            simulation_path: ACTUAL simulation path (should be w.path from Simulation object, not the original path)
+            model_name: Name of the model for titles
         """
         # Set up the visualization style
         plt.style.use('seaborn-v0_8')
@@ -795,7 +800,13 @@ class ClimateFramework:
         }
     
     def export_climate_summary(self, simulation_path: str = None, filename: str = "climate_summary.csv"):
-        """Export a summary of climate events and geographical assignments."""
+        """
+        Export a summary of climate events and geographical assignments.
+        
+        Args:
+            simulation_path: ACTUAL simulation path (should be w.path from Simulation object, not the original path)
+            filename: Name of the CSV file to create
+        """
         # Create summary data
         summary_data = []
         

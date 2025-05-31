@@ -118,6 +118,10 @@ def run_simple_climate_model():
     simulation_path = 'result_simple_climate_simulation'
     w = Simulation(path=simulation_path)
     
+    # Get the actual path that abcEconomics created (handles increments like resultI, resultII, etc.)
+    actual_simulation_path = w.path
+    print(f"Simulation will save to: {actual_simulation_path}")
+    
     print("Building agents...")
     # Build agents
     firms = w.build_agents(SimpleFirm, 'firm', 8)
@@ -225,12 +229,12 @@ def run_simple_climate_model():
             print("Creating climate visualizations...")
             climate_framework.create_simplified_visualizations(
                 agent_groups,
-                simulation_path=simulation_path,
+                simulation_path=actual_simulation_path,
                 model_name="Simple Climate Economic Model"
             )
             
             # Export climate summary
-            climate_framework.export_climate_summary(simulation_path, "simple_climate_summary.csv")
+            climate_framework.export_climate_summary(actual_simulation_path, "simple_climate_summary.csv")
             print("Climate visualizations and summary completed!")
         except Exception as e:
             print(f"Error creating visualizations: {e}")

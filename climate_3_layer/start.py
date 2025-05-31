@@ -38,8 +38,12 @@ simulation_parameters = {
 }
 
 def main(simulation_parameters):
-    simulation_path = 'climate_3_layer_result'
+    simulation_path = 'result_climate_3_layer'
     w = Simulation(path=simulation_path)  # Use specific path for better organization
+    
+    # Get the actual path that abcEconomics created (handles increments like resultI, resultII, etc.)
+    actual_simulation_path = w.path
+    print(f"Simulation will save to: {actual_simulation_path}")
 
     # Build agents for each layer with geographical distribution
     commodity_producers = w.build_agents(CommodityProducer, 'commodity_producer', 3)
@@ -123,19 +127,19 @@ def main(simulation_parameters):
     print("\nFinalizing simulation...")
     w.finalize()
     print("Simulation completed!")
-    print(f"Results saved to: {simulation_path}")
+    print(f"Results saved to: {actual_simulation_path}")
     
     # Create visualizations using the updated framework
     if simulation_parameters['create_visualizations']:
         print("Creating visualizations using Climate Framework...")
         climate_framework.create_simplified_visualizations(
             agent_groups, 
-            simulation_path=simulation_path,
+            simulation_path=actual_simulation_path,
             model_name="Climate 3-Layer Supply Chain Model"
         )
         
         # Export climate summary using new method
-        climate_framework.export_climate_summary(simulation_path, "climate_3_layer_summary.csv")
+        climate_framework.export_climate_summary(actual_simulation_path, "climate_3_layer_summary.csv")
     
     # Print summary
     total_climate_events = sum(len(events) for events in climate_framework.climate_events_history)
