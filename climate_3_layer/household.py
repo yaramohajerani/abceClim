@@ -102,4 +102,17 @@ class Household(abce.Agent, abce.Household):
         self.log('HH', {
             'money': self['money'],
             'final_good': self['final_good']
-        }) 
+        })
+
+    def _collect_agent_data(self, round_num, agent_type):
+        """ Collect agent data for visualization (called by abcEconomics group system) """
+        return {
+            'id': self.id,
+            'type': agent_type,
+            'round': round_num,
+            'wealth': self['money'],
+            'climate_stressed': False,  # Households are not directly affected by climate stress
+            'continent': getattr(self, 'continent', 'Unknown'),
+            'vulnerability': getattr(self, 'climate_vulnerability', 0),
+            'production': 0  # Households don't produce goods, they provide labor
+        } 

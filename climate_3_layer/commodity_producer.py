@@ -87,4 +87,17 @@ class CommodityProducer(abce.Agent, abce.Firm):
     def apply_chronic_stress(self, stress_factor):
         """ Apply chronic climate stress (permanent productivity degradation) """
         self.chronic_stress_accumulated *= stress_factor
-        self.current_output_quantity = self.base_output_quantity * self.chronic_stress_accumulated 
+        self.current_output_quantity = self.base_output_quantity * self.chronic_stress_accumulated
+
+    def _collect_agent_data(self, round_num, agent_type):
+        """ Collect agent data for visualization (called by abcEconomics group system) """
+        return {
+            'id': self.id,
+            'type': agent_type,
+            'round': round_num,
+            'wealth': self['money'],
+            'climate_stressed': self.climate_stressed,
+            'continent': getattr(self, 'continent', 'Unknown'),
+            'vulnerability': getattr(self, 'climate_vulnerability', 0),
+            'production': self.current_output_quantity
+        } 

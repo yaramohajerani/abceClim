@@ -205,8 +205,8 @@ class ClimateFramework:
             save_path = filename
         
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        plt.show()
-        
+        #plt.show()
+        plt.close()
         print(f"Climate visualizations saved to '{save_path}'")
         
         # Create second figure showing simulation results
@@ -347,8 +347,8 @@ class ClimateFramework:
             filename = f'{model_name.lower().replace(" ", "_")}_simulation_results.png'
             results_save_path = os.path.join(simulation_path, filename)
             plt.savefig(results_save_path, dpi=300, bbox_inches='tight')
-            plt.show()
-            
+            #plt.show()
+            plt.close()
             print(f"Simulation results visualization saved to '{results_save_path}'")
             
         except Exception as e:
