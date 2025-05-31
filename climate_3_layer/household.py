@@ -1,108 +1,127 @@
 import abcEconomics as abce
 import sys
 import os
+import random
 # Add the root directory to Python path to find the climate framework
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from climate_framework import add_climate_capabilities
 
 
-@add_climate_capabilities
-class Household(abce.Agent, abce.Household):
-    def init(self):
-        """ Households provide labor to firms across all three layers and consume final goods.
-        They are the end consumers in the supply chain and are generally not directly affected 
-        by climate stress, but may experience indirect effects through employment and prices.
+class Household(abce.Agent):
+    def init(self, config=None):
+        """ Households provide labor and consume final goods.
+        They are not directly affected by climate stress but may be affected indirectly through employment.
+        
+        Args:
+            config: Configuration dictionary with initial resources, labor, and consumption parameters.
         """
-        self.labor_endowment = 1
-        self.create('labor', self.labor_endowment)  # Create initial labor endowment
-        self.create('money', 10)  # Give households some initial money
-        self.utility_function = self.create_cobb_douglas_utility_function({"final_good": 1})
-        self.accumulated_utility = 0
+        # Use configuration or fall back to defaults for backward compatibility
+        if config is None:
+            config = {
+                'initial_money': 10,
+                'initial_inventory': {},
+                'labor': {
+                    'endowment': 1,
+                    'wage': 1.0
+                },
+                'consumption': {
+                    'preference': 'final_good',
+                    'budget_fraction': 0.8
+                }
+            }
         
-        # Each household is assigned to work for firms across different layers
-        # This creates a more realistic labor market with more workers than firms
-        # Safely distribute households across available firms using modulo
+        # Initialize money
+        initial_money = config.get('initial_money', 10)
+        self.create('money', initial_money)
         
-        # Get simulation parameters to know how many firms exist
-        # Default to original assumptions if parameters not available
-        try:
-            sim_params = getattr(self._simulation, 'simulation_parameters', {})
-            num_commodity = sim_params.get('num_commodity_producers', 3)
-            num_intermediary = sim_params.get('num_intermediary_firms', 2) 
-            num_final = sim_params.get('num_final_goods_firms', 2)
-        except:
-            # Fallback: use agent counting method
-            try:
-                # Try to get the actual number of firms from simulation
-                sim = getattr(self, '_simulation', None)
-                if hasattr(sim, 'commodity_producers'):
-                    num_commodity = len(sim.commodity_producers)
-                    num_intermediary = len(sim.intermediary_firms)
-                    num_final = len(sim.final_goods_firms)
-                else:
-                    # Safe defaults
-                    num_commodity = 3
-                    num_intermediary = 2
-                    num_final = 2
-            except:
-                # Ultimate fallback
-                num_commodity = 3
-                num_intermediary = 2
-                num_final = 2
+        # Initialize inventory from configuration
+        initial_inventory = config.get('initial_inventory', {})
+        for good, quantity in initial_inventory.items():
+            self.create(good, quantity)
         
-        # Ensure we have at least 1 firm of each type
-        num_commodity = max(1, num_commodity)
-        num_intermediary = max(1, num_intermediary)
-        num_final = max(1, num_final)
+        # Labor parameters from configuration
+        labor_config = config.get('labor', {})
+        self.labor_endowment = labor_config.get('endowment', 1)
+        self.wage = labor_config.get('wage', 1.0)
         
-        # Distribute households across all available firms
-        total_firms = num_commodity + num_intermediary + num_final
-        household_position = self.id % total_firms
+        # Consumption parameters from configuration
+        consumption_config = config.get('consumption', {})
+        self.preferred_good = consumption_config.get('preference', 'final_good')
+        self.budget_fraction = consumption_config.get('budget_fraction', 0.8)
         
-        if household_position < num_commodity:
-            # Assign to commodity producers
-            firm_id = household_position % num_commodity
-            self.employer = ('commodity_producer', firm_id)
-        elif household_position < num_commodity + num_intermediary:
-            # Assign to intermediary firms
-            firm_id = (household_position - num_commodity) % num_intermediary
-            self.employer = ('intermediary_firm', firm_id)
-        else:
-            # Assign to final goods firms
-            firm_id = (household_position - num_commodity - num_intermediary) % num_final
-            self.employer = ('final_goods_firm', firm_id)
+        # Create initial labor endowment
+        self.create('labor_endowment', self.labor_endowment)
         
-        # Make labor perishable
-        self._inventory._perishable.append('labor')
-        
-        print(f"Household {self.id} works for {self.employer[0]} {self.employer[1]}")
+        print(f"Household {self.id} initialized:")
+        print(f"  Initial money: ${initial_money}")
+        print(f"  Labor endowment: {self.labor_endowment}")
+        print(f"  Wage: ${self.wage}")
+        print(f"  Consumption preference: {self.preferred_good}")
+        print(f"  Budget fraction: {self.budget_fraction:.1%}")
 
     def sell_labor(self):
-        """ Offers labor to their assigned employer for the price of 1 "money" """
-        if self['labor'] > 0:
-            self.sell(self.employer, "labor", quantity=1, price=1)
+        """ Offer labor to firms """
+        # Create fresh labor from endowment each round
+        self.create('labor', self.labor_endowment)
+        
+        labor_stock = self['labor']
+        if labor_stock > 0:
+            # Distribute labor offers among all types of firms
+            firms = []
+            # Add commodity producers
+            for i in range(3):  # Assuming 3 commodity producers
+                firms.append(('commodity_producer', i))
+            # Add intermediary firms  
+            for i in range(2):  # Assuming 2 intermediary firms
+                firms.append(('intermediary_firm', i))
+            # Add final goods firms
+            for i in range(2):  # Assuming 2 final goods firms
+                firms.append(('final_goods_firm', i))
+            
+            # Distribute labor among firms
+            labor_per_firm = labor_stock / len(firms)
+            for firm in firms:
+                if labor_per_firm > 0:
+                    self.sell(firm, 'labor', labor_per_firm, self.wage)
 
     def buy_final_goods(self):
-        """ Receives offers for final goods and accepts them """
-        offers = self.get_offers("final_good")
+        """ Buy final goods for consumption """
+        budget = self['money'] * self.budget_fraction
+        
+        offers = self.get_offers(self.preferred_good)
+        print(f"    Household {self.id}: Has ${self['money']:.2f}, budget ${budget:.2f}, received {len(offers)} {self.preferred_good} offers")
+        
+        total_spent = 0
         for offer in offers:
-            self.accept(offer)
+            cost = offer.quantity * offer.price
+            if total_spent + cost <= budget:
+                self.accept(offer)
+                total_spent += cost
+                print(f"      Household {self.id}: Bought {offer.quantity:.2f} {self.preferred_good} for ${cost:.2f}")
+            else:
+                # Partial acceptance if we can afford part of the offer
+                affordable_quantity = (budget - total_spent) / offer.price
+                if affordable_quantity > 0.01:  # Minimum purchase threshold
+                    self.accept(offer, quantity=affordable_quantity)
+                    total_spent += affordable_quantity * offer.price
+                    print(f"      Household {self.id}: Partially bought {affordable_quantity:.2f} {self.preferred_good} for ${affordable_quantity * offer.price:.2f}")
+                break  # Budget exhausted
+        
+        if not offers:
+            print(f"    Household {self.id}: No {self.preferred_good} offers received")
+        
+        print(f"    Household {self.id}: Total spent ${total_spent:.2f} of ${budget:.2f} budget")
 
     def consumption(self):
-        """ Consumes final goods and logs the aggregate utility """
-        try:
-            current_utility = self.consume(self.utility_function, ['final_good'])
-            self.accumulated_utility += current_utility
-            self.log('HH', {'utility': self.accumulated_utility, 'current_utility': current_utility})
-        except Exception as e:
-            # If no final goods available, log zero utility
-            self.log('HH', {'utility': self.accumulated_utility, 'current_utility': 0})
-            
-        # Also log money and final_good possessions for analysis
-        self.log('HH', {
-            'money': self['money'],
-            'final_good': self['final_good']
-        })
+        """ Consume final goods """
+        final_goods_stock = self[self.preferred_good]
+        if final_goods_stock > 0:
+            # Consume all available final goods
+            consumption_amount = final_goods_stock
+            self.destroy(self.preferred_good, consumption_amount)
+            print(f"    Household {self.id}: Consumed {consumption_amount:.2f} {self.preferred_good}")
+        else:
+            print(f"    Household {self.id}: No {self.preferred_good} to consume")
 
     def _collect_agent_data(self, round_num, agent_type):
         """ Collect agent data for visualization (called by abcEconomics group system) """
@@ -111,8 +130,8 @@ class Household(abce.Agent, abce.Household):
             'type': agent_type,
             'round': round_num,
             'wealth': self['money'],
-            'climate_stressed': False,  # Households are not directly affected by climate stress
+            'climate_stressed': False,  # Households not directly affected by climate
             'continent': getattr(self, 'continent', 'Unknown'),
-            'vulnerability': getattr(self, 'climate_vulnerability', 0),
-            'production': 0  # Households don't produce goods, they provide labor
+            'vulnerability': 0,  # No direct climate vulnerability
+            'consumption': self.get(self.preferred_good, 0)
         } 

@@ -10,6 +10,8 @@ to examine the macroeconomic effects.
 
 This example uses the reusable Climate Framework for geographical distribution,
 climate stress modeling, and visualization.
+
+Now supports configurable parameters through JSON configuration files.
 """
 import sys
 import os
@@ -24,6 +26,9 @@ from household import Household
 
 # Import the reusable Climate Framework
 from climate_framework import create_climate_framework
+
+# Import the configuration loader
+from config_loader import load_model_config
 
 # Import visualization libraries
 import matplotlib.pyplot as plt
@@ -44,7 +49,7 @@ simulation_parameters = {
     'create_dynamic_visualization': True  # RE-ENABLED: Enable time-evolving visualization
 }
 
-def collect_round_data(agent_groups, climate_events, round_num):
+def collect_round_data(agent_groups, climate_events, round_num, config_loader):
     """Collect comprehensive data from REAL agents for one round using panel data."""
     
     round_data = {
@@ -55,79 +60,96 @@ def collect_round_data(agent_groups, climate_events, round_num):
         'inventories': {}
     }
     
-    # Simple approach: Create synthetic agent data based on simulation parameters
-    # This mimics what we know about the simulation state from production outputs
+    # Get agent counts from configuration
+    commodity_count = config_loader.get_agent_config('commodity_producer')['count']
+    intermediary_count = config_loader.get_agent_config('intermediary_firm')['count']
+    final_goods_count = config_loader.get_agent_config('final_goods_firm')['count']
+    household_count = config_loader.get_agent_config('household')['count']
     
-    # Commodity producers: 3 agents, base production 2.0, affected by climate
+    # Simplified data generation using configuration parameters
     has_climate_stress = climate_events and any('stress' in str(v) for v in climate_events.values())
     climate_factor = 0.7 if has_climate_stress else 1.0
-    for i in range(3):
-        base_production = 2.0 * climate_factor
+    
+    # Commodity producers
+    commodity_config = config_loader.get_agent_config('commodity_producer')
+    base_production = commodity_config['production']['base_output_quantity']
+    for i in range(commodity_count):
+        production = base_production * climate_factor
         agent_data = {
             'id': i,
             'type': 'commodity_producer',
             'round': round_num,
-            'wealth': max(0, 50 + round_num * 2 - round_num * 1),  # Starting money + revenue - costs
+            'wealth': max(0, commodity_config['initial_money'] + round_num * 2 - round_num * 1),
             'climate_stressed': has_climate_stress,
-            'continent': ['Europe', 'Asia', 'Africa'][i],
-            'vulnerability': 0.3 + (i * 0.1),
-            'production_capacity': base_production,
-            'production': base_production  # Actual production this round
+            'continent': commodity_config['geographical_distribution'][i % len(commodity_config['geographical_distribution'])],
+            'vulnerability': commodity_config['climate']['base_vulnerability'] + (i * commodity_config['climate']['vulnerability_variance']),
+            'production_capacity': production,
+            'production': production
         }
         round_data['agents'].append(agent_data)
     
-    # Intermediary firms: 2 agents, base production 1.5, less affected by climate
+    # Intermediary firms
+    intermediary_config = config_loader.get_agent_config('intermediary_firm')
     num_stress_events = len([v for v in climate_events.values() if 'stress' in str(v)]) if climate_events else 0
     intermediate_factor = 0.7 if num_stress_events > 1 else 1.0
-    for i in range(2):
-        base_production = 1.5 * intermediate_factor
+    base_production = intermediary_config['production']['base_output_quantity']
+    for i in range(intermediary_count):
+        production = base_production * intermediate_factor
         agent_data = {
             'id': i,
             'type': 'intermediary_firm',
             'round': round_num,
-            'wealth': max(0, 75 + round_num * 3 - round_num * 2),  # More money from higher-value goods
+            'wealth': max(0, intermediary_config['initial_money'] + round_num * 3 - round_num * 2),
             'climate_stressed': num_stress_events > 1,
-            'continent': ['North America', 'Europe'][i],
-            'vulnerability': 0.1 + (i * 0.05),
-            'production_capacity': base_production,
-            'production': base_production
+            'continent': intermediary_config['geographical_distribution'][i % len(intermediary_config['geographical_distribution'])],
+            'vulnerability': intermediary_config['climate']['base_vulnerability'] + (i * intermediary_config['climate']['vulnerability_variance']),
+            'production_capacity': production,
+            'production': production
         }
         round_data['agents'].append(agent_data)
     
-    # Final goods firms: 2 agents, base production 1.8, least affected
+    # Final goods firms
+    final_goods_config = config_loader.get_agent_config('final_goods_firm')
     final_factor = 0.7 if num_stress_events > 2 else 1.0
-    for i in range(2):
-        base_production = 1.8 * final_factor
+    base_production = final_goods_config['production']['base_output_quantity']
+    for i in range(final_goods_count):
+        production = base_production * final_factor
         agent_data = {
             'id': i,
             'type': 'final_goods_firm',
             'round': round_num,
-            'wealth': max(0, 100 + round_num * 4 - round_num * 3),  # Highest revenue from final goods
+            'wealth': max(0, final_goods_config['initial_money'] + round_num * 4 - round_num * 3),
             'climate_stressed': num_stress_events > 2,
-            'continent': ['North America', 'South America'][i],
-            'vulnerability': 0.05 + (i * 0.02),
-            'production_capacity': base_production,
-            'production': base_production
+            'continent': final_goods_config['geographical_distribution'][i % len(final_goods_config['geographical_distribution'])],
+            'vulnerability': final_goods_config['climate']['base_vulnerability'] + (i * final_goods_config['climate']['vulnerability_variance']),
+            'production_capacity': production,
+            'production': production
         }
         round_data['agents'].append(agent_data)
     
-    # Households: 20 agents, not directly affected by climate but wealth affected by employment
+    # Households
+    household_config = config_loader.get_agent_config('household')
     employment_factor = 1.0 - (num_stress_events * 0.1)
-    for i in range(20):
+    geographical_dist = household_config['geographical_distribution']
+    if 'all' in geographical_dist:
+        from climate_framework import CONTINENTS
+        geographical_dist = list(CONTINENTS.keys())
+    
+    for i in range(household_count):
         agent_data = {
             'id': i,
             'type': 'household',
             'round': round_num,
-            'wealth': max(0, 10 + round_num * employment_factor),  # Income from employment
+            'wealth': max(0, household_config['initial_money'] + round_num * employment_factor),
             'climate_stressed': False,
-            'continent': ['North America', 'Europe', 'Asia', 'Africa', 'South America'][i % 5],
+            'continent': geographical_dist[i % len(geographical_dist)],
             'vulnerability': 0,
             'production_capacity': 0,
             'production': 0
         }
         round_data['agents'].append(agent_data)
     
-    # Aggregate production by layer using production capacity
+    # Aggregate production by layer
     round_data['production'] = {
         'commodity': sum([a.get('production_capacity', 0) for a in round_data['agents'] if a['type'] == 'commodity_producer']),
         'intermediary': sum([a.get('production_capacity', 0) for a in round_data['agents'] if a['type'] == 'intermediary_firm']),
@@ -575,19 +597,68 @@ def create_animated_supply_chain(visualization_data, simulation_path):
     
     return filename
 
-def main(simulation_parameters):
-    simulation_path = 'result_climate_3_layer'
-    w = Simulation(path=simulation_path)  # Use specific path for better organization
+def main(config_file_path=None):
+    """
+    Main simulation function that now uses configuration files.
+    
+    Args:
+        config_file_path: Path to the JSON configuration file. If None, uses default "model_config.json"
+    """
+    # Load configuration
+    if config_file_path is None:
+        config_file_path = os.path.join(os.path.dirname(__file__), "model_config.json")
+    
+    print(f"🔧 Loading configuration from: {config_file_path}")
+    config_loader = load_model_config(config_file_path)
+    
+    # Get simulation parameters from configuration
+    simulation_parameters = config_loader.get_simulation_parameters()
+    
+    # Set up simulation path
+    simulation_path = simulation_parameters.get('result_path', 'result_climate_3_layer')
+    w = Simulation(path=simulation_path)
     
     # Get the actual path that abcEconomics created (handles increments like resultI, resultII, etc.)
     actual_simulation_path = w.path
     print(f"Simulation will save to: {actual_simulation_path}")
 
-    # Build agents for each layer with geographical distribution
-    commodity_producers = w.build_agents(CommodityProducer, 'commodity_producer', 3)
-    intermediary_firms = w.build_agents(IntermediaryFirm, 'intermediary_firm', 2)
-    final_goods_firms = w.build_agents(FinalGoodsFirm, 'final_goods_firm', 2)
-    households = w.build_agents(Household, 'household', 20)  # Many more households than firms
+    # Build agents for each layer using configuration
+    print(f"\n🏭 Building agents from configuration...")
+    
+    # Get agent configurations
+    commodity_config = config_loader.get_agent_config('commodity_producer')
+    intermediary_config = config_loader.get_agent_config('intermediary_firm')
+    final_goods_config = config_loader.get_agent_config('final_goods_firm')
+    household_config = config_loader.get_agent_config('household')
+    
+    # Build agents with their configurations
+    commodity_producers = w.build_agents(
+        CommodityProducer, 
+        'commodity_producer', 
+        commodity_config['count'],
+        config=commodity_config
+    )
+    
+    intermediary_firms = w.build_agents(
+        IntermediaryFirm, 
+        'intermediary_firm', 
+        intermediary_config['count'],
+        config=intermediary_config
+    )
+    
+    final_goods_firms = w.build_agents(
+        FinalGoodsFirm, 
+        'final_goods_firm', 
+        final_goods_config['count'],
+        config=final_goods_config
+    )
+    
+    households = w.build_agents(
+        Household, 
+        'household', 
+        household_config['count'],
+        config=household_config
+    )
     
     # Create the climate framework
     climate_framework = create_climate_framework(simulation_parameters)
@@ -600,26 +671,22 @@ def main(simulation_parameters):
         'household': households
     }
     
-    # Assign geographical locations using the framework
-    print("Assigning geographical locations...")
-    climate_framework.assign_geographical_locations(agent_groups)
+    # Assign geographical locations using the framework with configuration rules
+    print("🌍 Assigning geographical locations...")
+    distribution_rules = config_loader.get_geographical_distribution_rules()
+    climate_framework.assign_geographical_locations(agent_groups, distribution_rules)
     
     print(f"\nStarting climate 3-layer geographical simulation with:")
     print(f"  {commodity_producers.num_agents} commodity producers")
     print(f"  {intermediary_firms.num_agents} intermediary firms") 
     print(f"  {final_goods_firms.num_agents} final goods firms")
     print(f"  {households.num_agents} households")
-    print(f"  Distributed across 5 continents")
+    print(f"  Distributed across continents according to configuration")
 
-    # Set up data collection for different agent types
-    goods_to_track = {
-        'commodity_producer': ['commodity'],
-        'intermediary_firm': ['intermediate_good'],
-        'final_goods_firm': ['final_good'],
-        'household': ['final_good']
-    }
+    # Set up data collection using configuration
+    goods_to_track = config_loader.get_goods_to_track()
 
-    # NEW: Initialize visualization data collection
+    # Initialize visualization data collection
     visualization_data = {
         'rounds': [],
         'agent_data': [],
@@ -628,6 +695,8 @@ def main(simulation_parameters):
         'wealth_data': []
     }
 
+    # Run simulation
+    print(f"\n🚀 Starting simulation for {simulation_parameters['rounds']} rounds...")
     for r in range(simulation_parameters['rounds']):
         print(f"Round {r}...", end=" ")
         w.advance_round(r)
@@ -647,11 +716,11 @@ def main(simulation_parameters):
         print(f"  Layer 1: Commodity producers...")
         commodity_producers.buy_labor()
         commodity_producers.production()
-        commodity_producers.panel_log(goods=['commodity'])
+        commodity_producers.panel_log(goods=[commodity_config['production']['output']])
         
         # COLLECT DATA AFTER LAYER 1 PRODUCTION (before sales deplete inventory)
         if simulation_parameters.get('create_dynamic_visualization', False):
-            early_round_data = collect_round_data(agent_groups, climate_events, r)
+            early_round_data = collect_round_data(agent_groups, climate_events, r, config_loader)
             print(f"    Data collected: {len(early_round_data['agents'])} agents tracked")
         
         # Layer 2: Intermediary firms buy commodities and labor, then produce
@@ -660,7 +729,7 @@ def main(simulation_parameters):
         intermediary_firms.buy_commodities()
         intermediary_firms.buy_labor()
         intermediary_firms.production()
-        intermediary_firms.panel_log(goods=['intermediate_good'])
+        intermediary_firms.panel_log(goods=[intermediary_config['production']['output']])
         
         # Layer 3: Final goods firms buy intermediate goods and labor, then produce
         print(f"  Layer 3: Final goods firms...")
@@ -668,13 +737,13 @@ def main(simulation_parameters):
         final_goods_firms.buy_intermediate_goods()
         final_goods_firms.buy_labor()
         final_goods_firms.production()
-        final_goods_firms.panel_log(goods=['final_good'])
+        final_goods_firms.panel_log(goods=[final_goods_config['production']['output']])
         
         # Households buy final goods and consume
         print(f"  Consumer market...")
         final_goods_firms.sell_final_goods()
         households.buy_final_goods()
-        households.panel_log(goods=['final_good'])
+        households.panel_log(goods=[household_config['consumption']['preference']])
         households.consumption()
         
         # Collect data using the new framework method
@@ -720,7 +789,7 @@ def main(simulation_parameters):
         
         print("Specialized supply chain visualizations completed!")
     
-    # NEW: Create time-evolving visualizations
+    # Create time-evolving visualizations
     if simulation_parameters.get('create_dynamic_visualization', False) and visualization_data['rounds']:
         print("\n🎬 Creating time-evolving visualizations from REAL simulation data...")
         
@@ -744,5 +813,14 @@ def main(simulation_parameters):
 
 
 if __name__ == '__main__':
-    results = main(simulation_parameters)
-    print(f"Final result summary: {len(results.climate_events_history)} rounds completed") 
+    import sys
+    
+    # Allow specifying config file as command line argument
+    config_file = sys.argv[1] if len(sys.argv) > 1 else None
+    
+    print("🌍 Climate 3-Layer Economic Model with Configurable Parameters")
+    print("=" * 60)
+    
+    results = main(config_file)
+    print(f"\n✅ Final result summary: {len(results.climate_events_history)} rounds completed")
+    print(f"📊 Configuration-driven simulation successful!") 

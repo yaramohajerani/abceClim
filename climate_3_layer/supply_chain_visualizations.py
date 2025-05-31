@@ -322,10 +322,10 @@ class SupplyChainVisualizer:
         ax.grid(True, alpha=0.3)
     
     def _plot_geographic_supply_chain_impact(self, ax, economic_data: Dict[str, pd.DataFrame]):
-        """Plot how geographic climate events affect different supply chain layers."""
+        """Plot geographic distribution of supply chain impacts."""
         ax.set_title('Geographic Supply Chain Impact', fontweight='bold')
         
-        # Create matrix of continent vs layer impacts
+        from climate_framework import CONTINENTS
         continents = list(CONTINENTS.keys())
         layers = ['commodity_producer', 'intermediary_firm', 'final_goods_firm']
         
@@ -333,17 +333,35 @@ class SupplyChainVisualizer:
         
         # Count climate events by continent and affected layers
         for events in self.climate_framework.climate_events_history:
-            for continent in events:
-                continent_idx = continents.index(continent)
+            if events:
+                # Handle both old format (continent keys) and new format (rule-based events)
+                affected_continents = set()
                 
-                # Check which layers are in this continent
-                for layer_idx, layer in enumerate(layers):
-                    if layer in self.climate_framework.geographical_assignments:
-                        assignments = self.climate_framework.geographical_assignments[layer]
-                        for agent_id, info in assignments.items():
-                            if info['continent'] == continent:
-                                impact_matrix[continent_idx, layer_idx] += 1
-                                break  # Count once per layer per continent per event
+                for event_key, event_data in events.items():
+                    if isinstance(event_data, dict) and 'continents' in event_data:
+                        # New configurable shock format
+                        event_continents = event_data['continents']
+                        if 'all' in event_continents:
+                            affected_continents.update(continents)
+                        else:
+                            affected_continents.update(event_continents)
+                    elif event_key in continents:
+                        # Old format where event key is continent name
+                        affected_continents.add(event_key)
+                
+                # Count impacts for affected continents
+                for continent in affected_continents:
+                    if continent in continents:
+                        continent_idx = continents.index(continent)
+                        
+                        # Check which layers are in this continent
+                        for layer_idx, layer in enumerate(layers):
+                            if layer in self.climate_framework.geographical_assignments:
+                                assignments = self.climate_framework.geographical_assignments[layer]
+                                for agent_id, info in assignments.items():
+                                    if info['continent'] == continent:
+                                        impact_matrix[continent_idx, layer_idx] += 1
+                                        break  # Count once per layer per continent per event
         
         # Create heatmap
         im = ax.imshow(impact_matrix, cmap='Reds', aspect='auto')
@@ -395,21 +413,38 @@ class SupplyChainVisualizer:
         for round_num, events in enumerate(self.climate_framework.climate_events_history):
             if events:
                 affected_layers = set()
+                affected_continents = set()
                 
-                # Check which layers are affected by geography
-                for continent in events:
-                    for layer in ['commodity_producer', 'intermediary_firm', 'final_goods_firm']:
-                        if layer in self.climate_framework.geographical_assignments:
-                            assignments = self.climate_framework.geographical_assignments[layer]
-                            for agent_id, info in assignments.items():
-                                if info['continent'] == continent:
-                                    affected_layers.add(layer)
+                for event_key, event_data in events.items():
+                    if isinstance(event_data, dict) and 'continents' in event_data:
+                        # New configurable shock format
+                        event_continents = event_data['continents']
+                        event_agent_types = event_data.get('agent_types', [])
+                        
+                        # Get affected continents
+                        if 'all' in event_continents:
+                            from climate_framework import CONTINENTS
+                            event_continents = list(CONTINENTS.keys())
+                        
+                        affected_continents.update(event_continents)
+                        affected_layers.update(event_agent_types)
+                    elif event_key in ['North America', 'Europe', 'Asia', 'South America', 'Africa']:
+                        # Old format where event key is continent name
+                        affected_continents.add(event_key)
+                        
+                        # Check which layers are affected by geography
+                        for layer in ['commodity_producer', 'intermediary_firm', 'final_goods_firm']:
+                            if layer in self.climate_framework.geographical_assignments:
+                                assignments = self.climate_framework.geographical_assignments[layer]
+                                for agent_id, info in assignments.items():
+                                    if info['continent'] == event_key:
+                                        affected_layers.add(layer)
                 
                 stress_data.append({
                     'round': round_num,
                     'num_layers': len(affected_layers),
                     'layers': list(affected_layers),
-                    'continents': list(events.keys())
+                    'continents': list(affected_continents)
                 })
         
         if stress_data:
@@ -428,9 +463,22 @@ class SupplyChainVisualizer:
             for bar, count, round_num in zip(bars, layer_counts, rounds):
                 height = bar.get_height()
                 events = self.climate_framework.climate_events_history[round_num]
-                continent_names = list(events.keys())
+                
+                # Count affected continents correctly
+                affected_continents = set()
+                for event_key, event_data in events.items():
+                    if isinstance(event_data, dict) and 'continents' in event_data:
+                        event_continents = event_data['continents']
+                        if 'all' in event_continents:
+                            from climate_framework import CONTINENTS
+                            affected_continents.update(CONTINENTS.keys())
+                        else:
+                            affected_continents.update(event_continents)
+                    elif event_key in ['North America', 'Europe', 'Asia', 'South America', 'Africa']:
+                        affected_continents.add(event_key)
+                
                 ax.text(bar.get_x() + bar.get_width()/2., height + 0.05,
-                       f'{count}L\n{len(continent_names)}C', ha='center', va='bottom', fontsize=8)
+                       f'{count}L\n{len(affected_continents)}C', ha='center', va='bottom', fontsize=8)
         
         ax.grid(True, alpha=0.3)
     

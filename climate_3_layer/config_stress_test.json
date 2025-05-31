@@ -1,0 +1,141 @@
+{
+  "_description": "High-stress scenario with frequent and severe climate shocks to test system resilience",
+  "simulation": {
+    "name": "climate_3_layer_stress_test",
+    "trade_logging": "off",
+    "random_seed": 12345,
+    "rounds": 30,
+    "result_path": "result_stress_test"
+  },
+  "climate": {
+    "stress_enabled": true,
+    "acute_stress_probability": 0.25,
+    "chronic_stress_factor": 0.94,
+    "geographical_effects": true,
+    "shock_rules": [
+      {
+        "name": "frequent_global_disruption",
+        "description": "Frequent global climate disruptions affecting all sectors",
+        "probability": 0.30,
+        "agent_types": ["commodity_producer", "intermediary_firm", "final_goods_firm"],
+        "continents": ["all"],
+        "stress_factor": 0.6,
+        "duration": 1
+      },
+      {
+        "name": "severe_commodity_crisis",
+        "description": "Severe commodity production crisis",
+        "probability": 0.25,
+        "agent_types": ["commodity_producer"],
+        "continents": ["all"],
+        "stress_factor": 0.4,
+        "duration": 2
+      },
+      {
+        "name": "regional_manufacturing_collapse",
+        "description": "Regional manufacturing collapse in multiple continents",
+        "probability": 0.20,
+        "agent_types": ["commodity_producer", "intermediary_firm"],
+        "continents": ["Asia", "Africa", "South America"],
+        "stress_factor": 0.3,
+        "duration": 3
+      },
+      {
+        "name": "supply_chain_breakdown",
+        "description": "Complete supply chain breakdown",
+        "probability": 0.10,
+        "agent_types": ["commodity_producer", "intermediary_firm", "final_goods_firm"],
+        "continents": ["all"],
+        "stress_factor": 0.2,
+        "duration": 2
+      }
+    ]
+  },
+  "agents": {
+    "commodity_producer": {
+      "count": 6,
+      "initial_money": 40,
+      "initial_inventory": {},
+      "production": {
+        "base_output_quantity": 0.8,
+        "inputs": {
+          "labor": 1
+        },
+        "output": "commodity",
+        "price": 1.5
+      },
+      "climate": {
+        "base_vulnerability": 0.6,
+        "vulnerability_variance": 0.2
+      },
+      "geographical_distribution": ["Asia", "Africa", "South America", "Europe", "North America", "Asia"]
+    },
+    "intermediary_firm": {
+      "count": 4,
+      "initial_money": 45,
+      "initial_inventory": {
+        "commodity": 0.5
+      },
+      "production": {
+        "base_output_quantity": 1.0,
+        "inputs": {
+          "labor": 1,
+          "commodity": 1
+        },
+        "output": "intermediate_good",
+        "price": 3.0
+      },
+      "climate": {
+        "base_vulnerability": 0.3,
+        "vulnerability_variance": 0.12
+      },
+      "geographical_distribution": ["Asia", "Europe", "North America", "South America"]
+    },
+    "final_goods_firm": {
+      "count": 3,
+      "initial_money": 50,
+      "initial_inventory": {},
+      "production": {
+        "base_output_quantity": 1.2,
+        "inputs": {
+          "labor": 1,
+          "intermediate_good": 1
+        },
+        "output": "final_good",
+        "price": 7.0
+      },
+      "climate": {
+        "base_vulnerability": 0.1,
+        "vulnerability_variance": 0.05
+      },
+      "geographical_distribution": ["North America", "Europe", "Asia"]
+    },
+    "household": {
+      "count": 30,
+      "initial_money": 8,
+      "initial_inventory": {},
+      "labor": {
+        "endowment": 1,
+        "wage": 0.8
+      },
+      "consumption": {
+        "preference": "final_good",
+        "budget_fraction": 0.9
+      },
+      "geographical_distribution": ["all"]
+    }
+  },
+  "data_collection": {
+    "track_goods": {
+      "commodity_producer": ["commodity"],
+      "intermediary_firm": ["intermediate_good"],
+      "final_goods_firm": ["final_good"],
+      "household": ["final_good"]
+    }
+  },
+  "visualization": {
+    "create_visualizations": true,
+    "create_dynamic_visualization": true,
+    "save_climate_summary": true
+  }
+} 

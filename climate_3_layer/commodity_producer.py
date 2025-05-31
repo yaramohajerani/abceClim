@@ -9,37 +9,93 @@ from climate_framework import add_climate_capabilities
 
 @add_climate_capabilities
 class CommodityProducer(abce.Agent, abce.Firm):
-    def init(self):
+    def init(self, config=None):
         """ Commodity producers are the first layer in the supply chain.
         They use labor to produce raw commodities that will be used by intermediary firms.
         They are vulnerable to climate stress which affects their productivity.
-        """
-        self.create('money', 50)  # Increased initial capital for longer simulation
         
-        # Production parameters
-        self.inputs = {"labor": 1}
-        self.output = "commodity"
-        self.base_output_quantity = 2  # Base production capacity
+        Args:
+            config: Configuration dictionary with production parameters, climate settings, etc.
+        """
+        # Use configuration or fall back to defaults for backward compatibility
+        if config is None:
+            config = {
+                'initial_money': 50,
+                'initial_inventory': {},
+                'production': {
+                    'base_output_quantity': 1.0,
+                    'inputs': {'labor': 1},
+                    'output': 'commodity',
+                    'price': 1.0
+                },
+                'climate': {
+                    'base_vulnerability': 0.3,
+                    'vulnerability_variance': 0.1
+                }
+            }
+        
+        # Initialize money
+        initial_money = config.get('initial_money', 50)
+        self.create('money', initial_money)
+        
+        # Initialize inventory from configuration
+        initial_inventory = config.get('initial_inventory', {})
+        for good, quantity in initial_inventory.items():
+            self.create(good, quantity)
+        
+        # Production parameters from configuration
+        production_config = config.get('production', {})
+        self.inputs = production_config.get('inputs', {"labor": 1})
+        self.output = production_config.get('output', "commodity")
+        self.base_output_quantity = production_config.get('base_output_quantity', 1.0)
         self.current_output_quantity = self.base_output_quantity
         
-        # Climate stress parameters
-        self.climate_vulnerability = 0.3 + (self.id * 0.1)  # Different vulnerabilities
+        # Climate stress parameters from configuration
+        climate_config = config.get('climate', {})
+        base_vulnerability = climate_config.get('base_vulnerability', 0.3)
+        vulnerability_variance = climate_config.get('vulnerability_variance', 0.1)
+        self.climate_vulnerability = base_vulnerability + (self.id * vulnerability_variance)
         self.chronic_stress_accumulated = 1.0  # Multiplicative factor
         self.climate_stressed = False  # Track if currently stressed
         
-        # Pricing
-        self.price = {'commodity': 1}
+        # Pricing from configuration
+        self.price = {self.output: production_config.get('price', 1.0)}
         
         # Create production function
         self.pf = self.create_cobb_douglas(self.output, self.current_output_quantity, self.inputs)
         
-        print(f"Commodity Producer {self.id} initialized with vulnerability {self.climate_vulnerability:.2f}")
+        print(f"Commodity Producer {self.id} initialized:")
+        print(f"  Initial money: ${initial_money}")
+        print(f"  Production capacity: {self.base_output_quantity}")
+        print(f"  Climate vulnerability: {self.climate_vulnerability:.3f}")
+        print(f"  Price: ${self.price[self.output]}")
 
     def buy_labor(self):
         """ Buy labor from households """
         offers = self.get_offers("labor")
+        available_money = self['money']
+        total_spent = 0
+        
+        print(f"    Commodity Producer {self.id}: Has ${available_money:.2f}, received {len(offers)} labor offers")
+        
         for offer in offers:
-            self.accept(offer)
+            cost = offer.quantity * offer.price
+            if total_spent + cost <= available_money:
+                self.accept(offer)
+                total_spent += cost
+                print(f"      Accepted labor offer: {offer.quantity:.2f} units for ${cost:.2f}")
+            else:
+                # Try partial acceptance if we can afford at least part of it
+                affordable_quantity = (available_money - total_spent) / offer.price
+                if affordable_quantity > 0.01:  # Minimum threshold
+                    self.accept(offer, quantity=affordable_quantity)
+                    total_spent += affordable_quantity * offer.price
+                    print(f"      Partially accepted labor offer: {affordable_quantity:.2f} units for ${affordable_quantity * offer.price:.2f}")
+                else:
+                    print(f"      Cannot afford labor offer: {offer.quantity:.2f} units for ${cost:.2f}")
+                break  # Budget exhausted
+        
+        print(f"    Commodity Producer {self.id}: Spent ${total_spent:.2f} on labor")
 
     def production(self):
         """ Produce commodities using labor """
@@ -49,18 +105,18 @@ class CommodityProducer(abce.Agent, abce.Firm):
 
     def sell_commodities(self):
         """ Sell commodities to intermediary firms """
-        commodity_stock = self['commodity']
-        print(f"    Commodity Producer {self.id}: Has {commodity_stock:.2f} commodities to sell")
+        commodity_stock = self[self.output]
+        print(f"    Commodity Producer {self.id}: Has {commodity_stock:.2f} {self.output}s to sell")
         if commodity_stock > 0:
             # Distribute sales among intermediary firms
             quantity_per_firm = commodity_stock / 2  # Assuming 2 intermediary firms
             for intermediary_id in range(2):
                 if quantity_per_firm > 0:
-                    print(f"      Offering {quantity_per_firm:.2f} commodities to intermediary_firm {intermediary_id} at price {self.price['commodity']}")
-                    self.sell(('intermediary_firm', intermediary_id), 'commodity', 
-                             quantity_per_firm, self.price['commodity'])
+                    print(f"      Offering {quantity_per_firm:.2f} {self.output}s to intermediary_firm {intermediary_id} at price {self.price[self.output]}")
+                    self.sell(('intermediary_firm', intermediary_id), self.output, 
+                             quantity_per_firm, self.price[self.output])
         else:
-            print(f"    Commodity Producer {self.id}: No commodities to sell")
+            print(f"    Commodity Producer {self.id}: No {self.output}s to sell")
 
     def apply_climate_stress(self, stress_factor):
         """ Apply climate stress by reducing production capacity """

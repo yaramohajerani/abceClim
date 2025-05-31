@@ -75,6 +75,147 @@ class ClimateFramework:
     def apply_geographical_climate_stress(self, agent_groups: Dict[str, List]) -> Dict[str, str]:
         """
         Apply climate stress events by continent using group-level method calls.
+        Now supports configurable shock rules from simulation parameters.
+        """
+        climate_events = {}
+        
+        # Get shock rules from simulation parameters
+        shock_rules = self.params.get('shock_rules', [])
+        
+        if shock_rules:
+            # Use new configurable shock system
+            climate_events = self._apply_configurable_shocks(agent_groups, shock_rules)
+        else:
+            # Fall back to original system for backward compatibility
+            climate_events = self._apply_legacy_climate_stress(agent_groups)
+        
+        # Store climate events
+        self.climate_events_history.append(climate_events)
+        
+        print(f"Climate events recorded: {climate_events}")
+        return climate_events
+    
+    def _apply_configurable_shocks(self, agent_groups: Dict[str, List], shock_rules: List[Dict]) -> Dict[str, str]:
+        """
+        Apply climate shocks based on configurable rules.
+        
+        Args:
+            agent_groups: Dictionary mapping agent type names to abcEconomics agent groups
+            shock_rules: List of shock rule configurations
+            
+        Returns:
+            Dictionary of climate events that occurred this round
+        """
+        climate_events = {}
+        
+        # Reset all agents to normal production first
+        print(f"\n  Resetting all agents to normal production...")
+        for agent_type, agent_group in agent_groups.items():
+            if hasattr(agent_group, 'reset_climate_stress'):
+                try:
+                    agent_group.reset_climate_stress()
+                    print(f"    Reset climate stress for {agent_type} group")
+                except Exception as e:
+                    print(f"    Could not reset {agent_type}: {e}")
+        
+        # Process each shock rule
+        for rule in shock_rules:
+            rule_name = rule.get('name', 'unnamed_shock')
+            probability = rule.get('probability', 0.1)
+            agent_types = rule.get('agent_types', [])
+            continents = rule.get('continents', ['all'])
+            stress_factor = rule.get('stress_factor', 0.7)
+            duration = rule.get('duration', 1)
+            description = rule.get('description', '')
+            
+            # Check if this shock occurs this round
+            if random.random() < probability:
+                print(f"\n🌪️ CLIMATE SHOCK: {rule_name}")
+                if description:
+                    print(f"    Description: {description}")
+                print(f"    Affects: {agent_types} in {continents}")
+                print(f"    Stress factor: {stress_factor} (duration: {duration} rounds)")
+                
+                # Apply shock to specified agent types and continents
+                affected_agents = self._apply_targeted_shock(
+                    agent_groups, agent_types, continents, stress_factor, rule_name
+                )
+                
+                # Record this event
+                event_key = f"{rule_name}_{len(climate_events)}"
+                climate_events[event_key] = {
+                    'type': 'configurable_shock',
+                    'rule_name': rule_name,
+                    'agent_types': agent_types,
+                    'continents': continents,
+                    'stress_factor': stress_factor,
+                    'duration': duration,
+                    'affected_agents': affected_agents
+                }
+        
+        return climate_events
+    
+    def _apply_targeted_shock(self, agent_groups: Dict[str, List], 
+                            target_agent_types: List[str], 
+                            target_continents: List[str], 
+                            stress_factor: float,
+                            shock_name: str) -> Dict[str, int]:
+        """
+        Apply a targeted climate shock to specific agent types in specific continents.
+        
+        Args:
+            agent_groups: Dictionary mapping agent type names to abcEconomics agent groups
+            target_agent_types: List of agent types to affect
+            target_continents: List of continents to affect (or ['all'] for all continents)
+            stress_factor: Multiplier for production capacity (e.g., 0.7 = 30% reduction)
+            shock_name: Name of the shock for logging
+            
+        Returns:
+            Dictionary with count of affected agents per type
+        """
+        affected_agents = {}
+        
+        # Expand 'all' continents to actual continent list
+        if 'all' in target_continents:
+            target_continents = list(CONTINENTS.keys())
+        
+        for agent_type in target_agent_types:
+            if agent_type not in agent_groups:
+                print(f"    Warning: Agent type '{agent_type}' not found in simulation")
+                continue
+                
+            agent_group = agent_groups[agent_type]
+            
+            # Check if this agent type has geographical assignments
+            if agent_type not in self.geographical_assignments:
+                print(f"    Warning: No geographical assignments for '{agent_type}'")
+                continue
+            
+            assignments = self.geographical_assignments[agent_type]
+            
+            # Find agents in target continents
+            affected_agent_ids = []
+            for agent_id, agent_info in assignments.items():
+                agent_continent = agent_info['continent']
+                if agent_continent in target_continents:
+                    affected_agent_ids.append(agent_id)
+            
+            if affected_agent_ids and hasattr(agent_group, 'apply_climate_stress'):
+                try:
+                    # Apply stress to the entire group - abcEconomics will handle distribution
+                    agent_group.apply_climate_stress(stress_factor)
+                    affected_agents[agent_type] = len(affected_agent_ids)
+                    print(f"    Applied {shock_name} to {len(affected_agent_ids)} {agent_type}s in {target_continents}")
+                except Exception as e:
+                    print(f"    Could not apply {shock_name} to {agent_type} group: {e}")
+            else:
+                print(f"    No applicable {agent_type}s found in target continents: {target_continents}")
+        
+        return affected_agents
+    
+    def _apply_legacy_climate_stress(self, agent_groups: Dict[str, List]) -> Dict[str, str]:
+        """
+        Apply climate stress using the original system for backward compatibility.
         """
         climate_events = {}
         
@@ -124,10 +265,6 @@ class ClimateFramework:
                         except Exception as e:
                             print(f"    Could not apply stress to {agent_type} group: {e}")
         
-        # Store climate events
-        self.climate_events_history.append(climate_events)
-        
-        print(f"Climate events recorded: {climate_events}")
         return climate_events
     
     def collect_panel_data(self, agent_groups: Dict[str, List], goods_to_track: Dict[str, List]):
@@ -899,14 +1036,40 @@ class ClimateFramework:
         
         # Add climate events
         for round_num, events in enumerate(self.climate_events_history):
-            for continent, event_type in events.items():
-                summary_data.append({
-                    'agent_type': 'climate_event',
-                    'agent_id': round_num,
-                    'continent': continent,
-                    'vulnerability': CONTINENTS[continent]['climate_risk'],
-                    'data_type': event_type
-                })
+            if events:
+                for event_key, event_data in events.items():
+                    if isinstance(event_data, dict) and 'continents' in event_data:
+                        # New configurable shock format
+                        event_continents = event_data['continents']
+                        if 'all' in event_continents:
+                            event_continents = list(CONTINENTS.keys())
+                        
+                        for continent in event_continents:
+                            if continent in CONTINENTS:
+                                summary_data.append({
+                                    'agent_type': 'climate_event',
+                                    'agent_id': round_num,
+                                    'continent': continent,
+                                    'vulnerability': CONTINENTS[continent]['climate_risk'],
+                                    'data_type': event_data.get('rule_name', 'configurable_shock'),
+                                    'event_name': event_key,
+                                    'stress_factor': event_data.get('stress_factor', 1.0),
+                                    'duration': event_data.get('duration', 1),
+                                    'affected_agent_types': ','.join(event_data.get('agent_types', []))
+                                })
+                    elif event_key in CONTINENTS:
+                        # Old format where event key is continent name
+                        summary_data.append({
+                            'agent_type': 'climate_event',
+                            'agent_id': round_num,
+                            'continent': event_key,
+                            'vulnerability': CONTINENTS[event_key]['climate_risk'],
+                            'data_type': event_data if isinstance(event_data, str) else 'climate_stress',
+                            'event_name': event_key,
+                            'stress_factor': 1.0,
+                            'duration': 1,
+                            'affected_agent_types': 'all'
+                        })
         
         if summary_data:
             df = pd.DataFrame(summary_data)
