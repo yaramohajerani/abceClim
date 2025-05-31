@@ -14,6 +14,8 @@ class Household(abce.Agent, abce.Household):
         by climate stress, but may experience indirect effects through employment and prices.
         """
         self.labor_endowment = 1
+        self.create('labor', self.labor_endowment)  # Create initial labor endowment
+        self.create('money', 10)  # Give households some initial money
         self.utility_function = self.create_cobb_douglas_utility_function({"final_good": 1})
         self.accumulated_utility = 0
         
@@ -48,7 +50,7 @@ class Household(abce.Agent, abce.Household):
 
     def sell_labor(self):
         """ Offers labor to their assigned employer for the price of 1 "money" """
-        if self.possession('labor') > 0:
+        if self['labor'] > 0:
             self.sell(self.employer, "labor", quantity=1, price=1)
 
     def buy_final_goods(self):
@@ -69,6 +71,6 @@ class Household(abce.Agent, abce.Household):
             
         # Also log money and final_good possessions for analysis
         self.log('HH', {
-            'money': self.possession('money'),
-            'final_good': self.possession('final_good')
+            'money': self['money'],
+            'final_good': self['final_good']
         }) 

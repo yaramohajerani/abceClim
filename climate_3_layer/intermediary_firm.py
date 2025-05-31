@@ -39,8 +39,13 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
     def buy_commodities(self):
         """ Buy commodities from commodity producers """
         offers = self.get_offers("commodity")
-        for offer in offers:
+        print(f"    Intermediary Firm {self.id}: Received {len(offers)} commodity offers")
+        print(f"    Intermediary Firm {self.id}: Has {self['money']:.2f} money")
+        for i, offer in enumerate(offers):
+            print(f"      Offer {i}: {offer.good} quantity={offer.quantity} price={offer.price} from {offer.sender}")
             self.accept(offer)
+        if not offers:
+            print(f"    Intermediary Firm {self.id}: No commodity offers received")
 
     def buy_labor(self):
         """ Buy labor from households """
@@ -56,7 +61,7 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
 
     def sell_intermediate_goods(self):
         """ Sell intermediate goods to final goods firms """
-        intermediate_stock = self.possession('intermediate_good')
+        intermediate_stock = self['intermediate_good']
         if intermediate_stock > 0:
             # Distribute sales among final goods firms
             quantity_per_firm = intermediate_stock / 2  # Assuming 2 final goods firms

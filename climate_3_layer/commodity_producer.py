@@ -49,14 +49,18 @@ class CommodityProducer(abce.Agent, abce.Firm):
 
     def sell_commodities(self):
         """ Sell commodities to intermediary firms """
-        commodity_stock = self.possession('commodity')
+        commodity_stock = self['commodity']
+        print(f"    Commodity Producer {self.id}: Has {commodity_stock:.2f} commodities to sell")
         if commodity_stock > 0:
             # Distribute sales among intermediary firms
             quantity_per_firm = commodity_stock / 2  # Assuming 2 intermediary firms
             for intermediary_id in range(2):
                 if quantity_per_firm > 0:
+                    print(f"      Offering {quantity_per_firm:.2f} commodities to intermediary_firm {intermediary_id} at price {self.price['commodity']}")
                     self.sell(('intermediary_firm', intermediary_id), 'commodity', 
                              quantity_per_firm, self.price['commodity'])
+        else:
+            print(f"    Commodity Producer {self.id}: No commodities to sell")
 
     def apply_climate_stress(self, stress_factor):
         """ Apply climate stress by reducing production capacity """

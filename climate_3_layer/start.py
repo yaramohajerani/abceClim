@@ -91,15 +91,19 @@ def main(simulation_parameters):
             climate_events = climate_framework.apply_geographical_climate_stress(agent_groups)
         
         # Labor market
+        print(f"  Labor market...")
         households.refresh_services('labor', derived_from='labor_endowment', units=1)
         households.sell_labor()
+        print(f"    Labor offered by households")
         
         # Layer 1: Commodity producers buy labor and produce
+        print(f"  Layer 1: Commodity producers...")
         commodity_producers.buy_labor()
         commodity_producers.production()
         commodity_producers.panel_log(goods=['commodity'])
         
         # Layer 2: Intermediary firms buy commodities and labor, then produce
+        print(f"  Layer 2: Intermediary firms...")
         commodity_producers.sell_commodities()
         intermediary_firms.buy_commodities()
         intermediary_firms.buy_labor()
@@ -107,6 +111,7 @@ def main(simulation_parameters):
         intermediary_firms.panel_log(goods=['intermediate_good'])
         
         # Layer 3: Final goods firms buy intermediate goods and labor, then produce
+        print(f"  Layer 3: Final goods firms...")
         intermediary_firms.sell_intermediate_goods()
         final_goods_firms.buy_intermediate_goods()
         final_goods_firms.buy_labor()
@@ -114,6 +119,7 @@ def main(simulation_parameters):
         final_goods_firms.panel_log(goods=['final_good'])
         
         # Households buy final goods and consume
+        print(f"  Consumer market...")
         final_goods_firms.sell_final_goods()
         households.buy_final_goods()
         households.panel_log(goods=['final_good'])

@@ -56,7 +56,7 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
 
     def sell_final_goods(self):
         """ Sell final goods to households """
-        final_goods_stock = self.possession('final_good')
+        final_goods_stock = self['final_good']
         if final_goods_stock > 0:
             # Distribute sales among households
             quantity_per_household = final_goods_stock / 20  # 20 households
