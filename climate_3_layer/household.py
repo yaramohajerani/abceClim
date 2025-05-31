@@ -21,27 +21,56 @@ class Household(abce.Agent, abce.Household):
         
         # Each household is assigned to work for firms across different layers
         # This creates a more realistic labor market with more workers than firms
-        # Distribute households across all 7 firms (3 commodity + 2 intermediary + 2 final)
+        # Safely distribute households across available firms using modulo
         
-        # Use modulo to cycle through all firms
-        if self.id < 3:
-            # First 3 households go to commodity producers
-            self.employer = ('commodity_producer', self.id)
-        elif self.id < 5:
-            # Next 2 households go to intermediary firms
-            self.employer = ('intermediary_firm', self.id - 3)
-        elif self.id < 7:
-            # Next 2 households go to final goods firms
-            self.employer = ('final_goods_firm', self.id - 5)
+        # Get simulation parameters to know how many firms exist
+        # Default to original assumptions if parameters not available
+        try:
+            sim_params = getattr(self._simulation, 'simulation_parameters', {})
+            num_commodity = sim_params.get('num_commodity_producers', 3)
+            num_intermediary = sim_params.get('num_intermediary_firms', 2) 
+            num_final = sim_params.get('num_final_goods_firms', 2)
+        except:
+            # Fallback: use agent counting method
+            try:
+                # Try to get the actual number of firms from simulation
+                sim = getattr(self, '_simulation', None)
+                if hasattr(sim, 'commodity_producers'):
+                    num_commodity = len(sim.commodity_producers)
+                    num_intermediary = len(sim.intermediary_firms)
+                    num_final = len(sim.final_goods_firms)
+                else:
+                    # Safe defaults
+                    num_commodity = 3
+                    num_intermediary = 2
+                    num_final = 2
+            except:
+                # Ultimate fallback
+                num_commodity = 3
+                num_intermediary = 2
+                num_final = 2
+        
+        # Ensure we have at least 1 firm of each type
+        num_commodity = max(1, num_commodity)
+        num_intermediary = max(1, num_intermediary)
+        num_final = max(1, num_final)
+        
+        # Distribute households across all available firms
+        total_firms = num_commodity + num_intermediary + num_final
+        household_position = self.id % total_firms
+        
+        if household_position < num_commodity:
+            # Assign to commodity producers
+            firm_id = household_position % num_commodity
+            self.employer = ('commodity_producer', firm_id)
+        elif household_position < num_commodity + num_intermediary:
+            # Assign to intermediary firms
+            firm_id = (household_position - num_commodity) % num_intermediary
+            self.employer = ('intermediary_firm', firm_id)
         else:
-            # Remaining households cycle through all firms
-            remaining_id = (self.id - 7) % 7
-            if remaining_id < 3:
-                self.employer = ('commodity_producer', remaining_id)
-            elif remaining_id < 5:
-                self.employer = ('intermediary_firm', remaining_id - 3)
-            else:
-                self.employer = ('final_goods_firm', remaining_id - 5)
+            # Assign to final goods firms
+            firm_id = (household_position - num_commodity - num_intermediary) % num_final
+            self.employer = ('final_goods_firm', firm_id)
         
         # Make labor perishable
         self._inventory._perishable.append('labor')
