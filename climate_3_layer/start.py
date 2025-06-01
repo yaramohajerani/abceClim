@@ -55,13 +55,15 @@ def collect_simulation_data(simulation_path, round_num, config_loader, climate_f
     production_files = {
         'commodity_producer': 'panel_commodity_producer_production.csv',
         'intermediary_firm': 'panel_intermediary_firm_production.csv', 
-        'final_goods_firm': 'panel_final_goods_firm_production.csv'
+        'final_goods_firm': 'panel_final_goods_firm_production.csv',
+        'household': 'panel_household_consumption.csv'
     }
     
     production_goods = {
         'commodity_producer': 'commodity',
         'intermediary_firm': 'intermediate_good',
-        'final_goods_firm': 'final_good'
+        'final_goods_firm': 'final_good',
+        'household': 'final_good'  # households consume final goods
     }
     
     # Initialize production totals
@@ -71,7 +73,7 @@ def collect_simulation_data(simulation_path, round_num, config_loader, climate_f
         'final_goods': 0
     }
     
-    # Read production data from CSV files
+    # Read data from CSV files for all agent types including households
     for agent_type, filename in production_files.items():
         file_path = os.path.join(simulation_path, filename)
         if os.path.exists(file_path):
@@ -83,8 +85,6 @@ def collect_simulation_data(simulation_path, round_num, config_loader, climate_f
                 round_df = df[df['round'] == round_num]
                 
                 if len(round_df) > 0:
-                    good_column = production_goods[agent_type]
-                    
                     # Create agent data entries for each agent
                     for _, row in round_df.iterrows():
                         agent_id = int(row['name'].replace(agent_type, ''))
@@ -97,82 +97,53 @@ def collect_simulation_data(simulation_path, round_num, config_loader, climate_f
                         # Get wealth (money) data if available
                         wealth = row.get('money', 0)
                         
-                        agent_data = {
-                            'id': agent_id,
-                            'type': agent_type,
-                            'round': round_num,
-                            'production': row[good_column],
-                            'production_capacity': row[good_column],  # Use actual production as capacity for now
-                            'climate_stressed': is_climate_stressed,
-                            'wealth': wealth,
-                            'continent': get_agent_continent(agent_type, agent_id, climate_framework),
-                            'vulnerability': get_agent_vulnerability(agent_type, agent_id, climate_framework)
-                        }
+                        # Get production/consumption data
+                        if agent_type == 'household':
+                            # For households, track consumption, not production
+                            consumption = row.get(production_goods[agent_type], 0)
+                            agent_data = {
+                                'id': agent_id,
+                                'type': agent_type,
+                                'round': round_num,
+                                'production': 0,  # Households don't produce
+                                'consumption': consumption,
+                                'production_capacity': 0,
+                                'climate_stressed': is_climate_stressed,
+                                'wealth': wealth,
+                                'continent': get_agent_continent(agent_type, agent_id, climate_framework),
+                                'vulnerability': get_agent_vulnerability(agent_type, agent_id, climate_framework)
+                            }
+                        else:
+                            # For production agents
+                            production = row.get(production_goods[agent_type], 0)
+                            agent_data = {
+                                'id': agent_id,
+                                'type': agent_type,
+                                'round': round_num,
+                                'production': production,
+                                'production_capacity': production,  # Use actual production as capacity for now
+                                'climate_stressed': is_climate_stressed,
+                                'wealth': wealth,
+                                'continent': get_agent_continent(agent_type, agent_id, climate_framework),
+                                'vulnerability': get_agent_vulnerability(agent_type, agent_id, climate_framework)
+                            }
+                        
                         round_data['agents'].append(agent_data)
                     
-                    # Sum total production for this layer
-                    total_production = round_df[good_column].sum()
-                    
-                    if agent_type == 'commodity_producer':
-                        round_data['production']['commodity'] = total_production
-                    elif agent_type == 'intermediary_firm':
-                        round_data['production']['intermediary'] = total_production
-                    elif agent_type == 'final_goods_firm':
-                        round_data['production']['final_goods'] = total_production
+                    # Sum total production for production layers (not households)
+                    if agent_type != 'household':
+                        good_column = production_goods[agent_type]
+                        total_production = round_df[good_column].sum()
+                        
+                        if agent_type == 'commodity_producer':
+                            round_data['production']['commodity'] = total_production
+                        elif agent_type == 'intermediary_firm':
+                            round_data['production']['intermediary'] = total_production
+                        elif agent_type == 'final_goods_firm':
+                            round_data['production']['final_goods'] = total_production
                         
             except Exception as e:
                 print(f"Warning: Could not read {filename}: {e}")
-    
-    # Add mock household agents for completeness (since they don't produce goods)
-    household_config = config_loader.get_agent_config('household')
-    household_count = household_config['count']
-    geographical_dist = household_config['geographical_distribution']
-    if 'all' in geographical_dist:
-        from climate_framework import CONTINENTS
-        geographical_dist = list(CONTINENTS.keys())
-    
-    # Read household data for wealth information
-    household_file_path = os.path.join(simulation_path, 'panel_household_consumption.csv')
-    household_wealth_sum = 0
-    if os.path.exists(household_file_path):
-        try:
-            import pandas as pd
-            household_df = pd.read_csv(household_file_path)
-            household_round_df = household_df[household_df['round'] == round_num]
-            
-            for _, row in household_round_df.iterrows():
-                agent_id = int(row['name'].replace('household', ''))
-                wealth = row.get('money', 0)
-                household_wealth_sum += wealth
-                
-                agent_data = {
-                    'id': agent_id,
-                    'type': 'household',
-                    'round': round_num,
-                    'wealth': wealth,
-                    'climate_stressed': False,  # Households typically not directly affected by production climate stress
-                    'continent': geographical_dist[agent_id % len(geographical_dist)],
-                    'vulnerability': 0,
-                    'production_capacity': 0,
-                    'production': 0
-                }
-                round_data['agents'].append(agent_data)
-        except Exception as e:
-            print(f"Warning: Could not read household data: {e}")
-            # Fallback to creating mock household agents
-            for i in range(household_count):
-                agent_data = {
-                    'id': i,
-                    'type': 'household',
-                    'round': round_num,
-                    'wealth': 0,
-                    'climate_stressed': False,
-                    'continent': geographical_dist[i % len(geographical_dist)],
-                    'vulnerability': 0,
-                    'production_capacity': 0,
-                    'production': 0
-                }
-                round_data['agents'].append(agent_data)
     
     # Calculate wealth data by summing money from all agents of each type
     round_data['wealth'] = {
