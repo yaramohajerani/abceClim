@@ -20,10 +20,9 @@ from climate_framework import CONTINENTS
 class SupplyChainVisualizer:
     """Specialized visualizer for 3-layer supply chain climate model."""
     
-    def __init__(self, climate_framework, config_loader=None):
+    def __init__(self, climate_framework):
         """Initialize with reference to the climate framework for geographical/climate data."""
         self.climate_framework = climate_framework
-        self.config_loader = config_loader
         self.layer_mapping = {
             'commodity_producer': 'Layer 1: Commodity Production',
             'intermediary_firm': 'Layer 2: Intermediate Goods',
@@ -99,6 +98,9 @@ class SupplyChainVisualizer:
         #plt.show()
         plt.close()
         print(f"Supply chain analysis saved to '{save_path}'")
+        
+        # Create additional inventory-focused analysis
+        self._create_inventory_analysis(economic_data, simulation_path, model_name)
         
         # Also create the core climate visualizations
         self.climate_framework.create_simplified_visualizations(
@@ -630,3 +632,144 @@ class SupplyChainVisualizer:
             'final_goods_firm': None,
             'household': None
         } 
+
+    def _create_inventory_analysis(self, economic_data: Dict[str, pd.DataFrame], simulation_path: str, model_name: str):
+        """Create additional inventory-focused analysis."""
+        print("🏭 Creating inventory analysis...")
+        
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 10))
+        fig.suptitle(f'{model_name} - Inventory Analysis', fontsize=16, fontweight='bold')
+        
+        # Plot 1: Inventory levels over time
+        ax1.set_title('Inventory Levels Over Time', fontweight='bold')
+        layers = ['commodity_producer', 'intermediary_firm', 'final_goods_firm']
+        colors = ['brown', 'orange', 'green']
+        
+        for i, layer in enumerate(layers):
+            production_key = f'{layer}_production'
+            if production_key in economic_data:
+                df = economic_data[production_key]
+                good_col = self.production_goods[layer]
+                
+                if 'round' in df.columns and good_col in df.columns:
+                    # Inventory is the cumulative stock at end of each round
+                    round_summary = df.groupby('round')[good_col].sum().reset_index()
+                    ax1.plot(round_summary['round'], round_summary[good_col], 
+                           color=colors[i], linewidth=2, marker='o', markersize=6,
+                           label=f'{self.layer_mapping[layer]} Inventory', alpha=0.8)
+        
+        ax1.set_xlabel('Round')
+        ax1.set_ylabel('Inventory Level')
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+        
+        # Plot 2: Inventory turnover analysis (if we have sales data)
+        ax2.set_title('Inventory Turnover Analysis', fontweight='bold')
+        
+        for i, layer in enumerate(layers):
+            production_key = f'{layer}_production'
+            sales_key = f'{layer}_sales'
+            
+            if production_key in economic_data and sales_key in economic_data:
+                inventory_df = economic_data[production_key]
+                sales_df = economic_data[sales_key]
+                good_col = self.production_goods[layer]
+                
+                if ('round' in inventory_df.columns and good_col in inventory_df.columns and
+                    'round' in sales_df.columns and good_col in sales_df.columns):
+                    
+                    inventory_summary = inventory_df.groupby('round')[good_col].sum().reset_index()
+                    sales_summary = sales_df.groupby('round')[good_col].sum().reset_index()
+                    
+                    # Calculate turnover ratio (sales/inventory)
+                    merged = inventory_summary.merge(sales_summary, on='round', suffixes=('_inv', '_sales'))
+                    merged['turnover'] = merged[f'{good_col}_sales'] / (merged[f'{good_col}_inv'] + 0.01)  # Avoid division by zero
+                    
+                    ax2.plot(merged['round'], merged['turnover'], 
+                           color=colors[i], linewidth=2, marker='s', markersize=6,
+                           label=f'{self.layer_mapping[layer]} Turnover', alpha=0.8)
+        
+        ax2.set_xlabel('Round')
+        ax2.set_ylabel('Turnover Ratio (Sales/Inventory)')
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+        
+        # Plot 3: Inventory buildup during climate events
+        ax3.set_title('Inventory During Climate Events', fontweight='bold')
+        
+        # Identify climate event rounds
+        climate_rounds = []
+        for round_num, events in enumerate(self.climate_framework.climate_events_history):
+            if events:
+                climate_rounds.append(round_num)
+        
+        if climate_rounds and 'final_goods_firm_production' in economic_data:
+            df = economic_data['final_goods_firm_production']
+            if 'round' in df.columns and 'final_good' in df.columns:
+                round_summary = df.groupby('round')['final_good'].sum().reset_index()
+                
+                # Plot inventory levels with climate events highlighted
+                ax3.plot(round_summary['round'], round_summary['final_good'], 
+                        'g-o', linewidth=2, markersize=4, label='Final Goods Inventory')
+                
+                # Highlight climate event rounds
+                for climate_round in climate_rounds:
+                    if climate_round < len(round_summary):
+                        ax3.axvline(x=climate_round, color='red', linestyle='--', alpha=0.7)
+                        inventory_at_event = round_summary.iloc[climate_round]['final_good']
+                        ax3.scatter(climate_round, inventory_at_event, color='red', s=100, zorder=5)
+                
+                ax3.set_xlabel('Round')
+                ax3.set_ylabel('Final Goods Inventory')
+                ax3.legend()
+        
+        ax3.grid(True, alpha=0.3)
+        
+        # Plot 4: Inventory efficiency metrics
+        ax4.set_title('Inventory Efficiency Metrics', fontweight='bold')
+        
+        # Calculate inventory-to-production ratios
+        efficiency_data = []
+        
+        for layer in layers:
+            production_key = f'{layer}_production'
+            if production_key in economic_data:
+                df = economic_data[production_key]
+                good_col = self.production_goods[layer]
+                
+                if 'round' in df.columns and good_col in df.columns:
+                    round_summary = df.groupby('round')[good_col].sum()
+                    
+                    # Calculate efficiency as inverse of inventory accumulation rate
+                    if len(round_summary) > 1:
+                        inventory_growth_rate = round_summary.pct_change().mean()
+                        efficiency_data.append({
+                            'Layer': self.layer_mapping[layer].split(':')[1].strip(),
+                            'Growth_Rate': inventory_growth_rate
+                        })
+        
+        if efficiency_data:
+            layers_names = [d['Layer'] for d in efficiency_data]
+            growth_rates = [d['Growth_Rate'] for d in efficiency_data]
+            colors_subset = colors[:len(layers_names)]
+            
+            bars = ax4.bar(layers_names, growth_rates, color=colors_subset, alpha=0.7)
+            ax4.set_ylabel('Inventory Growth Rate')
+            ax4.set_title('Inventory Accumulation by Layer')
+            
+            # Add value labels on bars
+            for bar, rate in zip(bars, growth_rates):
+                height = bar.get_height()
+                ax4.text(bar.get_x() + bar.get_width()/2., height + (max(growth_rates) * 0.01),
+                        f'{rate:.3f}', ha='center', va='bottom')
+        
+        ax4.grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        
+        # Save the inventory analysis
+        inventory_filename = f'{model_name.lower().replace(" ", "_")}_inventory_analysis.png'
+        inventory_save_path = os.path.join(simulation_path, inventory_filename)
+        plt.savefig(inventory_save_path, dpi=300, bbox_inches='tight')
+        plt.close()
+        print(f"✅ Inventory analysis saved to '{inventory_save_path}'") 

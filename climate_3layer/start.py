@@ -245,8 +245,8 @@ def main(config_file_path):
         # Import the custom supply chain visualizer
         from supply_chain_visualizations import SupplyChainVisualizer
         
-        # Create the specialized visualizer with config_loader
-        supply_chain_viz = SupplyChainVisualizer(climate_framework, config_loader)
+        # Create the specialized visualizer
+        supply_chain_viz = SupplyChainVisualizer(climate_framework)
         
         # Create comprehensive supply chain analysis
         supply_chain_viz.create_comprehensive_supply_chain_analysis(
@@ -269,8 +269,7 @@ def main(config_file_path):
             
             # Run the animation visualizations
             animation_results = run_animation_visualizations(
-                simulation_path=actual_simulation_path,
-                config_file=config_file_path
+                simulation_path=actual_simulation_path
             )
             
             if animation_results:

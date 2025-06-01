@@ -50,10 +50,10 @@
   "agents": {
     "commodity_producer": {
       "count": 3,
-      "initial_money": 50,
+      "initial_money": 10,
       "initial_inventory": {},
       "production": {
-        "base_output_quantity": 1.5,
+        "base_output_quantity": 1,
         "inputs": {
           "labor": 1
         },
@@ -68,7 +68,7 @@
     },
     "intermediary_firm": {
       "count": 2,
-      "initial_money": 50,
+      "initial_money": 20,
       "initial_inventory": {},
       "production": {
         "base_output_quantity": 1.0,
@@ -96,7 +96,7 @@
           "intermediate_good": 1
         },
         "output": "final_good",
-        "price": 10.0
+        "price": 5.0
       },
       "climate": {
         "base_vulnerability": 0.05,
@@ -106,7 +106,7 @@
     },
     "household": {
       "count": 20,
-      "initial_money": 10,
+      "initial_money": 100,
       "initial_inventory": {},
       "labor": {
         "endowment": 1,

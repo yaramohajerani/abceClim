@@ -162,6 +162,13 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
         'final_goods': 0
     }
     
+    # Initialize inventory totals (cumulative stock at end of round)
+    round_data['inventories'] = {
+        'commodity': 0,
+        'intermediary': 0,
+        'final_goods': 0
+    }
+    
     # Read data from CSV files for all agent types including households
     for agent_type, filename in production_files.items():
         file_path = os.path.join(simulation_path, filename)
@@ -222,13 +229,17 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
                     if agent_type != 'household':
                         good_column = production_goods[agent_type]
                         total_production = round_df[good_column].sum()
+                        total_inventory = round_df[good_column].sum()  # This IS the cumulative inventory
                         
                         if agent_type == 'commodity_producer':
                             round_data['production']['commodity'] = total_production
+                            round_data['inventories']['commodity'] = total_inventory
                         elif agent_type == 'intermediary_firm':
                             round_data['production']['intermediary'] = total_production
+                            round_data['inventories']['intermediary'] = total_inventory
                         elif agent_type == 'final_goods_firm':
                             round_data['production']['final_goods'] = total_production
+                            round_data['inventories']['final_goods'] = total_inventory
                         
             except Exception as e:
                 print(f"Warning: Could not read {filename}: {e}")
@@ -240,9 +251,6 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
         'final_goods': sum([agent['wealth'] for agent in round_data['agents'] if agent['type'] == 'final_goods_firm']),
         'households': sum([agent['wealth'] for agent in round_data['agents'] if agent['type'] == 'household'])
     }
-    
-    # Copy production to inventories
-    round_data['inventories'] = round_data['production'].copy()
     
     return round_data
 
@@ -303,6 +311,11 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     intermediary_production = [data['intermediary'] for data in visualization_data['production_data']]
     final_goods_production = [data['final_goods'] for data in visualization_data['production_data']]
     
+    # Extract inventory data
+    commodity_inventory = [data['commodity'] for data in visualization_data['inventory_data']]
+    intermediary_inventory = [data['intermediary'] for data in visualization_data['inventory_data']]
+    final_goods_inventory = [data['final_goods'] for data in visualization_data['inventory_data']]
+    
     commodity_wealth = [data['commodity'] for data in visualization_data['wealth_data']]
     intermediary_wealth = [data['intermediary'] for data in visualization_data['wealth_data']]
     final_goods_wealth = [data['final_goods'] for data in visualization_data['wealth_data']]
@@ -315,7 +328,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
         climate_stress_counts.append(stress_count)
     
     # Create comprehensive time evolution plot
-    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
+    fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, figsize=(20, 12))
     fig.suptitle('REAL Climate 3-Layer Supply Chain: Time Evolution Analysis', fontsize=16, fontweight='bold')
     
     # Plot 1: Production evolution over time
@@ -329,26 +342,37 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     ax1.legend(loc='center right', fontsize=9)
     ax1.grid(True, alpha=0.3)
     
-    # Plot 2: Wealth evolution by sector
-    ax2.plot(rounds, commodity_wealth, 'o-', label='Commodity Producers', color='#8B4513', linewidth=2, markersize=4)
-    ax2.plot(rounds, intermediary_wealth, 's-', label='Intermediary Firms', color='#DAA520', linewidth=2, markersize=4)
-    ax2.plot(rounds, final_goods_wealth, '^-', label='Final Goods Firms', color='#00FF00', linewidth=2, markersize=4)
-    ax2.plot(rounds, household_wealth, 'd-', label='Households', color='#4169E1', linewidth=2, markersize=4)
-    ax2.set_title('Wealth Evolution by Sector (Real Data)', fontweight='bold')
+    # Plot 2: Inventory evolution over time
+    ax2.plot(rounds, commodity_inventory, 'o-', label='Commodity Inventory', color='#8B4513', linewidth=2, markersize=4)
+    ax2.plot(rounds, intermediary_inventory, 's-', label='Intermediary Inventory', color='#DAA520', linewidth=2, markersize=4)
+    ax2.plot(rounds, final_goods_inventory, '^-', label='Final Goods Inventory', color='#00FF00', linewidth=2, markersize=4)
+    
+    ax2.set_title('Inventory Levels Over Time (Real Data)', fontweight='bold')
     ax2.set_xlabel('Round')
-    ax2.set_ylabel('Total Wealth ($)')
-    ax2.legend()
+    ax2.set_ylabel('Inventory Level')
+    ax2.legend(loc='center right', fontsize=9)
     ax2.grid(True, alpha=0.3)
     
-    # Plot 3: Climate stress events over time
-    ax3.plot(rounds, climate_stress_counts, 'ro-', linewidth=3, markersize=6)
-    ax3.fill_between(rounds, climate_stress_counts, alpha=0.3, color='red')
-    ax3.set_title('Climate Stress Events Over Time (Real Data)', fontweight='bold')
+    # Plot 3: Wealth evolution by sector
+    ax3.plot(rounds, commodity_wealth, 'o-', label='Commodity Producers', color='#8B4513', linewidth=2, markersize=4)
+    ax3.plot(rounds, intermediary_wealth, 's-', label='Intermediary Firms', color='#DAA520', linewidth=2, markersize=4)
+    ax3.plot(rounds, final_goods_wealth, '^-', label='Final Goods Firms', color='#00FF00', linewidth=2, markersize=4)
+    ax3.plot(rounds, household_wealth, 'd-', label='Households', color='#4169E1', linewidth=2, markersize=4)
+    ax3.set_title('Wealth Evolution by Sector (Real Data)', fontweight='bold')
     ax3.set_xlabel('Round')
-    ax3.set_ylabel('Number of Stressed Agents')
+    ax3.set_ylabel('Total Wealth ($)')
+    ax3.legend()
     ax3.grid(True, alpha=0.3)
     
-    # Plot 4: Supply chain resilience analysis
+    # Plot 4: Climate stress events over time
+    ax4.plot(rounds, climate_stress_counts, 'ro-', linewidth=3, markersize=6)
+    ax4.fill_between(rounds, climate_stress_counts, alpha=0.3, color='red')
+    ax4.set_title('Climate Stress Events Over Time (Real Data)', fontweight='bold')
+    ax4.set_xlabel('Round')
+    ax4.set_ylabel('Number of Stressed Agents')
+    ax4.grid(True, alpha=0.3)
+    
+    # Plot 5: Supply chain resilience analysis
     # Calculate production volatility as resilience metric
     commodity_volatility = np.std(commodity_production)
     intermediary_volatility = np.std(intermediary_production)
@@ -358,7 +382,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     production_changes = np.diff(commodity_production)
     climate_changes = np.diff(climate_stress_counts)
     
-    ax4.axis('off')
+    ax5.axis('off')
     
     # Summary statistics from REAL simulation
     total_rounds = len(rounds)
@@ -393,11 +417,35 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     • Commodity: {commodity_production[-1]:.2f}
     • Intermediary: {intermediary_production[-1]:.2f}
     • Final Goods: {final_goods_production[-1]:.2f}
+    
+    📦 Final Inventory Levels:
+    • Commodity: {commodity_inventory[-1]:.2f}
+    • Intermediary: {intermediary_inventory[-1]:.2f}
+    • Final Goods: {final_goods_inventory[-1]:.2f}
     """
     
-    ax4.text(0.05, 0.95, summary_text, transform=ax4.transAxes, fontsize=10,
+    ax5.text(0.05, 0.95, summary_text, transform=ax5.transAxes, fontsize=10,
              verticalalignment='top', fontfamily='monospace',
              bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8))
+    
+    # Plot 6: Inventory vs Production Analysis
+    ax6.set_title('Inventory vs Production (Final Goods)', fontweight='bold')
+    ax6.plot(rounds, final_goods_production, 'g-o', linewidth=2, markersize=4, label='Production', alpha=0.8)
+    ax6.plot(rounds, final_goods_inventory, 'r-s', linewidth=2, markersize=4, label='Inventory', alpha=0.8)
+    
+    # Calculate and show inventory turnover
+    if final_goods_inventory and final_goods_production:
+        # Add ratio line (inventory/production)
+        turnover_ratio = [inv/prod if prod > 0 else 0 for inv, prod in zip(final_goods_inventory, final_goods_production)]
+        ax6_twin = ax6.twinx()
+        ax6_twin.plot(rounds, turnover_ratio, 'b--', linewidth=1, alpha=0.6, label='Inventory/Production Ratio')
+        ax6_twin.set_ylabel('Inventory/Production Ratio', color='blue')
+        ax6_twin.tick_params(axis='y', labelcolor='blue')
+    
+    ax6.set_xlabel('Round')
+    ax6.set_ylabel('Units')
+    ax6.legend(loc='upper left')
+    ax6.grid(True, alpha=0.3)
     
     plt.tight_layout()
     
@@ -491,20 +539,31 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         ax1.text(6.5, 3.7, 'Households', ha='center', fontsize=10, fontweight='bold')
         
         # Plot 2: Production levels up to current frame
-        ax2.set_title('Production Levels Over Time')
+        ax2.set_title('Production & Inventory Levels Over Time')
         rounds_so_far = visualization_data['rounds'][:frame+1]
         
         commodity_prod = [visualization_data['production_data'][i]['commodity'] for i in range(frame+1)]
         intermediary_prod = [visualization_data['production_data'][i]['intermediary'] for i in range(frame+1)]
         final_goods_prod = [visualization_data['production_data'][i]['final_goods'] for i in range(frame+1)]
         
-        ax2.plot(rounds_so_far, commodity_prod, 'o-', label='Commodity', color='#8B4513')
-        ax2.plot(rounds_so_far, intermediary_prod, 's-', label='Intermediary', color='#DAA520')
-        ax2.plot(rounds_so_far, final_goods_prod, '^-', label='Final Goods', color='#00FF00')
+        # Add inventory data
+        commodity_inv = [visualization_data['inventory_data'][i]['commodity'] for i in range(frame+1)]
+        intermediary_inv = [visualization_data['inventory_data'][i]['intermediary'] for i in range(frame+1)]
+        final_goods_inv = [visualization_data['inventory_data'][i]['final_goods'] for i in range(frame+1)]
         
-        ax2.legend(fontsize=8, loc='upper left')
+        # Plot production (solid lines)
+        ax2.plot(rounds_so_far, commodity_prod, 'o-', label='Commodity Prod', color='#8B4513', linewidth=2)
+        ax2.plot(rounds_so_far, intermediary_prod, 's-', label='Intermediary Prod', color='#DAA520', linewidth=2)
+        ax2.plot(rounds_so_far, final_goods_prod, '^-', label='Final Goods Prod', color='#00FF00', linewidth=2)
+        
+        # Plot inventory (dashed lines)
+        ax2.plot(rounds_so_far, commodity_inv, 'o--', label='Commodity Inv', color='#8B4513', alpha=0.7, linewidth=1)
+        ax2.plot(rounds_so_far, intermediary_inv, 's--', label='Intermediary Inv', color='#DAA520', alpha=0.7, linewidth=1)
+        ax2.plot(rounds_so_far, final_goods_inv, '^--', label='Final Goods Inv', color='#00FF00', alpha=0.7, linewidth=1)
+        
+        ax2.legend(fontsize=7, loc='upper left')
         ax2.set_xlabel('Round')
-        ax2.set_ylabel('Production Level')
+        ax2.set_ylabel('Production/Inventory Level')
         ax2.grid(True, alpha=0.3)
         
         # Plot 3: Geographical Distribution World Map
@@ -650,7 +709,8 @@ def collect_all_visualization_data(simulation_path, climate_framework, num_round
         'agent_data': [],
         'climate_events': [],
         'production_data': [],
-        'wealth_data': []
+        'wealth_data': [],
+        'inventory_data': []
     }
     
     # Read data for each round from the CSV files
@@ -662,6 +722,7 @@ def collect_all_visualization_data(simulation_path, climate_framework, num_round
         visualization_data['climate_events'].append(round_data['climate'])
         visualization_data['production_data'].append(round_data['production'])
         visualization_data['wealth_data'].append(round_data['wealth'])
+        visualization_data['inventory_data'].append(round_data['inventories'])
         
         # Add debug info
         total_production = sum(round_data['production'].values())

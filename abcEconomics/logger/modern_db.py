@@ -210,13 +210,13 @@ class ModernDbDatabase:
 
     def _get_next_versioned_directory(self, directory):
         """
-        Find the next available version number for a directory using pattern: basename (1), (2), (3), etc.
+        Find the next available version number for a directory using pattern: basename_1, _2, etc.
         """
         parent_dir = os.path.dirname(directory)
         base_name = os.path.basename(directory)
         
-        # Pattern to match numbered versions: "basename (1)", "basename (2)", etc.
-        pattern = re.compile(rf'^{re.escape(base_name)} \((\d+)\)$')
+        # Pattern to match numbered versions: "basename_1", "basename_2", etc.
+        pattern = re.compile(rf'^{re.escape(base_name)}_(\d+)$')
         
         highest_version = 0
         
@@ -233,7 +233,7 @@ class ModernDbDatabase:
         
         # Return the next version number
         next_version = highest_version + 1
-        return f"{directory} ({next_version})"
+        return f"{directory}_{next_version}"
 
 
 class ModernThreadingDatabase(ModernDbDatabase, threading.Thread):
