@@ -30,8 +30,8 @@ from climate_framework import create_climate_framework
 # Import the configuration loader
 from config_loader import load_model_config
 
-# Import the simulation logger
-from simulation_logger import SimulationLogger, replace_agent_prints_with_logging
+# Import the simulation logger from abcEconomics
+from abcEconomics.logger import create_simulation_logger, replace_agent_prints_with_logging
 
 # Import visualization libraries
 import matplotlib.pyplot as plt
@@ -637,23 +637,31 @@ def main(config_file_path):
     actual_simulation_path = w.path
     print(f"Simulation will save to: {actual_simulation_path}")
 
-    # Set up simulation logger
-    logging_config = config_loader.config.get('logging', {})
+    # Set up simulation logger with climate-specific keywords
+    climate_agent_keywords = [
+        'Household', 'Producer', 'Firm', 'Commodity', 'Intermediary', 'Final',
+        'buy', 'sell', 'production', 'consumption', 'labor', 'market',
+        'money', 'trade', 'offer', 'accepted', 'spent', 'received'
+    ]
     
-    if logging_config.get('agent_activity_logging', True):
-        log_filename = logging_config.get('log_filename', 'simulation_detailed_log.txt')
-        log_file_path = os.path.join(actual_simulation_path, log_filename)
-        console_level = logging_config.get('console_level', 'WARNING')
-        
-        sim_logger = SimulationLogger(log_file_path, console_level=console_level)
-        
+    climate_event_keywords = [
+        'Climate', 'stress', 'shock', 'CLIMATE', 'Weather', 'Event',
+        'Disruption', 'Impact', 'Crisis', 'reset', 'applied', 'cleared'
+    ]
+    
+    sim_logger = create_simulation_logger(
+        config=config_loader.config,
+        simulation_path=actual_simulation_path,
+        simulation_name="Climate 3-Layer Economic Simulation",
+        agent_keywords=climate_agent_keywords,
+        climate_keywords=climate_event_keywords
+    )
+    
+    if sim_logger:
         # Replace agent print statements with structured logging
         replace_agent_prints_with_logging(sim_logger)
-        
-        print(f"📄 Detailed agent activity will be logged to: {log_file_path}")
+        print(f"📄 Detailed agent activity will be logged to: {sim_logger.log_file_path}")
     else:
-        # Create a minimal logger that does nothing
-        sim_logger = None
         print("📄 Agent activity logging is disabled")
 
     # Build agents for each layer using configuration

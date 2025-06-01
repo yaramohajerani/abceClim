@@ -10,7 +10,16 @@
     "agent_activity_logging": true,
     "console_level": "WARNING",
     "detailed_agent_actions": true,
-    "log_filename": "simulation_detailed_log.txt"
+    "log_filename": "simulation_detailed_log.txt",
+    "agent_keywords": [
+      "Household", "Producer", "Firm", "Commodity", "Intermediary", "Final",
+      "buy", "sell", "production", "consumption", "labor", "market",
+      "money", "trade", "offer", "accepted", "spent", "received"
+    ],
+    "climate_keywords": [
+      "Climate", "stress", "shock", "CLIMATE", "Weather", "Event",
+      "Disruption", "Impact", "Crisis", "reset", "applied", "cleared"
+    ]
   },
   "climate": {
     "stress_enabled": true,
