@@ -5,6 +5,7 @@ import os
 import threading
 import multiprocessing
 import time
+import re
 from collections import defaultdict
 import pandas as pd
 
@@ -27,12 +28,13 @@ class ModernDbDatabase:
                              datetime.datetime.now().strftime("%Y-%m-%d_%H-%M"))
             else:
                 self.directory = directory
-            while True:
-                try:
-                    os.makedirs(self.directory)
-                    break
-                except OSError:
-                    self.directory += 'I'
+            
+            # Try to create directory, if it exists find next version number
+            try:
+                os.makedirs(self.directory)
+            except OSError:
+                self.directory = self._get_next_versioned_directory(self.directory)
+                os.makedirs(self.directory)
 
         self.panels = {}
         self.in_sok = in_sok
@@ -205,6 +207,33 @@ class ModernDbDatabase:
                     indent=4,
                     skipkeys=True,
                     default=lambda x: 'not_serializeable'))
+
+    def _get_next_versioned_directory(self, directory):
+        """
+        Find the next available version number for a directory using pattern: basename (1), (2), (3), etc.
+        """
+        parent_dir = os.path.dirname(directory)
+        base_name = os.path.basename(directory)
+        
+        # Pattern to match numbered versions: "basename (1)", "basename (2)", etc.
+        pattern = re.compile(rf'^{re.escape(base_name)} \((\d+)\)$')
+        
+        highest_version = 0
+        
+        try:
+            # List all items in the parent directory
+            for item in os.listdir(parent_dir if parent_dir else '.'):
+                match = pattern.match(item)
+                if match:
+                    version = int(match.group(1))
+                    highest_version = max(highest_version, version)
+        except OSError:
+            # If we can't list the directory, just use version 1
+            pass
+        
+        # Return the next version number
+        next_version = highest_version + 1
+        return f"{directory} ({next_version})"
 
 
 class ModernThreadingDatabase(ModernDbDatabase, threading.Thread):
