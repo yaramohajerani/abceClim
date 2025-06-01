@@ -74,7 +74,7 @@
         "base_output_quantity": 1.0,
         "inputs": {
           "labor": 1,
-          "commodity": 5
+          "commodity": 1
         },
         "output": "intermediate_good",
         "price": 2.0

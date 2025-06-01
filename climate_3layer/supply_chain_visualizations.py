@@ -6,11 +6,10 @@ leveraging the core climate framework while adding supply chain-specific analysi
 """
 
 import matplotlib.pyplot as plt
-import seaborn as sns
 import pandas as pd
 import numpy as np
 import os
-from typing import Dict, List, Any
+from typing import Dict
 
 # Import the core climate framework
 import sys
@@ -152,31 +151,6 @@ class SupplyChainVisualizer:
         layers = ['commodity_producer', 'intermediary_firm', 'final_goods_firm']
         colors = ['brown', 'orange', 'green']
         
-        # Calculate production capacities dynamically from configuration
-        capacities = {}
-        if self.config_loader:
-            for layer in layers:
-                try:
-                    agent_config = self.config_loader.get_agent_config(layer)
-                    capacity = agent_config['count'] * agent_config['production']['base_output_quantity']
-                    capacities[layer] = capacity
-                except Exception as e:
-                    print(f"Warning: Could not get capacity for {layer}: {e}")
-                    # Fallback to default values if config is not available
-                    fallback_capacities = {
-                        'commodity_producer': None,
-                        'intermediary_firm': None,
-                        'final_goods_firm': None
-                    }
-                    capacities[layer] = fallback_capacities.get(layer, 1.0)
-        else:
-            # Fallback to hardcoded values if no config loader available
-            capacities = {
-                'commodity_producer': None,
-                'intermediary_firm': None,
-                'final_goods_firm': None
-            }
-        
         for i, layer in enumerate(layers):
             production_key = f'{layer}_production'
             if production_key in economic_data:
@@ -190,11 +164,6 @@ class SupplyChainVisualizer:
                     ax.plot(round_summary['round'], round_summary[good_col], 
                            color=colors[i], linewidth=3, marker='o', markersize=8,
                            label=self.layer_mapping[layer], alpha=0.8)
-                    
-                    # Add capacity line
-                    capacity = capacities[layer]
-                    ax.axhline(y=capacity, color=colors[i], linestyle='--', alpha=0.5, linewidth=2,
-                              label=f'{self.layer_mapping[layer]} Capacity ({capacity})')
         
         # Highlight climate events
         for round_num, events in enumerate(self.climate_framework.climate_events_history):
@@ -207,28 +176,6 @@ class SupplyChainVisualizer:
         ax.set_ylabel('Total Production')
         ax.legend(loc='upper right', fontsize=9)
         ax.grid(True, alpha=0.3)
-        
-        # Add capacity utilization summary
-        if layers and any(f'{layer}_production' in economic_data for layer in layers):
-            final_round_data = {}
-            for layer in layers:
-                production_key = f'{layer}_production'
-                if production_key in economic_data:
-                    df = economic_data[production_key]
-                    good_col = self.production_goods[layer]
-                    if 'round' in df.columns and good_col in df.columns:
-                        final_production = df.groupby('round')[good_col].sum().iloc[-1]
-                        capacity = capacities[layer]
-                        utilization = (final_production / capacity) * 100
-                        final_round_data[layer] = utilization
-            
-            if final_round_data:
-                util_text = "Final Capacity Utilization:\n" + "\n".join([
-                    f"{layer.replace('_', ' ').title()}: {util:.1f}%" 
-                    for layer, util in final_round_data.items()
-                ])
-                ax.text(0.02, 0.98, util_text, transform=ax.transAxes, fontsize=9,
-                       verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
     
     def _plot_climate_impact_by_layer(self, ax, economic_data: Dict[str, pd.DataFrame]):
         """Plot climate impact analysis by supply chain layer."""
@@ -291,26 +238,18 @@ class SupplyChainVisualizer:
     
     def _plot_production_efficiency(self, ax, economic_data: Dict[str, pd.DataFrame]):
         """Plot production efficiency metrics over time."""
-        ax.set_title('Production Efficiency', fontweight='bold')
+        ax.set_title('Production Trends', fontweight='bold')
         
-        # Calculate efficiency as actual production / theoretical maximum
+        # Plot production trends instead of efficiency metrics
         if 'commodity_producer_production' in economic_data:
             df = economic_data['commodity_producer_production']
             if 'round' in df.columns and 'commodity' in df.columns:
                 round_summary = df.groupby('round')['commodity'].agg(['sum', 'mean']).reset_index()
                 
-                # Theoretical maximum (3 producers * 2.0 base production)
-                theoretical_max = 3 * 2.0
-                efficiency = (round_summary['sum'] / theoretical_max) * 100
-                
-                ax.plot(round_summary['round'], efficiency, 'b-o', linewidth=2, markersize=6)
-                ax.set_ylabel('Efficiency (%)')
+                ax.plot(round_summary['round'], round_summary['sum'], 'b-o', linewidth=2, markersize=6, label='Total Production')
+                ax.plot(round_summary['round'], round_summary['mean'], 'r-s', linewidth=2, markersize=6, label='Avg per Producer')
+                ax.set_ylabel('Production')
                 ax.set_xlabel('Round')
-                ax.set_ylim(0, 105)
-                
-                # Add efficiency zones
-                ax.axhline(y=100, color='green', linestyle='-', alpha=0.3, label='Maximum')
-                ax.axhline(y=70, color='orange', linestyle='--', alpha=0.5, label='Stress Level')
                 ax.legend()
         
         ax.grid(True, alpha=0.3)

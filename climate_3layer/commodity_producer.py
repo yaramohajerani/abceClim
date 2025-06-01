@@ -82,15 +82,43 @@ class CommodityProducer(abce.Agent, abce.Firm):
 
     def production(self):
         """ Produce commodities using labor """
+        # Log inventory before production
+        print(f"    Commodity Producer {self.id}: BEFORE production:")
+        print(f"      Current output quantity (multiplier): {self.current_output_quantity}")
+        print(f"      Inputs recipe: {self.inputs}")
+        for good in ['money', 'labor', self.output]:
+            print(f"      {good}: {self[good]:.3f}")
+        
         # Update production function with current output quantity (accounting for climate stress)
         self.pf = self.create_cobb_douglas(self.output, self.current_output_quantity, self.inputs)
+        print(f"      Production function created with multiplier: {self.current_output_quantity}, exponents: {self.inputs}")
+        
+        # Prepare actual input quantities (what we actually have available)
+        actual_inputs = {}
+        for input_good in self.inputs.keys():
+            actual_inputs[input_good] = self[input_good]
+            print(f"      Available {input_good}: {actual_inputs[input_good]:.3f}")
+        
+        print(f"      Calling production function with actual inputs: {actual_inputs}")
+        
+        # Manual calculation of expected Cobb-Douglas output for verification
+        expected_output = self.current_output_quantity  # multiplier
+        for input_good, exponent in self.inputs.items():
+            available_quantity = actual_inputs[input_good]
+            expected_output *= (available_quantity ** exponent)
+        print(f"      Expected Cobb-Douglas output: {self.current_output_quantity} * {' * '.join([f'{actual_inputs[good]}^{exp}' for good, exp in self.inputs.items()])} = {expected_output:.3f}")
         
         try:
-            self.produce(self.pf, self.inputs)
+            self.produce(self.pf, actual_inputs)
             print(f"    Commodity Producer {self.id}: Production successful")
         except Exception as e:
-            print(f"    Commodity Producer {self.id}: Production failed (not enough inputs): {e}")
-            # Production is automatically 0 when there are insufficient inputs
+            print(f"    Commodity Producer {self.id}: Production failed: {e}")
+        
+        # Log inventory after production
+        print(f"    Commodity Producer {self.id}: AFTER production:")
+        for good in ['money', 'labor', self.output]:
+            print(f"      {good}: {self[good]:.3f}")
+        print(f"      Change in {self.output}: +{self[self.output]}")
 
     def sell_commodities(self):
         """ Sell commodities to intermediary firms """

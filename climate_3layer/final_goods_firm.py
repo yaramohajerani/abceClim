@@ -118,12 +118,17 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         # Update production function with current output quantity (accounting for climate stress)
         self.pf = self.create_cobb_douglas(self.output, self.current_output_quantity, self.inputs)
         
+        # Prepare actual input quantities (what we actually have available)
+        actual_inputs = {}
+        for input_good in self.inputs.keys():
+            actual_inputs[input_good] = self[input_good]
+            print(f"    Final Goods Firm {self.id}: Available {input_good}: {actual_inputs[input_good]:.3f}")
+        
         try:
-            self.produce(self.pf, self.inputs)
+            self.produce(self.pf, actual_inputs)
             print(f"    Final Goods Firm {self.id}: Production successful")
         except Exception as e:
-            print(f"    Final Goods Firm {self.id}: Production failed (not enough inputs): {e}")
-            # Production is automatically 0 when there are insufficient inputs
+            print(f"    Final Goods Firm {self.id}: Production failed: {e}")
 
     def sell_final_goods(self):
         """ Sell final goods to households """

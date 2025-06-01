@@ -333,24 +333,12 @@ def create_time_evolution_visualization(visualization_data, simulation_path, con
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
     fig.suptitle('REAL Climate 3-Layer Supply Chain: Time Evolution Analysis', fontsize=16, fontweight='bold')
     
-    # Plot 1: Production evolution over time WITH CAPACITY LINES
+    # Plot 1: Production evolution over time
     ax1.plot(rounds, commodity_production, 'o-', label='Commodity Production', color='#8B4513', linewidth=2, markersize=4)
     ax1.plot(rounds, intermediary_production, 's-', label='Intermediary Production', color='#DAA520', linewidth=2, markersize=4)
     ax1.plot(rounds, final_goods_production, '^-', label='Final Goods Production', color='#00FF00', linewidth=2, markersize=4)
     
-    # Add capacity lines
-    ax1.axhline(y=commodity_capacity, color='#8B4513', linestyle='--', alpha=0.7, linewidth=2, label=f'Commodity Capacity ({commodity_capacity})')
-    ax1.axhline(y=intermediary_capacity, color='#DAA520', linestyle='--', alpha=0.7, linewidth=2, label=f'Intermediary Capacity ({intermediary_capacity})')
-    ax1.axhline(y=final_goods_capacity, color='#00FF00', linestyle='--', alpha=0.7, linewidth=2, label=f'Final Goods Capacity ({final_goods_capacity})')
-    
-    # Add capacity utilization annotations
-    if commodity_production:
-        commodity_utilization = (commodity_production[-1] / commodity_capacity) * 100
-        ax1.text(0.02, 0.98, f'Final Utilization:\nCommodity: {commodity_utilization:.1f}%\nIntermediary: {(intermediary_production[-1] / intermediary_capacity) * 100:.1f}%\nFinal Goods: {(final_goods_production[-1] / final_goods_capacity) * 100:.1f}%', 
-                transform=ax1.transAxes, fontsize=9, verticalalignment='top',
-                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
-    
-    ax1.set_title('Production Levels vs Capacity Over Time (Real Data)', fontweight='bold')
+    ax1.set_title('Production Levels Over Time (Real Data)', fontweight='bold')
     ax1.set_xlabel('Round')
     ax1.set_ylabel('Production Level')
     ax1.legend(loc='center right', fontsize=9)
@@ -398,11 +386,6 @@ def create_time_evolution_visualization(visualization_data, simulation_path, con
     max_commodity_stress = max(climate_stress_counts) if climate_stress_counts else 0
     supply_chain_efficiency = (final_goods_production[-1] / final_goods_production[0] * 100) if final_goods_production[0] > 0 else 100
     
-    # Calculate average capacity utilization
-    avg_commodity_util = np.mean(commodity_production) / commodity_capacity * 100
-    avg_intermediary_util = np.mean(intermediary_production) / intermediary_capacity * 100
-    avg_final_goods_util = np.mean(final_goods_production) / final_goods_capacity * 100
-    
     summary_text = f"""
     REAL SIMULATION ANALYSIS SUMMARY
     
@@ -410,11 +393,6 @@ def create_time_evolution_visualization(visualization_data, simulation_path, con
     • Total Rounds: {total_rounds}
     • Final Total Wealth: ${final_total_wealth:.0f}
     • Supply Chain Efficiency: {supply_chain_efficiency:.1f}%
-    
-    🏭 Capacity Utilization:
-    • Commodity avg: {avg_commodity_util:.1f}% (cap: {commodity_capacity})
-    • Intermediary avg: {avg_intermediary_util:.1f}% (cap: {intermediary_capacity})
-    • Final Goods avg: {avg_final_goods_util:.1f}% (cap: {final_goods_capacity})
     
     🌪️ Climate Impact Analysis:
     • Average climate events per round: {avg_climate_events:.1f}
@@ -547,21 +525,6 @@ def create_animated_supply_chain(visualization_data, simulation_path, config_loa
         ax2.plot(rounds_so_far, commodity_prod, 'o-', label='Commodity', color='#8B4513')
         ax2.plot(rounds_so_far, intermediary_prod, 's-', label='Intermediary', color='#DAA520')
         ax2.plot(rounds_so_far, final_goods_prod, '^-', label='Final Goods', color='#00FF00')
-        
-        # Add capacity lines (use dynamically calculated values)
-        ax2.axhline(y=commodity_capacity, color='#8B4513', linestyle='--', alpha=0.6, linewidth=1.5, label=f'Commodity Cap ({commodity_capacity})')
-        ax2.axhline(y=intermediary_capacity, color='#DAA520', linestyle='--', alpha=0.6, linewidth=1.5, label=f'Intermediary Cap ({intermediary_capacity})')
-        ax2.axhline(y=final_goods_capacity, color='#00FF00', linestyle='--', alpha=0.6, linewidth=1.5, label=f'Final Goods Cap ({final_goods_capacity})')
-        
-        # Add current utilization text
-        if commodity_prod and intermediary_prod and final_goods_prod:
-            current_commodity_util = (commodity_prod[-1] / commodity_capacity) * 100
-            current_intermediary_util = (intermediary_prod[-1] / intermediary_capacity) * 100  
-            current_final_goods_util = (final_goods_prod[-1] / final_goods_capacity) * 100
-            
-            ax2.text(0.02, 0.98, f'Round {round_num} Utilization:\nCommodity: {current_commodity_util:.1f}%\nIntermediary: {current_intermediary_util:.1f}%\nFinal Goods: {current_final_goods_util:.1f}%', 
-                    transform=ax2.transAxes, fontsize=8, verticalalignment='top',
-                    bbox=dict(boxstyle='round', facecolor='lightcyan', alpha=0.8))
         
         ax2.legend(fontsize=8, loc='upper left')
         ax2.set_xlabel('Round')
