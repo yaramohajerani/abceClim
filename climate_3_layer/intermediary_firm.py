@@ -9,7 +9,7 @@ from climate_framework import add_climate_capabilities
 
 @add_climate_capabilities
 class IntermediaryFirm(abce.Agent, abce.Firm):
-    def init(self, config=None):
+    def init(self, config):
         """ Intermediary firms are the second layer in the supply chain.
         They use labor and commodities to produce intermediate goods that will be used by final goods firms.
         They are also vulnerable to climate stress but typically less than commodity producers.
@@ -17,23 +17,6 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
         Args:
             config: Configuration dictionary with production parameters, climate settings, etc.
         """
-        # Use configuration or fall back to defaults for backward compatibility
-        if config is None:
-            config = {
-                'initial_money': 50,
-                'initial_inventory': {'commodity': 1},
-                'production': {
-                    'base_output_quantity': 1.5,
-                    'inputs': {'labor': 1, 'commodity': 1},
-                    'output': 'intermediate_good',
-                    'price': 2.0
-                },
-                'climate': {
-                    'base_vulnerability': 0.1,
-                    'vulnerability_variance': 0.05
-                }
-            }
-        
         # Initialize money
         initial_money = config.get('initial_money', 50)
         self.create('money', initial_money)

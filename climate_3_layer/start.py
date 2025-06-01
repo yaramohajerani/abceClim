@@ -30,6 +30,9 @@ from climate_framework import create_climate_framework
 # Import the configuration loader
 from config_loader import load_model_config
 
+# Import the simulation logger
+from simulation_logger import SimulationLogger, replace_agent_prints_with_logging
+
 # Import visualization libraries
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -610,7 +613,7 @@ def create_animated_supply_chain(visualization_data, simulation_path, config_loa
     
     return filename
 
-def main(config_file_path=None):
+def main(config_file_path):
     """
     Main simulation function that now uses configuration files.
     
@@ -618,8 +621,7 @@ def main(config_file_path=None):
         config_file_path: Path to the JSON configuration file. If None, uses default "model_config.json"
     """
     # Load configuration
-    if config_file_path is None:
-        config_file_path = os.path.join(os.path.dirname(__file__), "model_config.json")
+    config_file_path = os.path.join(os.path.dirname(__file__), "model_config.json")
     
     print(f"🔧 Loading configuration from: {config_file_path}")
     config_loader = load_model_config(config_file_path)
@@ -634,6 +636,25 @@ def main(config_file_path=None):
     # Get the actual path that abcEconomics created (handles increments like resultI, resultII, etc.)
     actual_simulation_path = w.path
     print(f"Simulation will save to: {actual_simulation_path}")
+
+    # Set up simulation logger
+    logging_config = config_loader.config.get('logging', {})
+    
+    if logging_config.get('agent_activity_logging', True):
+        log_filename = logging_config.get('log_filename', 'simulation_detailed_log.txt')
+        log_file_path = os.path.join(actual_simulation_path, log_filename)
+        console_level = logging_config.get('console_level', 'WARNING')
+        
+        sim_logger = SimulationLogger(log_file_path, console_level=console_level)
+        
+        # Replace agent print statements with structured logging
+        replace_agent_prints_with_logging(sim_logger)
+        
+        print(f"📄 Detailed agent activity will be logged to: {log_file_path}")
+    else:
+        # Create a minimal logger that does nothing
+        sim_logger = None
+        print("📄 Agent activity logging is disabled")
 
     # Build agents for each layer using configuration
     print(f"\n Building agents from configuration...")
@@ -704,28 +725,42 @@ def main(config_file_path=None):
     print(f"\n🚀 Starting simulation for {simulation_parameters['rounds']} rounds...")
     for r in range(simulation_parameters['rounds']):
         print(f"Round {r}...", end=" ")
+        
+        # Log the round start in the detailed log
+        if sim_logger:
+            sim_logger.set_round(r)
+        
         w.advance_round(r)
         
         # Apply geographical climate stress using the framework
         climate_events = {}
         if simulation_parameters['climate_stress_enabled']:
+            if sim_logger:
+                sim_logger.set_phase("Climate Events")
             climate_events = climate_framework.apply_geographical_climate_stress(agent_groups)
 
         # Labor market
         print(f"  Labor market...")
+        if sim_logger:
+            sim_logger.set_phase("Labor Market")
         labor_endowment = household_config['labor']['endowment']
         households.refresh_services('labor', derived_from='labor_endowment', units=labor_endowment)
         households.sell_labor()
-        print(f"    Labor offered by households (endowment: {labor_endowment} per household)")
+        if sim_logger:
+            sim_logger.log_phase_summary(f"Labor offered by households (endowment: {labor_endowment} per household)")
         
         # Layer 1: Commodity producers buy labor and produce
         print(f"  Layer 1: Commodity producers...")
+        if sim_logger:
+            sim_logger.set_phase("Layer 1: Commodity Producers")
         commodity_producers.buy_labor()
         commodity_producers.production()
         commodity_producers.panel_log(goods=[commodity_config['production']['output'], 'money'])
         
         # Layer 2: Intermediary firms buy commodities and labor, then produce
         print(f"  Layer 2: Intermediary firms...")
+        if sim_logger:
+            sim_logger.set_phase("Layer 2: Intermediary Firms")
         commodity_producers.sell_commodities()
         intermediary_firms.buy_commodities()
         intermediary_firms.buy_labor()
@@ -734,6 +769,8 @@ def main(config_file_path=None):
         
         # Layer 3: Final goods firms buy intermediate goods and labor, then produce
         print(f"  Layer 3: Final goods firms...")
+        if sim_logger:
+            sim_logger.set_phase("Layer 3: Final Goods Firms")
         intermediary_firms.sell_intermediate_goods()
         final_goods_firms.buy_intermediate_goods()
         final_goods_firms.buy_labor()
@@ -742,12 +779,16 @@ def main(config_file_path=None):
         
         # Households buy final goods and consume
         print(f"  Consumer market...")
+        if sim_logger:
+            sim_logger.set_phase("Consumer Market")
         final_goods_firms.sell_final_goods()
         households.buy_final_goods()
         households.panel_log(goods=[household_config['consumption']['preference'], 'money'])
         households.consumption()
         
         # Collect data using the new framework method
+        if sim_logger:
+            sim_logger.set_phase("Data Collection")
         climate_framework.collect_panel_data(agent_groups, goods_to_track)
         
         print("completed")
@@ -756,6 +797,16 @@ def main(config_file_path=None):
     w.finalize()
     print("Simulation completed!")
     print(f"Results saved to: {actual_simulation_path}")
+    
+    # Log simulation end
+    if sim_logger:
+        summary_stats = {
+            "Total rounds": simulation_parameters['rounds'],
+            "Climate events": len([e for events in climate_framework.climate_events_history for e in events]),
+            "Agent types": len(agent_groups),
+            "Output directory": actual_simulation_path
+        }
+        sim_logger.log_simulation_end(summary_stats)
     
     # Collect visualization data 
     visualization_data = None
@@ -835,6 +886,10 @@ if __name__ == '__main__':
     # Allow specifying config file as command line argument
     config_file = sys.argv[1] if len(sys.argv) > 1 else None
     
+    if config_file is None:
+        print("No configuration file provided.")
+        sys.exit()
+        
     print("🌍 Climate 3-Layer Economic Model with Configurable Parameters")
     print("=" * 60)
     

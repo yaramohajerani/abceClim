@@ -9,7 +9,7 @@ from climate_framework import add_climate_capabilities
 
 @add_climate_capabilities
 class FinalGoodsFirm(abce.Agent, abce.Firm):
-    def init(self, config=None):
+    def init(self, config):
         """ Final goods firms are the third layer in the supply chain.
         They use labor and intermediate goods to produce final goods that will be consumed by households.
         They are typically least vulnerable to direct climate stress.
@@ -17,23 +17,6 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         Args:
             config: Configuration dictionary with production parameters, climate settings, etc.
         """
-        # Use configuration or fall back to defaults for backward compatibility
-        if config is None:
-            config = {
-                'initial_money': 60,
-                'initial_inventory': {},
-                'production': {
-                    'base_output_quantity': 1.8,
-                    'inputs': {'labor': 1, 'intermediate_good': 1},
-                    'output': 'final_good',
-                    'price': 5.0
-                },
-                'climate': {
-                    'base_vulnerability': 0.05,
-                    'vulnerability_variance': 0.02
-                }
-            }
-        
         # Initialize money
         initial_money = config.get('initial_money', 60)
         self.create('money', initial_money)

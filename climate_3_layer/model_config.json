@@ -1,10 +1,16 @@
 {
   "simulation": {
     "name": "supply_chain_stress_test",
-    "trade_logging": "off",
+    "trade_logging": "on",
     "random_seed": 42,
     "rounds": 12,
     "result_path": "result_supply_chain_test"
+  },
+  "logging": {
+    "agent_activity_logging": true,
+    "console_level": "WARNING",
+    "detailed_agent_actions": true,
+    "log_filename": "simulation_detailed_log.txt"
   },
   "climate": {
     "stress_enabled": true,

@@ -9,7 +9,7 @@ from climate_framework import add_climate_capabilities
 
 @add_climate_capabilities
 class CommodityProducer(abce.Agent, abce.Firm):
-    def init(self, config=None):
+    def init(self, config):
         """ Commodity producers are the first layer in the supply chain.
         They use labor to produce raw commodities that will be used by intermediary firms.
         They are vulnerable to climate stress which affects their productivity.
@@ -17,23 +17,6 @@ class CommodityProducer(abce.Agent, abce.Firm):
         Args:
             config: Configuration dictionary with production parameters, climate settings, etc.
         """
-        # Use configuration or fall back to defaults for backward compatibility
-        if config is None:
-            config = {
-                'initial_money': 50,
-                'initial_inventory': {},
-                'production': {
-                    'base_output_quantity': 1.0,
-                    'inputs': {'labor': 1},
-                    'output': 'commodity',
-                    'price': 1.0
-                },
-                'climate': {
-                    'base_vulnerability': 0.3,
-                    'vulnerability_variance': 0.1
-                }
-            }
-        
         # Initialize money
         initial_money = config.get('initial_money', 50)
         self.create('money', initial_money)
@@ -134,7 +117,7 @@ class CommodityProducer(abce.Agent, abce.Firm):
                 # Create the output
                 self.create(self.output, max_production_with_climate)
                 
-                print(f"    Commodity Producer {self.id}: Produced {max_production_with_climate:.2f} {self.output}s")
+                print(f"    Commodity Producer {self.id}: Produced {max_production_with_climate:.2f} {self.output}")
                 print(f"    Commodity Producer {self.id}: Used inputs: {actual_inputs}")
             except Exception as e:
                 print(f"    Commodity Producer {self.id}: Production failed: {e}")

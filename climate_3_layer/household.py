@@ -2,28 +2,13 @@ import abcEconomics as abce
 
 
 class Household(abce.Agent):
-    def init(self, config=None):
+    def init(self, config):
         """ Households provide labor and consume final goods.
         They are not directly affected by climate stress but may be affected indirectly through employment.
         
         Args:
             config: Configuration dictionary with initial resources, labor, and consumption parameters.
         """
-        # Use configuration or fall back to defaults for backward compatibility
-        if config is None:
-            config = {
-                'initial_money': 10,
-                'initial_inventory': {},
-                'labor': {
-                    'endowment': 1,
-                    'wage': 1.0
-                },
-                'consumption': {
-                    'preference': 'final_good',
-                    'budget_fraction': 0.8
-                }
-            }
-        
         # Initialize money
         initial_money = config.get('initial_money', 10)
         self.create('money', initial_money)

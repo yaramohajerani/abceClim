@@ -21,8 +21,8 @@ class ModernDbDatabase:
         # setting up directory
         self.directory = directory
         if directory is not None:
-            os.makedirs(os.path.abspath('.') + '/result/', exist_ok=True)
             if directory == 'auto':
+                os.makedirs(os.path.abspath('.') + '/result/', exist_ok=True)
                 self.directory = (os.path.abspath('.') + '/result/' + name + '_' +
                              datetime.datetime.now().strftime("%Y-%m-%d_%H-%M"))
             else:
