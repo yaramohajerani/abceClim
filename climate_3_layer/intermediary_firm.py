@@ -132,47 +132,50 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
 
     def production(self):
         """ Produce intermediate goods using labor and commodities """
-        # Check available inputs
+        # Check what inputs we have available
         available_inputs = {}
-        can_produce = True
-        
         for input_good, required_quantity in self.inputs.items():
             available = self[input_good]
             available_inputs[input_good] = available
-            if available < required_quantity:
-                can_produce = False
+            print(f"    Intermediary Firm {self.id}: Has {available:.2f} {input_good} (needs {required_quantity:.2f} per unit)")
         
-        if can_produce:
-            # Full production possible
-            # Update production function with current (potentially climate-affected) output quantity
-            self.pf = self.create_cobb_douglas(self.output, self.current_output_quantity, self.inputs)
-            self.produce(self.pf, self.inputs)
-            print(f"    Intermediary Firm {self.id}: Produced {self.current_output_quantity:.2f} {self.output}s using full inputs")
-        else:
-            # Partial or zero production based on available inputs
-            # Calculate production scaling factor based on most limiting input
-            production_scale = 1.0
-            for input_good, required_quantity in self.inputs.items():
-                available = available_inputs[input_good]
-                if required_quantity > 0:
-                    input_scale = available / required_quantity
-                    production_scale = min(production_scale, input_scale)
+        # Calculate maximum production possible with recipe-based constraints
+        max_production = float('inf')
+        for input_good, required_per_unit in self.inputs.items():
+            available = available_inputs[input_good]
+            if required_per_unit > 0:
+                possible_units = available / required_per_unit
+                max_production = min(max_production, possible_units)
+                print(f"      {input_good}: {available:.2f} ÷ {required_per_unit:.2f} = {possible_units:.2f} possible units")
+        
+        # Apply climate stress to max production
+        max_production_with_climate = min(max_production, self.current_output_quantity)
+        
+        if max_production_with_climate > 0:
+            # Calculate actual inputs needed for this production level
+            actual_inputs = {}
+            for input_good, required_per_unit in self.inputs.items():
+                needed = required_per_unit * max_production_with_climate
+                actual_inputs[input_good] = needed
             
-            if production_scale > 0:
-                # Scale down production and inputs
-                scaled_output = self.current_output_quantity * production_scale
-                scaled_inputs = {good: quantity * production_scale for good, quantity in self.inputs.items()}
+            # Use the inputs and produce the output
+            try:
+                # Destroy the inputs
+                for input_good, amount in actual_inputs.items():
+                    self.destroy(input_good, amount)
                 
-                # Create scaled production function
-                self.pf = self.create_cobb_douglas(self.output, scaled_output, scaled_inputs)
-                self.produce(self.pf, scaled_inputs)
-                print(f"    Intermediary Firm {self.id}: Partial production {scaled_output:.2f} {self.output}s (scale: {production_scale:.2f})")
-            else:
-                # No production possible
-                print(f"    Intermediary Firm {self.id}: No production - insufficient inputs")
-                for input_good, required in self.inputs.items():
-                    available = available_inputs[input_good]
-                    print(f"      Need {required:.2f} {input_good}, have {available:.2f}")
+                # Create the output
+                self.create(self.output, max_production_with_climate)
+                
+                print(f"    Intermediary Firm {self.id}: Produced {max_production_with_climate:.2f} {self.output}s")
+                print(f"    Intermediary Firm {self.id}: Used inputs: {actual_inputs}")
+            except Exception as e:
+                print(f"    Intermediary Firm {self.id}: Production failed: {e}")
+        else:
+            print(f"    Intermediary Firm {self.id}: No production possible - insufficient inputs")
+            for input_good, required in self.inputs.items():
+                available = available_inputs[input_good]
+                print(f"      Need {required:.2f} {input_good}, have {available:.2f}")
 
     def sell_intermediate_goods(self):
         """ Sell intermediate goods to final goods firms """
