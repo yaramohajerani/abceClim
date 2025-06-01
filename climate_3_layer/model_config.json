@@ -3,7 +3,7 @@
     "name": "supply_chain_stress_test",
     "trade_logging": "off",
     "random_seed": 42,
-    "rounds": 10,
+    "rounds": 2,
     "result_path": "result_supply_chain_test"
   },
   "climate": {

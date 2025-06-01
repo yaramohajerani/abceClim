@@ -21,9 +21,10 @@ from climate_framework import CONTINENTS
 class SupplyChainVisualizer:
     """Specialized visualizer for 3-layer supply chain climate model."""
     
-    def __init__(self, climate_framework):
+    def __init__(self, climate_framework, config_loader=None):
         """Initialize with reference to the climate framework for geographical/climate data."""
         self.climate_framework = climate_framework
+        self.config_loader = config_loader
         self.layer_mapping = {
             'commodity_producer': 'Layer 1: Commodity Production',
             'intermediary_firm': 'Layer 2: Intermediate Goods',
@@ -151,6 +152,31 @@ class SupplyChainVisualizer:
         layers = ['commodity_producer', 'intermediary_firm', 'final_goods_firm']
         colors = ['brown', 'orange', 'green']
         
+        # Calculate production capacities dynamically from configuration
+        capacities = {}
+        if self.config_loader:
+            for layer in layers:
+                try:
+                    agent_config = self.config_loader.get_agent_config(layer)
+                    capacity = agent_config['count'] * agent_config['production']['base_output_quantity']
+                    capacities[layer] = capacity
+                except Exception as e:
+                    print(f"Warning: Could not get capacity for {layer}: {e}")
+                    # Fallback to default values if config is not available
+                    fallback_capacities = {
+                        'commodity_producer': None,
+                        'intermediary_firm': None,
+                        'final_goods_firm': None
+                    }
+                    capacities[layer] = fallback_capacities.get(layer, 1.0)
+        else:
+            # Fallback to hardcoded values if no config loader available
+            capacities = {
+                'commodity_producer': None,
+                'intermediary_firm': None,
+                'final_goods_firm': None
+            }
+        
         for i, layer in enumerate(layers):
             production_key = f'{layer}_production'
             if production_key in economic_data:
@@ -160,9 +186,15 @@ class SupplyChainVisualizer:
                 if 'round' in df.columns and good_col in df.columns:
                     round_summary = df.groupby('round')[good_col].sum().reset_index()
                     
+                    # Plot actual production
                     ax.plot(round_summary['round'], round_summary[good_col], 
                            color=colors[i], linewidth=3, marker='o', markersize=8,
                            label=self.layer_mapping[layer], alpha=0.8)
+                    
+                    # Add capacity line
+                    capacity = capacities[layer]
+                    ax.axhline(y=capacity, color=colors[i], linestyle='--', alpha=0.5, linewidth=2,
+                              label=f'{self.layer_mapping[layer]} Capacity ({capacity})')
         
         # Highlight climate events
         for round_num, events in enumerate(self.climate_framework.climate_events_history):
@@ -173,8 +205,30 @@ class SupplyChainVisualizer:
         
         ax.set_xlabel('Round')
         ax.set_ylabel('Total Production')
-        ax.legend(loc='upper right')
+        ax.legend(loc='upper right', fontsize=9)
         ax.grid(True, alpha=0.3)
+        
+        # Add capacity utilization summary
+        if layers and any(f'{layer}_production' in economic_data for layer in layers):
+            final_round_data = {}
+            for layer in layers:
+                production_key = f'{layer}_production'
+                if production_key in economic_data:
+                    df = economic_data[production_key]
+                    good_col = self.production_goods[layer]
+                    if 'round' in df.columns and good_col in df.columns:
+                        final_production = df.groupby('round')[good_col].sum().iloc[-1]
+                        capacity = capacities[layer]
+                        utilization = (final_production / capacity) * 100
+                        final_round_data[layer] = utilization
+            
+            if final_round_data:
+                util_text = "Final Capacity Utilization:\n" + "\n".join([
+                    f"{layer.replace('_', ' ').title()}: {util:.1f}%" 
+                    for layer, util in final_round_data.items()
+                ])
+                ax.text(0.02, 0.98, util_text, transform=ax.transAxes, fontsize=9,
+                       verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
     
     def _plot_climate_impact_by_layer(self, ax, economic_data: Dict[str, pd.DataFrame]):
         """Plot climate impact analysis by supply chain layer."""

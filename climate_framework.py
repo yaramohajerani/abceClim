@@ -111,12 +111,11 @@ class ClimateFramework:
         # Reset all agents to normal production first
         print(f"\n  Resetting all agents to normal production...")
         for agent_type, agent_group in agent_groups.items():
-            if hasattr(agent_group, 'reset_climate_stress'):
-                try:
-                    agent_group.reset_climate_stress()
-                    print(f"    Reset climate stress for {agent_type} group")
-                except Exception as e:
-                    print(f"    Could not reset {agent_type}: {e}")
+            try:
+                agent_group.reset_climate_stress()
+                print(f"    Reset climate stress for {agent_type} group")
+            except Exception as e:
+                print(f"    Could not reset {agent_type}: {e}")
         
         # Process each shock rule
         for rule in shock_rules:
@@ -231,13 +230,12 @@ class ClimateFramework:
         # Reset all agents to normal production first
         print(f"\n  Resetting all agents to normal production...")
         for agent_type, agent_group in agent_groups.items():
-            if hasattr(agent_group, 'reset_climate_stress'):
-                try:
-                    agent_group.reset_climate_stress()
-                    print(f"    Reset climate stress for {agent_type} group")
-                except Exception as e:
-                    print(f"    Could not reset {agent_type}: {e}")
-        
+            try:
+                agent_group.reset_climate_stress()
+                print(f"    Reset climate stress for {agent_type} group")
+            except Exception as e:
+                print(f"    Could not reset {agent_type}: {e}")
+
         # Apply climate stress to affected agents by continent
         if climate_events:
             print(f"  Applying climate stress by continent...")

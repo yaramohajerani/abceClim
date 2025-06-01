@@ -1,10 +1,4 @@
 import abcEconomics as abce
-import sys
-import os
-import random
-# Add the root directory to Python path to find the climate framework
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from climate_framework import add_climate_capabilities
 
 
 class Household(abce.Agent):
