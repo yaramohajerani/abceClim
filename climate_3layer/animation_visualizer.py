@@ -3,7 +3,7 @@ Standalone script for creating time-evolving animations and visualizations
 from simulation output CSV files. Can be run independently after simulation completion.
 
 Usage:
-    python animation_visualizer.py <simulation_path> [config_file]
+    python animation_visualizer.py <simulation_path>
 """
 import sys
 import os
@@ -12,12 +12,6 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import numpy as np
 from datetime import datetime
-
-# Add the root directory to Python path to find local abcEconomics and climate framework
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-
-# Import the configuration loader
-from config_loader import load_model_config
 
 def load_real_geographical_assignments(simulation_path):
     """Load REAL geographical assignments from the climate summary CSV file."""
@@ -131,7 +125,7 @@ class ClimateFrameworkFromData:
         self.geographical_assignments = geographical_assignments
         self.climate_events_history = climate_events_history
 
-def collect_simulation_data(simulation_path, round_num, config_loader, climate_framework):
+def collect_simulation_data(simulation_path, round_num, climate_framework):
     """Collect data from the simulation CSV files for one round."""
     
     round_data = {
@@ -297,7 +291,7 @@ def get_agent_vulnerability(agent_type, agent_id, climate_framework):
             return assignments[agent_id]['vulnerability']
     return 0.0
 
-def create_time_evolution_visualization(visualization_data, simulation_path, config_loader):
+def create_time_evolution_visualization(visualization_data, simulation_path):
     """Create time-evolving visualization from real simulation data."""
     
     print("🎬 Creating time-evolving visualization from REAL simulation data...")
@@ -319,15 +313,6 @@ def create_time_evolution_visualization(visualization_data, simulation_path, con
     for round_agents in visualization_data['agent_data']:
         stress_count = sum([1 for agent in round_agents if agent['climate_stressed']])
         climate_stress_counts.append(stress_count)
-    
-    # Calculate production capacities dynamically from configuration
-    commodity_config = config_loader.get_agent_config('commodity_producer')
-    intermediary_config = config_loader.get_agent_config('intermediary_firm')
-    final_goods_config = config_loader.get_agent_config('final_goods_firm')
-    
-    commodity_capacity = commodity_config['count'] * commodity_config['production']['base_output_quantity']
-    intermediary_capacity = intermediary_config['count'] * intermediary_config['production']['base_output_quantity']
-    final_goods_capacity = final_goods_config['count'] * final_goods_config['production']['base_output_quantity']
     
     # Create comprehensive time evolution plot
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
@@ -425,19 +410,10 @@ def create_time_evolution_visualization(visualization_data, simulation_path, con
     plt.close()
     return filename
 
-def create_animated_supply_chain(visualization_data, simulation_path, config_loader):
+def create_animated_supply_chain(visualization_data, simulation_path):
     """Create animated GIF showing supply chain evolution over time."""
     
     print("🎞️ Creating animated supply chain visualization...")
-    
-    # Calculate production capacities dynamically from configuration
-    commodity_config = config_loader.get_agent_config('commodity_producer')
-    intermediary_config = config_loader.get_agent_config('intermediary_firm')
-    final_goods_config = config_loader.get_agent_config('final_goods_firm')
-    
-    commodity_capacity = commodity_config['count'] * commodity_config['production']['base_output_quantity']
-    intermediary_capacity = intermediary_config['count'] * intermediary_config['production']['base_output_quantity']
-    final_goods_capacity = final_goods_config['count'] * final_goods_config['production']['base_output_quantity']
     
     # Set up the animation plot with more subplots including geographical map
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 14))
@@ -665,7 +641,7 @@ def create_animated_supply_chain(visualization_data, simulation_path, config_loa
     
     return filename
 
-def collect_all_visualization_data(simulation_path, config_loader, climate_framework, num_rounds):
+def collect_all_visualization_data(simulation_path, climate_framework, num_rounds):
     """Collect visualization data for all rounds from the simulation CSV files."""
     
     print("📊 Collecting visualization data from simulation results...")
@@ -679,7 +655,7 @@ def collect_all_visualization_data(simulation_path, config_loader, climate_frame
     
     # Read data for each round from the CSV files
     for r in range(num_rounds):
-        round_data = collect_simulation_data(simulation_path, r, config_loader, climate_framework)
+        round_data = collect_simulation_data(simulation_path, r, climate_framework)
         
         visualization_data['rounds'].append(r)
         visualization_data['agent_data'].append(round_data['agents'])
@@ -694,22 +670,11 @@ def collect_all_visualization_data(simulation_path, config_loader, climate_frame
     print("✅ Visualization data collection completed!")
     return visualization_data
 
-def run_animation_visualizations(simulation_path, config_file=None):
+def run_animation_visualizations(simulation_path):
     """Main function to run all animation visualizations from simulation output."""
     
     print("🎬 Starting Animation Visualizer for Climate 3-Layer Model")
     print("=" * 60)
-    
-    # Load configuration
-    if config_file is None:
-        config_file = os.path.join(os.path.dirname(simulation_path), "model_config.json")
-    
-    if not os.path.exists(config_file):
-        print(f"❌ Configuration file not found: {config_file}")
-        return
-    
-    print(f"🔧 Loading configuration from: {config_file}")
-    config_loader = load_model_config(config_file)
     
     # Try to detect number of rounds from CSV files
     production_file = os.path.join(simulation_path, 'panel_commodity_producer_production.csv')
@@ -744,7 +709,7 @@ def run_animation_visualizations(simulation_path, config_file=None):
     
     # Collect visualization data
     visualization_data = collect_all_visualization_data(
-        simulation_path, config_loader, climate_framework, num_rounds
+        simulation_path, climate_framework, num_rounds
     )
     
     if not visualization_data['rounds']:
@@ -756,12 +721,12 @@ def run_animation_visualizations(simulation_path, config_file=None):
     
     # Create time evolution plot
     time_plot_file = create_time_evolution_visualization(
-        visualization_data, simulation_path, config_loader
+        visualization_data, simulation_path
     )
     
     # Create animated visualization
     animation_file = create_animated_supply_chain(
-        visualization_data, simulation_path, config_loader
+        visualization_data, simulation_path
     )
     
     print(f"\n🎉 Animation visualizations completed!")
@@ -777,20 +742,18 @@ def run_animation_visualizations(simulation_path, config_file=None):
 def main():
     """Command line interface for the animation visualizer."""
     
-    if len(sys.argv) < 2:
-        print("Usage: python animation_visualizer.py <simulation_path> [config_file]")
+    if len(sys.argv) < 1:
+        print("Usage: python animation_visualizer.py <simulation_path>")
         print("  simulation_path: Path to the simulation output directory")
-        print("  config_file: Optional path to configuration file (default: model_config.json in parent directory)")
         sys.exit(1)
     
     simulation_path = sys.argv[1]
-    config_file = sys.argv[2] if len(sys.argv) > 2 else None
     
     if not os.path.exists(simulation_path):
         print(f"❌ Simulation path does not exist: {simulation_path}")
         sys.exit(1)
     
-    results = run_animation_visualizations(simulation_path, config_file)
+    results = run_animation_visualizations(simulation_path)
     
     if results:
         print("\n✅ Animation visualization completed successfully!")
