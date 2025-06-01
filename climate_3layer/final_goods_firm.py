@@ -115,50 +115,15 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
 
     def production(self):
         """ Produce final goods using labor and intermediate goods """
-        # Check what inputs we have available
-        available_inputs = {}
-        for input_good, required_quantity in self.inputs.items():
-            available = self[input_good]
-            available_inputs[input_good] = available
-            print(f"    Final Goods Firm {self.id}: Has {available:.2f} {input_good} (needs {required_quantity:.2f} per unit)")
+        # Update production function with current output quantity (accounting for climate stress)
+        self.pf = self.create_cobb_douglas(self.output, self.current_output_quantity, self.inputs)
         
-        # Calculate maximum production possible with recipe-based constraints
-        max_production = float('inf')
-        for input_good, required_per_unit in self.inputs.items():
-            available = available_inputs[input_good]
-            if required_per_unit > 0:
-                possible_units = available / required_per_unit
-                max_production = min(max_production, possible_units)
-                print(f"      {input_good}: {available:.2f} ÷ {required_per_unit:.2f} = {possible_units:.2f} possible units")
-        
-        # Apply climate stress to max production
-        max_production_with_climate = min(max_production, self.current_output_quantity)
-        
-        if max_production_with_climate > 0:
-            # Calculate actual inputs needed for this production level
-            actual_inputs = {}
-            for input_good, required_per_unit in self.inputs.items():
-                needed = required_per_unit * max_production_with_climate
-                actual_inputs[input_good] = needed
-            
-            # Use the inputs and produce the output
-            try:
-                # Destroy the inputs
-                for input_good, amount in actual_inputs.items():
-                    self.destroy(input_good, amount)
-                
-                # Create the output
-                self.create(self.output, max_production_with_climate)
-                
-                print(f"    Final Goods Firm {self.id}: Produced {max_production_with_climate:.2f} {self.output}s")
-                print(f"    Final Goods Firm {self.id}: Used inputs: {actual_inputs}")
-            except Exception as e:
-                print(f"    Final Goods Firm {self.id}: Production failed: {e}")
-        else:
-            print(f"    Final Goods Firm {self.id}: No production possible - insufficient inputs")
-            for input_good, required in self.inputs.items():
-                available = available_inputs[input_good]
-                print(f"      Need {required:.2f} {input_good}, have {available:.2f}")
+        try:
+            self.produce(self.pf, self.inputs)
+            print(f"    Final Goods Firm {self.id}: Production successful")
+        except Exception as e:
+            print(f"    Final Goods Firm {self.id}: Production failed (not enough inputs): {e}")
+            # Production is automatically 0 when there are insufficient inputs
 
     def sell_final_goods(self):
         """ Sell final goods to households """
