@@ -7,16 +7,13 @@ import multiprocessing
 import time
 from collections import defaultdict
 import pandas as pd
-from sqlalchemy import create_engine, text, MetaData, Table, Column, Integer, String, Float, inspect
-from sqlalchemy.orm import sessionmaker
-import sqlite3
 
 from .online_variance import OnlineVariance
 import queue
 
 
 class ModernDbDatabase:
-    """Modern database handler using SQLAlchemy 2.0 and pandas for CSV export"""
+    """ database handler using direct CSV export """
 
     def __init__(self, directory, name, in_sok, trade_log, plugin=None, pluginargs=[]):
         super().__init__()
@@ -44,21 +41,11 @@ class ModernDbDatabase:
         self.trade_log = trade_log
 
         self.aggregation = defaultdict(lambda: defaultdict(OnlineVariance))
+        self.aggregates_data = defaultdict(list)
         self.round = 0
 
         self.plugin = plugin
         self.pluginargs = pluginargs
-
-        # Modern SQLAlchemy setup
-        if directory is not None:
-            self.db_path = os.path.join(self.directory, 'simulation.db')
-            self.engine = create_engine(f'sqlite:///{self.db_path}', echo=False)
-            self.metadata = MetaData()
-            self.Session = sessionmaker(bind=self.engine)
-        else:
-            self.engine = None
-            self.metadata = None
-            self.Session = None
 
     def run(self):
         if self.plugin is not None:
@@ -76,12 +63,6 @@ class ModernDbDatabase:
                     break
             return
 
-        # Create tables if needed
-        if self.engine is not None:
-            self.metadata.create_all(self.engine)
-
-        aggregates_data = defaultdict(list)
-        
         while True:
             try:
                 msg = self.in_sok.get(timeout=120)
@@ -95,7 +76,7 @@ class ModernDbDatabase:
                     for key, value in data_to_write.items():
                         self.aggregation[group][key].update(value)
                 else:
-                    self.make_aggregation_and_write(aggregates_data)
+                    self.make_aggregation_and_write()
                     self.round = round
                     for key, value in data_to_write.items():
                         self.aggregation[group][key].update(value)
@@ -136,7 +117,7 @@ class ModernDbDatabase:
                         "abcEconomics_db error '%s' command unknown" % msg)
 
         # Final processing
-        self.make_aggregation_and_write(aggregates_data)
+        self.make_aggregation_and_write()
         
         try:
             self.plugin.close()
@@ -146,7 +127,7 @@ class ModernDbDatabase:
         if self.directory is not None:
             self.export_to_csv()
 
-    def make_aggregation_and_write(self, aggregates_data):
+    def make_aggregation_and_write(self):
         for group, table in self.aggregation.items():
             result = {'round': self.round}
             for key, data in table.items():
@@ -154,12 +135,14 @@ class ModernDbDatabase:
                 result[key + '_mean'] = data.mean()
                 result[key + '_std'] = data.std()
             
-            aggregates_data[f'aggregated_{group}'].append(result)
+            self.aggregates_data[f'aggregate_{group}'].append(result)
             self.aggregation[group].clear()
 
     def export_to_csv(self):
         """Export all collected data to CSV files using pandas"""
         try:
+            total_files_exported = 0
+            
             # Export panel data
             for table_name, data_list in self.data.items():
                 if data_list:
@@ -171,9 +154,10 @@ class ModernDbDatabase:
                     
                     try:
                         df.to_csv(csv_path, index=False)
-                        print(f"Successfully exported {len(df)} rows to {csv_path}")
+                        print(f"✓ Exported {len(df)} rows to panel_{csv_name}.csv")
+                        total_files_exported += 1
                     except Exception as e:
-                        print(f"Error exporting {table_name}: {e}")
+                        print(f"✗ Error exporting {table_name}: {e}")
 
             # Export trade log data
             if self.trade_log_data:
@@ -181,31 +165,31 @@ class ModernDbDatabase:
                 trade_path = os.path.join(self.directory, 'trade_log.csv')
                 try:
                     trade_df.to_csv(trade_path, index=False)
-                    print(f"Successfully exported {len(trade_df)} trade records to {trade_path}")
+                    print(f"✓ Exported {len(trade_df)} trade records to trade_log.csv")
+                    total_files_exported += 1
                 except Exception as e:
-                    print(f"Error exporting trade log: {e}")
+                    print(f"✗ Error exporting trade log: {e}")
 
             # Export aggregated data
-            for group, table in self.aggregation.items():
-                result = {'round': self.round}
-                for key, data in table.items():
-                    result[key + '_ttl'] = data.sum()
-                    result[key + '_mean'] = data.mean()
-                    result[key + '_std'] = data.std()
-                
-                if result:
-                    agg_df = pd.DataFrame([result])
-                    agg_path = os.path.join(self.directory, f'aggregated_{group}.csv')
+            for group_key, data_list in self.aggregates_data.items():
+                if data_list:
+                    agg_df = pd.DataFrame(data_list)
+                    agg_path = os.path.join(self.directory, f'{group_key}.csv')
                     try:
                         agg_df.to_csv(agg_path, index=False)
-                        print(f"Successfully exported aggregated data for {group}")
+                        print(f"✓ Exported {len(agg_df)} rows to {group_key}.csv")
+                        total_files_exported += 1
                     except Exception as e:
-                        print(f"Error exporting aggregated data for {group}: {e}")
+                        print(f"✗ Error exporting {group_key}: {e}")
 
-            print(f"All data exported to: {self.directory}")
+            print(f"\n📊 Export Summary:")
+            print(f"   • {total_files_exported} CSV files created")
+            print(f"   • All data saved to: {self.directory}")
 
         except Exception as e:
-            print(f"Error in CSV export: {e}")
+            print(f"✗ Error in CSV export: {e}")
+            import traceback
+            traceback.print_exc()
 
     def finalize(self, data):
         self.in_sok.put('close')
