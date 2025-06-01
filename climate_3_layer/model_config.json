@@ -1,10 +1,10 @@
 {
   "simulation": {
-    "name": "climate_3_layer_geo",
+    "name": "supply_chain_stress_test",
     "trade_logging": "off",
     "random_seed": 42,
-    "rounds": 20,
-    "result_path": "result_climate_3_layer"
+    "rounds": 10,
+    "result_path": "result_supply_chain_test"
   },
   "climate": {
     "stress_enabled": true,
@@ -15,38 +15,20 @@
       {
         "name": "global_commodity_shock",
         "description": "Global shock affecting all commodity producers",
-        "probability": 0.10,
+        "probability": 0.20,
         "agent_types": ["commodity_producer"],
         "continents": ["all"],
-        "stress_factor": 0.7,
-        "duration": 1
-      },
-      {
-        "name": "asian_manufacturing_shock",
-        "description": "Manufacturing disruption in Asia",
-        "probability": 0.08,
-        "agent_types": ["commodity_producer", "intermediary_firm"],
-        "continents": ["Asia"],
         "stress_factor": 0.6,
         "duration": 1
       },
       {
-        "name": "extreme_weather_americas",
-        "description": "Extreme weather affecting North and South America",
-        "probability": 0.05,
+        "name": "severe_climate_event", 
+        "description": "Severe weather disrupting commodity production",
+        "probability": 0.15,
         "agent_types": ["commodity_producer"],
-        "continents": ["North America", "South America"],
-        "stress_factor": 0.5,
-        "duration": 2
-      },
-      {
-        "name": "supply_chain_disruption",
-        "description": "Major supply chain disruption affecting all production",
-        "probability": 0.03,
-        "agent_types": ["commodity_producer", "intermediary_firm", "final_goods_firm"],
         "continents": ["all"],
-        "stress_factor": 0.8,
-        "duration": 1
+        "stress_factor": 0.4,
+        "duration": 2
       }
     ]
   },
@@ -56,7 +38,7 @@
       "initial_money": 50,
       "initial_inventory": {},
       "production": {
-        "base_output_quantity": 1.0,
+        "base_output_quantity": 1.5,
         "inputs": {
           "labor": 1
         },
@@ -72,14 +54,12 @@
     "intermediary_firm": {
       "count": 2,
       "initial_money": 50,
-      "initial_inventory": {
-        "commodity": 1
-      },
+      "initial_inventory": {},
       "production": {
-        "base_output_quantity": 1.5,
+        "base_output_quantity": 1.0,
         "inputs": {
           "labor": 1,
-          "commodity": 1
+          "commodity": 5
         },
         "output": "intermediate_good",
         "price": 2.0
@@ -92,16 +72,16 @@
     },
     "final_goods_firm": {
       "count": 2,
-      "initial_money": 60,
+      "initial_money": 50,
       "initial_inventory": {},
       "production": {
-        "base_output_quantity": 1.8,
+        "base_output_quantity": 1.0,
         "inputs": {
           "labor": 1,
           "intermediate_good": 1
         },
         "output": "final_good",
-        "price": 5.0
+        "price": 10.0
       },
       "climate": {
         "base_vulnerability": 0.05,

@@ -99,9 +99,47 @@ class CommodityProducer(abce.Agent, abce.Firm):
 
     def production(self):
         """ Produce commodities using labor """
-        # Update production function with current (potentially climate-affected) output quantity
-        self.pf = self.create_cobb_douglas(self.output, self.current_output_quantity, self.inputs)
-        self.produce(self.pf, self.inputs)
+        # Check available inputs
+        available_inputs = {}
+        can_produce = True
+        
+        for input_good, required_quantity in self.inputs.items():
+            available = self[input_good]
+            available_inputs[input_good] = available
+            if available < required_quantity:
+                can_produce = False
+        
+        if can_produce:
+            # Full production possible
+            # Update production function with current (potentially climate-affected) output quantity
+            self.pf = self.create_cobb_douglas(self.output, self.current_output_quantity, self.inputs)
+            self.produce(self.pf, self.inputs)
+            print(f"    Commodity Producer {self.id}: Produced {self.current_output_quantity:.2f} {self.output}s using full inputs")
+        else:
+            # Partial or zero production based on available inputs
+            # Calculate production scaling factor based on most limiting input
+            production_scale = 1.0
+            for input_good, required_quantity in self.inputs.items():
+                available = available_inputs[input_good]
+                if required_quantity > 0:
+                    input_scale = available / required_quantity
+                    production_scale = min(production_scale, input_scale)
+            
+            if production_scale > 0:
+                # Scale down production and inputs
+                scaled_output = self.current_output_quantity * production_scale
+                scaled_inputs = {good: quantity * production_scale for good, quantity in self.inputs.items()}
+                
+                # Create scaled production function
+                self.pf = self.create_cobb_douglas(self.output, scaled_output, scaled_inputs)
+                self.produce(self.pf, scaled_inputs)
+                print(f"    Commodity Producer {self.id}: Partial production {scaled_output:.2f} {self.output}s (scale: {production_scale:.2f})")
+            else:
+                # No production possible
+                print(f"    Commodity Producer {self.id}: No production - insufficient inputs")
+                for input_good, required in self.inputs.items():
+                    available = available_inputs[input_good]
+                    print(f"      Need {required:.2f} {input_good}, have {available:.2f}")
 
     def sell_commodities(self):
         """ Sell commodities to intermediary firms """
