@@ -36,7 +36,25 @@
         "stress_factor": 0.98
       }
     ],
-    "shock_rules": []
+    "shock_rules": [
+      {
+        "name": "commodity_supply_shock",
+        "description": "Climate shock affecting commodity producers",
+        "probability": 0.25,
+        "continents": ["Asia", "Africa"],
+        "agent_types": ["commodity_producer"],
+        "stress_factor": 0.7,
+        "duration": 2
+      },
+      {
+        "name": "widespread_climate_event", 
+        "description": "Major climate event affecting multiple sectors",
+        "probability": 0.10,
+        "agent_types": ["commodity_producer", "intermediary_firm"],
+        "stress_factor": 0.8,
+        "duration": 1
+      }
+    ]
   },
   "agents": {
     "commodity_producer": {
@@ -103,7 +121,7 @@
       },
       "labor": {
         "endowment": 1,
-        "wage": 5
+        "wage": 6.5
       },
       "consumption": {
         "preference": "final_good",
@@ -123,7 +141,7 @@
     }
   },
   "visualization": {
-    "create_visualizations": true,
+    "create_visualizations": false,
     "create_dynamic_visualization": true,
     "save_climate_summary": true
   }

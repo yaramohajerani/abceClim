@@ -200,7 +200,11 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
     """Collect and process data for a specific round from CSV files."""
     
     agent_data = []
+    
+    # Load climate events for this round FIRST
     climate_events = {}
+    if hasattr(climate_framework, 'climate_events_history') and round_num < len(climate_framework.climate_events_history):
+        climate_events = climate_framework.climate_events_history[round_num]
     
     # Enhanced agent types with potential financial metrics
     agent_types = ['commodity_producer', 'intermediary_firm', 'final_goods_firm', 'household']
@@ -263,16 +267,17 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
                     'vulnerability': get_agent_vulnerability(agent_type, agent_id, climate_framework)
                 }
                 
-                # Check if agent is climate stressed
-                agent_info['climate_stressed'] = is_agent_climate_stressed(
+                # Check if agent is climate stressed (ONLY acute events, not chronic)
+                is_climate_stressed = is_agent_climate_stressed(
                     agent_type, agent_id, climate_events, climate_framework
                 )
                 
+                # Note: We deliberately do NOT check for chronic stress effects here
+                # because the red color in geography plot should only indicate acute events
+                
+                agent_info['climate_stressed'] = is_climate_stressed
+                
                 agent_data.append(agent_info)
-    
-    # Load climate events for this round
-    if hasattr(climate_framework, 'climate_events_history') and round_num < len(climate_framework.climate_events_history):
-        climate_events = climate_framework.climate_events_history[round_num]
     
     # Collect production data
     production_data = {
@@ -369,9 +374,12 @@ def is_agent_climate_stressed(agent_type, agent_id, climate_events, climate_fram
     if not climate_events:
         return False
     
+    # Get agent's continent for checking
+    agent_continent = get_agent_continent(agent_type, agent_id, climate_framework)
+    
     for event_key, event_data in climate_events.items():
         if isinstance(event_data, dict):
-            # New configurable shock format
+            # New configurable shock format (both acute and chronic)
             affected_agent_types = event_data.get('agent_types', [])
             affected_continents = event_data.get('continents', [])
             
@@ -381,15 +389,17 @@ def is_agent_climate_stressed(agent_type, agent_id, climate_events, climate_fram
                 if 'all' in affected_continents:
                     return True
                 
-                agent_continent = get_agent_continent(agent_type, agent_id, climate_framework)
                 if agent_continent in affected_continents:
                     return True
         
         elif event_key in ['North America', 'Europe', 'Asia', 'South America', 'Africa']:
             # Old format where event key is continent name
-            agent_continent = get_agent_continent(agent_type, agent_id, climate_framework)
             if agent_continent == event_key:
                 return True
+        
+        # Handle any other event format that might indicate stress
+        elif event_key == agent_continent:
+            return True
     
     return False
 
@@ -449,7 +459,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     
     for i in range(len(rounds)):
         # Extract debt for each sector from agent data
-        agents = visualization_data['agent_data'][i]
+        agents = visualization_data['agents'][i]
         commodity_debt.append(sum(a['debt'] for a in agents if a['type'] == 'commodity_producer'))
         intermediary_debt.append(sum(a['debt'] for a in agents if a['type'] == 'intermediary_firm'))
         final_goods_debt.append(sum(a['debt'] for a in agents if a['type'] == 'final_goods_firm'))
@@ -474,9 +484,9 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     
     # 3. Inventory Levels (existing plot)
     ax3.set_title('Inventory Accumulation')
-    commodity_inv = [visualization_data['inventory_data'][i]['commodity'] for i in range(len(rounds))]
-    intermediary_inv = [visualization_data['inventory_data'][i]['intermediary'] for i in range(len(rounds))]
-    final_goods_inv = [visualization_data['inventory_data'][i]['final_goods'] for i in range(len(rounds))]
+    commodity_inv = [visualization_data['inventories'][i]['commodity'] for i in range(len(rounds))]
+    intermediary_inv = [visualization_data['inventories'][i]['intermediary'] for i in range(len(rounds))]
+    final_goods_inv = [visualization_data['inventories'][i]['final_goods'] for i in range(len(rounds))]
     
     ax3.plot(rounds, commodity_inv, 'o-', label='Commodity', color='#8B4513', linewidth=2)
     ax3.plot(rounds, intermediary_inv, 's-', label='Intermediary', color='#DAA520', linewidth=2)
@@ -488,7 +498,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     
     # 4. Total Debt Evolution (NEW)
     ax4.set_title('Total System Debt')
-    total_debt = [visualization_data['financial_data'][i]['total_debt'] for i in range(len(rounds))]
+    total_debt = [visualization_data['financial'][i]['total_debt'] for i in range(len(rounds))]
     ax4.plot(rounds, total_debt, 'o-', color='red', linewidth=2, markersize=6)
     ax4.fill_between(rounds, 0, total_debt, alpha=0.3, color='red')
     ax4.set_xlabel('Round')
@@ -497,10 +507,10 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     
     # 5. Net Worth by Sector (NEW)
     ax5.set_title('Net Worth Evolution (Wealth - Debt)')
-    commodity_net = [visualization_data['net_worth_data'][i]['commodity'] for i in range(len(rounds))]
-    intermediary_net = [visualization_data['net_worth_data'][i]['intermediary'] for i in range(len(rounds))]
-    final_goods_net = [visualization_data['net_worth_data'][i]['final_goods'] for i in range(len(rounds))]
-    household_net = [visualization_data['net_worth_data'][i]['households'] for i in range(len(rounds))]
+    commodity_net = [visualization_data['net_worth'][i]['commodity'] for i in range(len(rounds))]
+    intermediary_net = [visualization_data['net_worth'][i]['intermediary'] for i in range(len(rounds))]
+    final_goods_net = [visualization_data['net_worth'][i]['final_goods'] for i in range(len(rounds))]
+    household_net = [visualization_data['net_worth'][i]['households'] for i in range(len(rounds))]
     
     ax5.plot(rounds, commodity_net, 'o-', label='Commodity', color='#8B4513', linewidth=2)
     ax5.plot(rounds, intermediary_net, 's-', label='Intermediary', color='#DAA520', linewidth=2)
@@ -514,8 +524,8 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     
     # 6. Profit and Climate Cost (NEW)
     ax6.set_title('System Profitability and Climate Costs')
-    total_profit = [visualization_data['financial_data'][i]['total_profit'] for i in range(len(rounds))]
-    climate_cost = [visualization_data['financial_data'][i]['climate_cost_total'] for i in range(len(rounds))]
+    total_profit = [visualization_data['financial'][i]['total_profit'] for i in range(len(rounds))]
+    climate_cost = [visualization_data['financial'][i]['climate_cost_total'] for i in range(len(rounds))]
     
     ax6_twin = ax6.twinx()
     
@@ -539,7 +549,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     
     # Add climate event markers to all plots
     climate_events_rounds = []
-    for i, events in enumerate(visualization_data['climate_events']):
+    for i, events in enumerate(visualization_data['climate']):
         if events:
             climate_events_rounds.append(i)
     
@@ -591,10 +601,10 @@ def create_animated_supply_chain(visualization_data, simulation_path):
             return
         
         round_num = visualization_data['rounds'][frame]
-        agent_data = visualization_data['agent_data'][frame]
+        agent_data = visualization_data['agents'][frame]
         production_data = visualization_data['production_data'][frame]
         wealth_data = visualization_data['wealth_data'][frame]
-        climate_events = visualization_data['climate_events'][frame]
+        climate_events = visualization_data['climate'][frame]
         
         # Plot 1: Agent network with financial status
         ax1.set_title(f'Supply Chain Network - Round {round_num}')
@@ -669,10 +679,10 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         agent_positions = create_agent_positions(agent_counts)
         
         agent_type_colors = {
-            'commodity_producer': '#8B4513',
-            'intermediary_firm': '#DAA520',
-            'final_goods_firm': '#00FF00',
-            'household': '#4169E1'
+            'commodity_producer': '#8B4513',  # Dark brown
+            'intermediary_firm': '#DAA520',   # Goldenrod  
+            'final_goods_firm': '#00FF00',    # Green
+            'household': '#4169E1'            # Blue
         }
         
         # Plot each agent using data and dynamic positions
@@ -736,9 +746,9 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         final_goods_prod = [visualization_data['production_data'][i]['final_goods'] for i in range(frame+1)]
         
         # Add inventory data
-        commodity_inv = [visualization_data['inventory_data'][i]['commodity'] for i in range(frame+1)]
-        intermediary_inv = [visualization_data['inventory_data'][i]['intermediary'] for i in range(frame+1)]
-        final_goods_inv = [visualization_data['inventory_data'][i]['final_goods'] for i in range(frame+1)]
+        commodity_inv = [visualization_data['inventories'][i]['commodity'] for i in range(frame+1)]
+        intermediary_inv = [visualization_data['inventories'][i]['intermediary'] for i in range(frame+1)]
+        final_goods_inv = [visualization_data['inventories'][i]['final_goods'] for i in range(frame+1)]
         
         # Plot production (solid lines) - LEFT Y-AXIS
         ax2.plot(rounds_so_far, commodity_prod, 'o-', label='Commodity Prod', color='#8B4513', linewidth=2)
@@ -766,8 +776,8 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         
         climate_shock_legend_added = False
         for shock_round in range(frame + 1):
-            if shock_round < len(visualization_data['climate_events']):
-                events = visualization_data['climate_events'][shock_round]
+            if shock_round < len(visualization_data['climate']):
+                events = visualization_data['climate'][shock_round]
                 if events:  # Climate events occurred in this round
                     # Determine which sectors were affected
                     affected_sectors = set()
@@ -820,10 +830,22 @@ def create_animated_supply_chain(visualization_data, simulation_path):
             # Default color
             base_color = '#90EE90'  # Light green for normal
             
-            # Check if this continent has climate stress
-            if climate_events and continent in climate_events:
-                if 'stress' in str(climate_events[continent]):
-                    base_color = '#FF6B6B'  # Red for climate stress
+            # Check if this continent has any climate events this round
+            continent_has_events = False
+            if climate_events:
+                for event_key, event_data in climate_events.items():
+                    if isinstance(event_data, dict):
+                        affected_continents = event_data.get('continents', [])
+                        if 'all' in affected_continents or continent in affected_continents:
+                            continent_has_events = True
+                            break
+                    elif continent in str(event_key):
+                        continent_has_events = True
+                        break
+            
+            # Color continent based on climate events
+            if continent_has_events:
+                base_color = '#FFB6C1'  # Light red/pink for affected continents
             
             continent_colors[continent] = base_color
             
@@ -841,6 +863,8 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         
         # Place agents on their continents
         agent_counts_by_continent = {}
+        stressed_agents_by_continent = {}
+        
         for agent in agent_data:
             continent = agent['continent']
             if continent not in agent_counts_by_continent:
@@ -850,7 +874,18 @@ def create_animated_supply_chain(visualization_data, simulation_path):
                     'final_goods_firm': 0,
                     'household': 0
                 }
+                stressed_agents_by_continent[continent] = {
+                    'commodity_producer': 0,
+                    'intermediary_firm': 0, 
+                    'final_goods_firm': 0,
+                    'household': 0
+                }
+            
             agent_counts_by_continent[continent][agent['type']] += 1
+            
+            # Count stressed agents
+            if agent['climate_stressed']:
+                stressed_agents_by_continent[continent][agent['type']] += 1
         
         # Draw agent indicators on continents
         for continent, counts in agent_counts_by_continent.items():
@@ -873,26 +908,43 @@ def create_animated_supply_chain(visualization_data, simulation_path):
                     if counts[agent_type] > 0:
                         pos_x, pos_y = agent_positions_in_continent[i]
                         
-                        # Check if agents of this type in this continent are stressed
-                        stressed_agents = [a for a in agent_data 
-                                         if a['continent'] == continent 
-                                         and a['type'] == agent_type 
-                                         and a['climate_stressed']]
+                        # Check if any agents of this type in this continent are stressed
+                        stressed_count = stressed_agents_by_continent[continent][agent_type]
+                        is_stressed = stressed_count > 0
                         
-                        color = '#FF0000' if stressed_agents else agent_colors[i]
-                        size = 150 if stressed_agents else 80
+                        # Choose color and size based on stress status
+                        if is_stressed:
+                            color = '#FF0000'  # Bright red for stressed agents
+                            size = 200  # Larger for stressed
+                            edge_color = 'black'
+                            edge_width = 2
+                        else:
+                            color = agent_colors[i]  # Normal sector color
+                            size = 100  # Normal size
+                            edge_color = 'black'
+                            edge_width = 1
                         
                         ax3.scatter(pos_x, pos_y, c=color, s=size, marker=agent_symbols[i], 
-                                  alpha=0.9, edgecolors='black', linewidth=1)
+                                  alpha=0.9, edgecolors=edge_color, linewidth=edge_width)
                         
-                        # Add count label
-                        ax3.text(pos_x, pos_y - 0.15, str(counts[agent_type]), 
-                               ha='center', va='center', fontsize=6, fontweight='bold')
+                        # Add count label (show stressed/total if there are stressed agents)
+                        if is_stressed:
+                            label_text = f"{stressed_count}/{counts[agent_type]}"
+                            label_color = 'red'
+                            fontweight = 'bold'
+                        else:
+                            label_text = str(counts[agent_type])
+                            label_color = 'black'
+                            fontweight = 'normal'
+                        
+                        ax3.text(pos_x, pos_y - 0.15, label_text, 
+                               ha='center', va='center', fontsize=6, 
+                               fontweight=fontweight, color=label_color)
         
         # Add legend for agent types
         legend_elements = []
         agent_type_names = ['Commodity Producers', 'Intermediary Firms', 'Final Goods Firms', 'Households']
-        agent_colors = ['#8B4513', '#DAA520', '#00FF00', '#4169E1']
+        agent_colors = ['#8B4513', '#DAA520', '#00FF00', '#4169E1']  # Consistent with agent_type_colors
         agent_symbols = ['o', 's', '^', 'D']
         
         for i, (name, color, symbol) in enumerate(zip(agent_type_names, agent_colors, agent_symbols)):
@@ -902,11 +954,15 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         
         # Add stress indicator to legend
         legend_elements.append(plt.Line2D([0], [0], marker='o', color='w', 
-                                        markerfacecolor='#FF0000', markersize=10, 
-                                        label='Climate Stressed', markeredgecolor='black', markeredgewidth=0.5))
+                                        markerfacecolor='#FF0000', markersize=12, 
+                                        label='Climate Stressed (Acute Events)', markeredgecolor='black', markeredgewidth=2))
         
-        ax3.legend(handles=legend_elements, loc='lower center', fontsize=8, 
-                  title='Agent Types', title_fontsize=9, framealpha=0.8)
+        # Add continent stress indicator to legend
+        legend_elements.append(plt.Rectangle((0, 0), 1, 1, facecolor='#FFB6C1', 
+                                           label='Affected Continent', alpha=0.6))
+        
+        ax3.legend(handles=legend_elements, loc='lower center', fontsize=7, 
+                  title='Agent Types & Climate Status', title_fontsize=8, framealpha=0.8)
         
         ax3.axis('off')  # Remove axes for cleaner world map look
         
@@ -926,7 +982,7 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         household_debt_series = []
         
         for i in range(frame+1):
-            agents = visualization_data['agent_data'][i]
+            agents = visualization_data['agents'][i]
             commodity_debt_series.append(sum(a['debt'] for a in agents if a['type'] == 'commodity_producer'))
             intermediary_debt_series.append(sum(a['debt'] for a in agents if a['type'] == 'intermediary_firm'))
             final_goods_debt_series.append(sum(a['debt'] for a in agents if a['type'] == 'final_goods_firm'))
@@ -947,8 +1003,8 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         # Add climate shock indicators as vertical lines (same as production plot)
         climate_shock_legend_added_wealth = False
         for shock_round in range(frame + 1):
-            if shock_round < len(visualization_data['climate_events']):
-                events = visualization_data['climate_events'][shock_round]
+            if shock_round < len(visualization_data['climate']):
+                events = visualization_data['climate'][shock_round]
                 if events:  # Climate events occurred in this round
                     # Determine which sectors were affected
                     affected_sectors = set()
@@ -1010,13 +1066,13 @@ def collect_all_visualization_data(simulation_path, climate_framework, num_round
     print("📊 Collecting visualization data from simulation results...")
     visualization_data = {
         'rounds': [],
-        'agent_data': [],
-        'climate_events': [],
+        'agents': [],
+        'climate': [],
         'production_data': [],
         'wealth_data': [],
-        'inventory_data': [],
-        'net_worth_data': [],
-        'financial_data': []
+        'inventories': [],
+        'net_worth': [],
+        'financial': []
     }
     
     # Read data for each round from the CSV files
@@ -1024,13 +1080,13 @@ def collect_all_visualization_data(simulation_path, climate_framework, num_round
         round_data = collect_simulation_data(simulation_path, r, climate_framework)
         
         visualization_data['rounds'].append(r)
-        visualization_data['agent_data'].append(round_data['agents'])
-        visualization_data['climate_events'].append(round_data['climate'])
+        visualization_data['agents'].append(round_data['agents'])
+        visualization_data['climate'].append(round_data['climate'])
         visualization_data['production_data'].append(round_data['production'])
         visualization_data['wealth_data'].append(round_data['wealth'])
-        visualization_data['inventory_data'].append(round_data['inventories'])
-        visualization_data['net_worth_data'].append(round_data['net_worth'])
-        visualization_data['financial_data'].append(round_data['financial'])
+        visualization_data['inventories'].append(round_data['inventories'])
+        visualization_data['net_worth'].append(round_data['net_worth'])
+        visualization_data['financial'].append(round_data['financial'])
         
         # Add debug info
         total_production = sum(round_data['production'].values())

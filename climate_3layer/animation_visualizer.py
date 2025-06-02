@@ -207,7 +207,7 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
         'inventories': {}
     }
     
-    # Get actual climate events for this round from climate framework
+    # Get actual climate events for this round from climate framework FIRST
     if round_num < len(climate_framework.climate_events_history):
         round_data['climate'] = climate_framework.climate_events_history[round_num]
     
@@ -247,10 +247,13 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
                     for _, row in round_df.iterrows():
                         agent_id = int(row['name'].replace(agent_type, ''))
                         
-                        # Determine if this specific agent is climate stressed
+                        # Check if agent is climate stressed (ONLY acute events, not chronic)
                         is_climate_stressed = is_agent_climate_stressed(
                             agent_type, agent_id, round_data['climate'], climate_framework
                         )
+                        
+                        # Note: We deliberately do NOT check for chronic stress effects here
+                        # because the red color in geography plot should only indicate acute events
                         
                         # Get wealth (money) data
                         if agent_type == 'household':

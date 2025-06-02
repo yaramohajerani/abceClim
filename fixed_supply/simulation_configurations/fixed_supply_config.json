@@ -134,7 +134,7 @@
       },
       "labor": {
         "endowment": 1,
-        "wage": 4
+        "wage": 6.5
       },
       "consumption": {
         "preference": "final_good",
@@ -154,7 +154,7 @@
     }
   },
   "visualization": {
-    "create_visualizations": true,
+    "create_visualizations": false,
     "create_dynamic_visualization": true,
     "save_climate_summary": true
   }
