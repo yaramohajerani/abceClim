@@ -1023,7 +1023,8 @@ class ClimateFramework:
                             if continent in CONTINENTS:
                                 summary_data.append({
                                     'agent_type': 'climate_event',
-                                    'agent_id': round_num,
+                                    'agent_id': event_key,
+                                    'round': round_num,
                                     'continent': continent,
                                     'vulnerability': CONTINENTS[continent]['climate_risk'],
                                     'data_type': event_data.get('rule_name', 'configurable_shock'),
@@ -1036,7 +1037,8 @@ class ClimateFramework:
                         # Old format where event key is continent name
                         summary_data.append({
                             'agent_type': 'climate_event',
-                            'agent_id': round_num,
+                            'agent_id': event_key,
+                            'round': round_num,
                             'continent': event_key,
                             'vulnerability': CONTINENTS[event_key]['climate_risk'],
                             'data_type': event_data if isinstance(event_data, str) else 'climate_stress',

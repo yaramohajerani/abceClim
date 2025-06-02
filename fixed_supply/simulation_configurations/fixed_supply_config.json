@@ -50,10 +50,10 @@
   "agents": {
     "commodity_producer": {
       "count": 4,
-      "initial_money": 100,
+      "initial_money": 50,
       "initial_inventory": {},
       "production": {
-        "desired_output_quantity": 4,
+        "desired_output_quantity": 2,
         "profit_margin": 0.2,
         "inputs": {
           "labor": 1
@@ -68,7 +68,7 @@
     },
     "intermediary_firm": {
       "count": 3,
-      "initial_money": 200,
+      "initial_money": 50,
       "initial_inventory": {},
       "production": {
         "desired_output_quantity": 2.0,
@@ -87,10 +87,10 @@
     },
     "final_goods_firm": {
       "count": 2,
-      "initial_money": 200,
+      "initial_money": 50,
       "initial_inventory": {},
       "production": {
-        "desired_output_quantity": 1.0,
+        "desired_output_quantity": 2.0,
         "profit_margin": 0.3,
         "inputs": {
           "labor": 0.5,
@@ -132,7 +132,7 @@
     }
   },
   "visualization": {
-    "create_visualizations": false,
+    "create_visualizations": true,
     "create_dynamic_visualization": true,
     "save_climate_summary": true
   }

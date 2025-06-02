@@ -15,7 +15,7 @@ from datetime import datetime
 
 def load_geographical_assignments(simulation_path):
     """Load geographical assignments from the climate summary CSV file."""
-    climate_summary_file = os.path.join(simulation_path, 'climate_3_layer_summary.csv')
+    climate_summary_file = os.path.join(simulation_path, 'fixed_supply_climate_summary.csv')
     
     if not os.path.exists(climate_summary_file):
         print(f"⚠️ Climate summary file not found: {climate_summary_file}")
@@ -127,7 +127,7 @@ def load_geographical_assignments(simulation_path):
 
 def load_climate_events(simulation_path):
     """Load climate events from the climate summary CSV file."""
-    climate_summary_file = os.path.join(simulation_path, 'climate_3_layer_summary.csv')
+    climate_summary_file = os.path.join(simulation_path, 'fixed_supply_climate_summary.csv')
     
     if not os.path.exists(climate_summary_file):
         print(f"⚠️ Climate summary file not found: {climate_summary_file}")
@@ -143,12 +143,12 @@ def load_climate_events(simulation_path):
             print("ℹ️ No climate events found in simulation")
             return []
         
-        # Group events by round
+        # Group events by round using the correct 'round' column
         climate_events_history = []
-        max_round = events_df['agent_id'].max() if len(events_df) > 0 else -1
+        max_round = int(events_df['round'].max()) if len(events_df) > 0 else -1
         
         for round_num in range(max_round + 1):
-            round_events = events_df[events_df['agent_id'] == round_num]
+            round_events = events_df[events_df['round'] == round_num]
             
             if len(round_events) > 0:
                 # Convert to the expected format
@@ -219,45 +219,49 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
             # Filter for the specific round
             round_data = df[df['round'] == round_num]
             
-            # Collect all agents of this type
-            unique_agents = round_data['id'].unique()
+            # Fixed supply model uses 'name' column instead of 'id'
+            unique_agents = round_data['name'].unique()
             
-            for agent_id in unique_agents:
-                agent_round_data = round_data[round_data['id'] == agent_id].iloc[0]
+            for agent_name in unique_agents:
+                # Extract agent ID from name (e.g., 'commodity_producer0' -> 0)
+                agent_id = int(agent_name.replace(agent_type, ''))
+                agent_round_data = round_data[round_data['name'] == agent_name].iloc[0]
+                
+                # Fixed supply model uses prefixed column names
+                if agent_type == 'household':
+                    wealth = agent_round_data.get('consumption_money', 0)
+                    debt = agent_round_data.get('consumption_debt', 0)
+                    profit = 0  # Households don't have profit
+                    actual_margin = 0
+                    target_margin = 0
+                    climate_cost_absorbed = 0
+                    price = 0
+                else:
+                    wealth = agent_round_data.get('production_money', 0)
+                    debt = agent_round_data.get('production_debt', 0)
+                    profit = agent_round_data.get('production_profit', 0)
+                    actual_margin = agent_round_data.get('production_actual_margin', 0)
+                    target_margin = agent_round_data.get('production_target_margin', 0)
+                    climate_cost_absorbed = agent_round_data.get('production_climate_cost_absorbed', 0)
+                    price = agent_round_data.get('production_price', 0)
                 
                 # Basic agent data
                 agent_info = {
                     'id': agent_id,
                     'type': agent_type,
                     'round': round_num,
-                    'wealth': agent_round_data.get('money', 0),
+                    'wealth': wealth,
+                    'debt': debt,
+                    'net_worth': wealth - debt,
+                    'profit': profit,
+                    'actual_margin': actual_margin,
+                    'target_margin': target_margin,
+                    'climate_cost_absorbed': climate_cost_absorbed,
+                    'dynamic_price': price,
                     'climate_stressed': False,  # Will be updated from climate events
                     'continent': get_agent_continent(agent_type, agent_id, climate_framework),
                     'vulnerability': get_agent_vulnerability(agent_type, agent_id, climate_framework)
                 }
-                
-                # Add financial metrics if available
-                if 'debt' in agent_round_data:
-                    agent_info['debt'] = agent_round_data['debt']
-                    agent_info['net_worth'] = agent_info['wealth'] - agent_info['debt']
-                else:
-                    agent_info['debt'] = 0
-                    agent_info['net_worth'] = agent_info['wealth']
-                
-                if 'profit' in agent_round_data:
-                    agent_info['profit'] = agent_round_data['profit']
-                
-                if 'actual_margin' in agent_round_data:
-                    agent_info['actual_margin'] = agent_round_data['actual_margin']
-                    
-                if 'target_margin' in agent_round_data:
-                    agent_info['target_margin'] = agent_round_data['target_margin']
-                
-                if 'climate_cost_absorbed' in agent_round_data:
-                    agent_info['climate_cost_absorbed'] = agent_round_data['climate_cost_absorbed']
-                
-                if 'price' in agent_round_data:
-                    agent_info['dynamic_price'] = agent_round_data['price']
                 
                 # Check if agent is climate stressed
                 agent_info['climate_stressed'] = is_agent_climate_stressed(
@@ -303,25 +307,26 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
             df = pd.read_csv(filepath)
             round_data = df[df['round'] == round_num]
             
-            if 'production' in round_data.columns:
-                production_data[good_type] = round_data['production'].sum()
+            # Fixed supply model uses prefixed column names
+            if 'production_production' in round_data.columns:
+                production_data[good_type] = round_data['production_production'].sum()
             
-            if 'cumulative_inventory' in round_data.columns:
-                inventory_data[good_type] = round_data['cumulative_inventory'].sum()
+            if 'production_cumulative_inventory' in round_data.columns:
+                inventory_data[good_type] = round_data['production_cumulative_inventory'].sum()
             
-            # Collect financial metrics
-            if 'debt' in round_data.columns:
-                financial_data['total_debt'] += round_data['debt'].sum()
+            # Collect financial metrics with prefixed names
+            if 'production_debt' in round_data.columns:
+                financial_data['total_debt'] += round_data['production_debt'].sum()
             
-            if 'profit' in round_data.columns:
-                financial_data['total_profit'] += round_data['profit'].sum()
+            if 'production_profit' in round_data.columns:
+                financial_data['total_profit'] += round_data['production_profit'].sum()
                 
-            if 'actual_margin' in round_data.columns and 'target_margin' in round_data.columns:
-                margin_deviations = abs(round_data['actual_margin'] - round_data['target_margin'])
+            if 'production_actual_margin' in round_data.columns and 'production_target_margin' in round_data.columns:
+                margin_deviations = abs(round_data['production_actual_margin'] - round_data['production_target_margin'])
                 financial_data['avg_margin_deviation'] += margin_deviations.mean()
                 
-            if 'climate_cost_absorbed' in round_data.columns:
-                financial_data['climate_cost_total'] += round_data['climate_cost_absorbed'].sum()
+            if 'production_climate_cost_absorbed' in round_data.columns:
+                financial_data['climate_cost_total'] += round_data['production_climate_cost_absorbed'].sum()
     
     # Add household consumption data
     household_file = os.path.join(simulation_path, 'panel_household_consumption.csv')
@@ -329,9 +334,9 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
         df = pd.read_csv(household_file)
         round_data = df[df['round'] == round_num]
         
-        # Add household debt to total
-        if 'debt' in round_data.columns:
-            financial_data['total_debt'] += round_data['debt'].sum()
+        # Add household debt to total (with prefixed name)
+        if 'consumption_debt' in round_data.columns:
+            financial_data['total_debt'] += round_data['consumption_debt'].sum()
     
     # Collect wealth data by sector
     wealth_data = {
@@ -429,20 +434,42 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     ax1.legend()
     ax1.grid(True, alpha=0.3)
     
-    # 2. Wealth by Sector (existing plot)
-    ax2.set_title('Wealth Evolution by Sector')
+    # 2. Wealth & Debt by Sector (enhanced plot)
+    ax2.set_title('Wealth & Debt Evolution by Sector')
     commodity_wealth = [visualization_data['wealth_data'][i]['commodity'] for i in range(len(rounds))]
     intermediary_wealth = [visualization_data['wealth_data'][i]['intermediary'] for i in range(len(rounds))]
     final_goods_wealth = [visualization_data['wealth_data'][i]['final_goods'] for i in range(len(rounds))]
     household_wealth = [visualization_data['wealth_data'][i]['households'] for i in range(len(rounds))]
     
-    ax2.plot(rounds, commodity_wealth, 'o-', label='Commodity', color='#8B4513', linewidth=2)
-    ax2.plot(rounds, intermediary_wealth, 's-', label='Intermediary', color='#DAA520', linewidth=2)
-    ax2.plot(rounds, final_goods_wealth, '^-', label='Final Goods', color='#00FF00', linewidth=2)
-    ax2.plot(rounds, household_wealth, 'd-', label='Households', color='#4169E1', linewidth=2)
+    # Calculate debt by sector
+    commodity_debt = []
+    intermediary_debt = []
+    final_goods_debt = []
+    household_debt = []
+    
+    for i in range(len(rounds)):
+        # Extract debt for each sector from agent data
+        agents = visualization_data['agent_data'][i]
+        commodity_debt.append(sum(a['debt'] for a in agents if a['type'] == 'commodity_producer'))
+        intermediary_debt.append(sum(a['debt'] for a in agents if a['type'] == 'intermediary_firm'))
+        final_goods_debt.append(sum(a['debt'] for a in agents if a['type'] == 'final_goods_firm'))
+        household_debt.append(sum(a['debt'] for a in agents if a['type'] == 'household'))
+    
+    # Plot wealth (solid lines)
+    ax2.plot(rounds, commodity_wealth, 'o-', label='Commodity Wealth', color='#8B4513', linewidth=2)
+    ax2.plot(rounds, intermediary_wealth, 's-', label='Intermediary Wealth', color='#DAA520', linewidth=2)
+    ax2.plot(rounds, final_goods_wealth, '^-', label='Final Goods Wealth', color='#00FF00', linewidth=2)
+    ax2.plot(rounds, household_wealth, 'd-', label='Households Wealth', color='#4169E1', linewidth=2)
+    
+    # Plot debt (dashed lines with transparency)
+    ax2.plot(rounds, commodity_debt, 'o--', label='Commodity Debt', color='#8B4513', linewidth=1.5, alpha=0.7)
+    ax2.plot(rounds, intermediary_debt, 's--', label='Intermediary Debt', color='#DAA520', linewidth=1.5, alpha=0.7)
+    ax2.plot(rounds, final_goods_debt, '^--', label='Final Goods Debt', color='#00FF00', linewidth=1.5, alpha=0.7)
+    ax2.plot(rounds, household_debt, 'd--', label='Households Debt', color='#4169E1', linewidth=1.5, alpha=0.7)
+    
     ax2.set_xlabel('Round')
-    ax2.set_ylabel('Total Wealth ($)')
-    ax2.legend()
+    ax2.set_ylabel('Amount ($)')
+    ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=9)
     ax2.grid(True, alpha=0.3)
     
     # 3. Inventory Levels (existing plot)
@@ -536,17 +563,9 @@ def create_animated_supply_chain(visualization_data, simulation_path):
     
     print("🎬 Creating animated supply chain visualization...")
     
-    # Create figure with 5 subplots (expanded layout)
-    fig = plt.figure(figsize=(20, 12))
-    
-    # Define grid layout for 5 plots
-    gs = fig.add_gridspec(3, 3, hspace=0.3, wspace=0.3)
-    
-    ax1 = fig.add_subplot(gs[0:2, 0])     # Network view (tall)
-    ax2 = fig.add_subplot(gs[0, 1:])      # Production & Inventory (wide)
-    ax3 = fig.add_subplot(gs[1, 1])       # World map
-    ax4 = fig.add_subplot(gs[1, 2])       # Wealth time-series
-    ax5 = fig.add_subplot(gs[2, :])       # Financial metrics (wide bottom)
+    # Create simpler figure with 4 subplots to avoid matplotlib issues
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
+    fig.suptitle('Fixed Supply Model - Animated Analysis', fontsize=16)
     
     # Create twin axis for production plot
     ax2_twin = ax2.twinx()
@@ -563,15 +582,18 @@ def create_animated_supply_chain(visualization_data, simulation_path):
     
     def animate(frame):
         # Clear all subplots
-        ax1.clear()
-        ax2.clear()
+        for ax in [ax1, ax2, ax3, ax4]:
+            ax.clear()
+        # Clear the twin axis as well
         ax2_twin.clear()
-        ax3.clear()
-        ax4.clear()
-        ax5.clear()
+        
+        if frame >= len(visualization_data['rounds']):
+            return
         
         round_num = visualization_data['rounds'][frame]
         agent_data = visualization_data['agent_data'][frame]
+        production_data = visualization_data['production_data'][frame]
+        wealth_data = visualization_data['wealth_data'][frame]
         climate_events = visualization_data['climate_events'][frame]
         
         # Plot 1: Agent network with financial status
@@ -888,8 +910,8 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         
         ax3.axis('off')  # Remove axes for cleaner world map look
         
-        # Plot 4: Wealth time-series by sector
-        ax4.set_title('Wealth Evolution by Sector')
+        # Plot 4: Wealth & Debt time-series by sector
+        ax4.set_title('Wealth & Debt Evolution by Sector')
         
         # Collect wealth data over time up to current frame
         commodity_wealth_series = [visualization_data['wealth_data'][i]['commodity'] for i in range(frame+1)]
@@ -897,11 +919,30 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         final_goods_wealth_series = [visualization_data['wealth_data'][i]['final_goods'] for i in range(frame+1)]
         household_wealth_series = [visualization_data['wealth_data'][i]['households'] for i in range(frame+1)]
         
-        # Plot time-series lines
-        ax4.plot(rounds_so_far, commodity_wealth_series, 'o-', label='Commodity Producers', color='#8B4513', linewidth=2, markersize=4)
-        ax4.plot(rounds_so_far, intermediary_wealth_series, 's-', label='Intermediary Firms', color='#DAA520', linewidth=2, markersize=4)
-        ax4.plot(rounds_so_far, final_goods_wealth_series, '^-', label='Final Goods Firms', color='#00FF00', linewidth=2, markersize=4)
-        ax4.plot(rounds_so_far, household_wealth_series, 'd-', label='Households', color='#4169E1', linewidth=2, markersize=4)
+        # Collect debt data over time up to current frame
+        commodity_debt_series = []
+        intermediary_debt_series = []
+        final_goods_debt_series = []
+        household_debt_series = []
+        
+        for i in range(frame+1):
+            agents = visualization_data['agent_data'][i]
+            commodity_debt_series.append(sum(a['debt'] for a in agents if a['type'] == 'commodity_producer'))
+            intermediary_debt_series.append(sum(a['debt'] for a in agents if a['type'] == 'intermediary_firm'))
+            final_goods_debt_series.append(sum(a['debt'] for a in agents if a['type'] == 'final_goods_firm'))
+            household_debt_series.append(sum(a['debt'] for a in agents if a['type'] == 'household'))
+        
+        # Plot wealth (solid lines)
+        ax4.plot(rounds_so_far, commodity_wealth_series, 'o-', label='Commodity Wealth', color='#8B4513', linewidth=2, markersize=4)
+        ax4.plot(rounds_so_far, intermediary_wealth_series, 's-', label='Intermediary Wealth', color='#DAA520', linewidth=2, markersize=4)
+        ax4.plot(rounds_so_far, final_goods_wealth_series, '^-', label='Final Goods Wealth', color='#00FF00', linewidth=2, markersize=4)
+        ax4.plot(rounds_so_far, household_wealth_series, 'd-', label='Households Wealth', color='#4169E1', linewidth=2, markersize=4)
+        
+        # Plot debt (dashed lines with transparency)
+        ax4.plot(rounds_so_far, commodity_debt_series, 'o--', label='Commodity Debt', color='#8B4513', linewidth=1.5, alpha=0.7, markersize=3)
+        ax4.plot(rounds_so_far, intermediary_debt_series, 's--', label='Intermediary Debt', color='#DAA520', linewidth=1.5, alpha=0.7, markersize=3)
+        ax4.plot(rounds_so_far, final_goods_debt_series, '^--', label='Final Goods Debt', color='#00FF00', linewidth=1.5, alpha=0.7, markersize=3)
+        ax4.plot(rounds_so_far, household_debt_series, 'd--', label='Households Debt', color='#4169E1', linewidth=1.5, alpha=0.7, markersize=3)
         
         # Add climate shock indicators as vertical lines (same as production plot)
         climate_shock_legend_added_wealth = False
@@ -941,70 +982,9 @@ def create_animated_supply_chain(visualization_data, simulation_path):
                     climate_shock_legend_added_wealth = True
         
         ax4.set_xlabel('Round')
-        ax4.set_ylabel('Total Wealth ($)')
-        ax4.legend(fontsize=8)
+        ax4.set_ylabel('Amount ($)')
+        ax4.legend(fontsize=7)
         ax4.grid(True, alpha=0.3)
-        
-        # Plot 5: Financial Metrics Dashboard (NEW)
-        ax5.set_title('Financial Metrics Dashboard')
-        
-        # Collect financial metrics up to current frame
-        rounds_so_far = visualization_data['rounds'][:frame+1]
-        
-        # Debt evolution
-        debt_series = [visualization_data['financial_data'][i]['total_debt'] for i in range(frame+1)]
-        profit_series = [visualization_data['financial_data'][i]['total_profit'] for i in range(frame+1)]
-        climate_cost_series = [visualization_data['financial_data'][i]['climate_cost_total'] for i in range(frame+1)]
-        
-        # Create 3 sub-sections in the financial dashboard
-        ax5_debt = plt.subplot2grid((1, 3), (0, 0), colspan=1, fig=fig)
-        ax5_profit = plt.subplot2grid((1, 3), (0, 1), colspan=1, fig=fig)
-        ax5_margins = plt.subplot2grid((1, 3), (0, 2), colspan=1, fig=fig)
-        
-        # Debt subplot
-        ax5_debt.plot(rounds_so_far, debt_series, 'r-', linewidth=2)
-        ax5_debt.fill_between(rounds_so_far, 0, debt_series, alpha=0.3, color='red')
-        ax5_debt.set_title('System Debt')
-        ax5_debt.set_xlabel('Round')
-        ax5_debt.set_ylabel('Total Debt ($)')
-        ax5_debt.grid(True, alpha=0.3)
-        
-        # Profit subplot
-        ax5_profit.plot(rounds_so_far, profit_series, 'g-', linewidth=2)
-        ax5_profit.axhline(y=0, color='black', linestyle='--', alpha=0.5)
-        ax5_profit.fill_between(rounds_so_far, 0, profit_series, 
-                               where=[p >= 0 for p in profit_series],
-                               alpha=0.3, color='green', label='Profit')
-        ax5_profit.fill_between(rounds_so_far, 0, profit_series,
-                               where=[p < 0 for p in profit_series],
-                               alpha=0.3, color='red', label='Loss')
-        ax5_profit.set_title('System Profitability')
-        ax5_profit.set_xlabel('Round')
-        ax5_profit.set_ylabel('Total Profit ($)')
-        ax5_profit.grid(True, alpha=0.3)
-        
-        # Margin deviation subplot (bar chart for current round)
-        if frame > 0:
-            current_agents = [a for a in agent_data if a['type'] != 'household']
-            agent_labels = [f"{a['type'][:4]}{a['id']}" for a in current_agents]
-            margin_deviations = []
-            
-            for agent in current_agents:
-                if 'actual_margin' in agent and 'target_margin' in agent:
-                    deviation = (agent['actual_margin'] - agent['target_margin']) * 100
-                    margin_deviations.append(deviation)
-                else:
-                    margin_deviations.append(0)
-            
-            if margin_deviations:
-                colors = ['green' if d >= 0 else 'red' for d in margin_deviations]
-                ax5_margins.bar(range(len(agent_labels)), margin_deviations, color=colors, alpha=0.7)
-                ax5_margins.axhline(y=0, color='black', linestyle='-', alpha=0.5)
-                ax5_margins.set_title('Profit Margin vs Target (%)')
-                ax5_margins.set_ylabel('Deviation from Target (%)')
-                ax5_margins.set_xticks(range(len(agent_labels)))
-                ax5_margins.set_xticklabels(agent_labels, rotation=45, ha='right', fontsize=8)
-                ax5_margins.grid(True, alpha=0.3, axis='y')
         
         plt.tight_layout()
     

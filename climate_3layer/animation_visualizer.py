@@ -143,12 +143,12 @@ def load_climate_events(simulation_path):
             print("ℹ️ No climate events found in simulation")
             return []
         
-        # Group events by round
+        # Group events by round using the correct 'round' column
         climate_events_history = []
-        max_round = events_df['agent_id'].max() if len(events_df) > 0 else -1
+        max_round = int(events_df['round'].max()) if len(events_df) > 0 else -1
         
         for round_num in range(max_round + 1):
-            round_events = events_df[events_df['agent_id'] == round_num]
+            round_events = events_df[events_df['round'] == round_num]
             
             if len(round_events) > 0:
                 # Convert to the expected format
