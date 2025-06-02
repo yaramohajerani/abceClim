@@ -96,22 +96,81 @@ class ConfigLoader:
         # Count agents for coordination
         agent_counts = {agent_type: config['count'] for agent_type, config in self.config['agents'].items()}
         
+        # Calculate cascading minimum production requirements through supply chain
+        # Level 1: Household survival needs
+        total_household_survival_needs = household_survival_consumption * agent_counts.get('household', 0)
+        
+        # Level 2: Final goods firms minimum production (with safety buffer applied per-firm)
+        final_goods_firm_count = agent_counts.get('final_goods_firm', 1)
+        safety_buffer = 1.1  # 10% safety buffer
+        final_goods_minimum_per_firm = (total_household_survival_needs / final_goods_firm_count) * safety_buffer
+        total_final_goods_minimum = final_goods_minimum_per_firm * final_goods_firm_count
+        
+        # Level 3: Intermediary firms minimum production (based on final goods needs)
+        # Read actual exponents from configuration instead of hardcoding
+        intermediary_firm_count = agent_counts.get('intermediary_firm', 1)
+        intermediary_config = self.config['agents'].get('intermediary_firm', {})
+        intermediary_inputs = intermediary_config.get('production', {}).get('inputs', {})
+        
+        # For final goods firms, find what proportion of their production uses intermediate goods
+        final_goods_config = self.config['agents'].get('final_goods_firm', {})
+        final_goods_inputs = final_goods_config.get('production', {}).get('inputs', {})
+        intermediate_good_exponent = final_goods_inputs.get('intermediate_good', 0.5)  # fallback to 0.5
+        total_exponents_final_goods = sum(final_goods_inputs.values()) if final_goods_inputs else 1.0
+        intermediate_goods_needed_ratio = intermediate_good_exponent / total_exponents_final_goods
+        
+        total_intermediate_goods_minimum = total_final_goods_minimum * intermediate_goods_needed_ratio * safety_buffer
+        intermediary_minimum_per_firm = total_intermediate_goods_minimum / intermediary_firm_count
+        
+        # Level 4: Commodity producers minimum production (based on intermediary needs)
+        # Read actual exponents from configuration instead of hardcoding
+        commodity_producer_count = agent_counts.get('commodity_producer', 1)
+        commodity_config = self.config['agents'].get('commodity_producer', {})
+        commodity_inputs = commodity_config.get('production', {}).get('inputs', {})
+        
+        # For intermediary firms, find what proportion of their production uses commodities
+        commodity_exponent = intermediary_inputs.get('commodity', 0.5)  # fallback to 0.5
+        total_exponents_intermediary = sum(intermediary_inputs.values()) if intermediary_inputs else 1.0
+        commodities_needed_ratio = commodity_exponent / total_exponents_intermediary
+        
+        total_commodities_minimum = total_intermediate_goods_minimum * commodities_needed_ratio * safety_buffer
+        commodity_minimum_per_producer = total_commodities_minimum / commodity_producer_count
+        
+        print(f"🔗 SUPPLY CHAIN MINIMUM PRODUCTION COORDINATION:")
+        print(f"   Level 1 - Household survival: {household_survival_consumption:.3f} per household × {agent_counts.get('household', 0)} = {total_household_survival_needs:.3f} total")
+        print(f"   Level 2 - Final goods firms: {final_goods_minimum_per_firm:.3f} per firm × {final_goods_firm_count} = {total_final_goods_minimum:.3f} total")
+        print(f"   Level 3 - Intermediary firms: {intermediary_minimum_per_firm:.3f} per firm × {intermediary_firm_count} = {total_intermediate_goods_minimum:.3f} total")
+        print(f"     ↳ Final goods input ratios: {final_goods_inputs} → intermediate_good ratio: {intermediate_goods_needed_ratio:.3f}")
+        print(f"   Level 4 - Commodity producers: {commodity_minimum_per_producer:.3f} per producer × {commodity_producer_count} = {total_commodities_minimum:.3f} total")
+        print(f"     ↳ Intermediary input ratios: {intermediary_inputs} → commodity ratio: {commodities_needed_ratio:.3f}")
+        print(f"   Safety buffer: {safety_buffer:.1f} (applied per-firm for all levels)")
+        
         for agent_type, config in self.config['agents'].items():
             self.agent_configs[agent_type] = {
                 'count': config['count'],
                 'initial_money': config['initial_money'],
                 'initial_inventory': config.get('initial_inventory', {}),
                 'production': config.get('production', {}),
-                'climate': config.get('climate', {}),
-                'geographical_distribution': config.get('geographical_distribution', ['all']),
-                'labor': config.get('labor', {}),
                 'consumption': config.get('consumption', {}),
-                # Add coordination parameters for all agent types
+                'labor': config.get('labor', {}),
+                'climate': config.get('climate', {}),
+                'geographical_distribution': config.get('geographical_distribution', ['Unknown']),
+                
+                # Supply chain coordination parameters
                 'household_minimum_survival_consumption': household_survival_consumption,
-                'commodity_producer_count': agent_counts.get('commodity_producer', 0),
-                'intermediary_firm_count': agent_counts.get('intermediary_firm', 0),
-                'final_goods_firm_count': agent_counts.get('final_goods_firm', 0),
-                'household_count': agent_counts.get('household', 0)
+                'household_count': agent_counts.get('household', 0),
+                'final_goods_firm_count': final_goods_firm_count,
+                'intermediary_firm_count': intermediary_firm_count,
+                'commodity_producer_count': commodity_producer_count,
+                
+                # Cascading minimum production responsibilities
+                'final_goods_minimum_per_firm': final_goods_minimum_per_firm,
+                'intermediary_minimum_per_firm': intermediary_minimum_per_firm,
+                'commodity_minimum_per_producer': commodity_minimum_per_producer,
+                
+                # Legacy support (for final goods firms)
+                'final_goods_count': final_goods_firm_count,
+                'intermediary_count': intermediary_firm_count
             }
     
     def _print_config_summary(self):

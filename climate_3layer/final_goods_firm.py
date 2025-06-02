@@ -96,6 +96,7 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         self.labor_purchased = 0
         self.intermediate_goods_purchased = 0
         self.inventory_at_start = self[self.output]
+        self.debt_created_this_round = 0  # Track debt created for survival purchasing
 
     def buy_inputs_optimally(self):
         """ Buy all inputs with optimal money allocation based on Cobb-Douglas exponents to maximize production """
@@ -183,6 +184,13 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
             if purchase_quantity > 0:
                 purchase_cost = purchase_quantity * offer.price
                 
+                # For survival purchases, ensure we have enough money (create debt if needed)
+                if purchase_reason == "SURVIVAL" and self['money'] < purchase_cost:
+                    money_needed = purchase_cost - self['money']
+                    self.create('money', money_needed)
+                    print(f"        🏦 Created ${money_needed:.2f} debt for survival purchasing")
+                    self.debt_created_this_round += money_needed
+                
                 if purchase_quantity == offer.quantity:
                     self.accept(offer)
                     print(f"        {purchase_reason}: Accepted full intermediate offer: {offer.quantity:.2f} units for ${purchase_cost:.2f}")
@@ -237,6 +245,13 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
             # Execute the purchase
             if purchase_quantity > 0:
                 purchase_cost = purchase_quantity * offer.price
+                
+                # For survival purchases, ensure we have enough money (create debt if needed)
+                if purchase_reason == "SURVIVAL" and self['money'] < purchase_cost:
+                    money_needed = purchase_cost - self['money']
+                    self.create('money', money_needed)
+                    print(f"        🏦 Created ${money_needed:.2f} debt for survival purchasing")
+                    self.debt_created_this_round += money_needed
                 
                 if purchase_quantity == offer.quantity:
                     self.accept(offer)
@@ -367,10 +382,11 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
             'is_in_debt': is_in_debt,
             'minimum_production_responsibility': self.total_minimum_production_responsibility,
             'total_minimum_needed': total_minimum_needed,
-            'minimum_production_met': minimum_production_met
+            'minimum_production_met': minimum_production_met,
+            'debt_created_this_round': self.debt_created_this_round
         })
         
-        print(f"    Final Goods Firm {self.id}: Logged - Production: {self.production_this_round:.2f}, Sales: {self.sales_this_round:.2f}, Labor: {self.labor_purchased:.2f}, Intermediate goods: {self.intermediate_goods_purchased:.2f}, Inventory: {cumulative_inventory:.2f}, Money: ${current_money:.2f}, In debt: {is_in_debt}, Min. production met: {minimum_production_met}")
+        print(f"    Final Goods Firm {self.id}: Logged - Production: {self.production_this_round:.2f}, Sales: {self.sales_this_round:.2f}, Labor: {self.labor_purchased:.2f}, Intermediate goods: {self.intermediate_goods_purchased:.2f}, Inventory: {cumulative_inventory:.2f}, Money: ${current_money:.2f}, In debt: {is_in_debt}, Min. production met: {minimum_production_met}, Debt created this round: ${self.debt_created_this_round:.2f}")
 
     def apply_climate_stress(self, stress_factor):
         """ Apply climate stress by reducing production capacity """

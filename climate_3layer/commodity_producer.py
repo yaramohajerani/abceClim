@@ -33,6 +33,9 @@ class CommodityProducer(abce.Agent, abce.Firm):
         self.base_output_quantity = production_config['base_output_quantity']
         self.current_output_quantity = self.base_output_quantity
         
+        # Calculate minimum production responsibility for intermediary firms' survival needs
+        self.minimum_production_responsibility = config.get('commodity_minimum_per_producer', 0.0)
+        
         # Climate stress parameters from configuration
         climate_config = config['climate']
         base_vulnerability = climate_config['base_vulnerability']
@@ -52,6 +55,7 @@ class CommodityProducer(abce.Agent, abce.Firm):
         self.sales_this_round = 0
         self.labor_purchased = 0
         self.inventory_at_start = self[self.output]
+        self.debt_created_this_round = 0  # Track debt created for survival purchasing
         
         # Get intermediary firm count from config for proper distribution
         self.intermediary_count = config['intermediary_count']
@@ -59,6 +63,7 @@ class CommodityProducer(abce.Agent, abce.Firm):
         print(f"Commodity Producer {self.id} initialized:")
         print(f"  Initial money: ${initial_money}")
         print(f"  Production capacity: {self.base_output_quantity}")
+        print(f"  Minimum production responsibility: {self.minimum_production_responsibility:.3f}")
         print(f"  Climate vulnerability: {self.climate_vulnerability:.3f}")
         print(f"  Price: ${self.price[self.output]}")
         print(f"  Will distribute to {self.intermediary_count} intermediary firms")
@@ -69,38 +74,102 @@ class CommodityProducer(abce.Agent, abce.Firm):
         self.sales_this_round = 0
         self.labor_purchased = 0
         self.inventory_at_start = self[self.output]
+        self.debt_created_this_round = 0  # Track debt created for survival purchasing
 
     def buy_labor(self):
         """ Buy labor from households """
         labor_start = self['labor']
         offers = self.get_offers("labor")
         available_money = self['money']
-        total_spent = 0
+        current_inventory = self[self.output]
+        
+        # Calculate minimum labor needed to ensure minimum production for intermediary firms
+        minimum_production_needed = max(0, self.minimum_production_responsibility - current_inventory)
         
         print(f"    Commodity Producer {self.id}: Has ${available_money:.2f}, received {len(offers)} labor offers")
+        print(f"      Current inventory: {current_inventory:.2f}")
+        print(f"      Minimum production responsibility: {self.minimum_production_responsibility:.2f}")
+        print(f"      Additional production needed: {minimum_production_needed:.2f}")
+        
+        # Calculate labor needed for minimum production
+        minimum_labor_needed = 0
+        if minimum_production_needed > 0:
+            # For Cobb-Douglas Q = A * L^α, so L = (Q/A)^(1/α)
+            # If labor has exponent 1.0, then L = Q/A = minimum_production_needed / current_output_quantity
+            labor_exponent = self.inputs.get('labor', 1.0)
+            if labor_exponent == 1.0:
+                minimum_labor_needed = minimum_production_needed / self.current_output_quantity
+            else:
+                minimum_labor_needed = (minimum_production_needed / self.current_output_quantity) ** (1.0 / labor_exponent)
+        
+        print(f"      Minimum labor needed for survival: {minimum_labor_needed:.2f}")
+        
+        total_spent = 0
+        survival_spending = 0
+        labor_survival_bought = 0
         
         for offer in offers:
-            cost = offer.quantity * offer.price
-            if total_spent + cost <= available_money:
-                self.accept(offer)
-                total_spent += cost
-                print(f"      Accepted labor offer: {offer.quantity:.2f} units for ${cost:.2f}")
-            else:
-                # Try partial acceptance if we can afford at least part of it
+            # Determine purchase type and quantity
+            purchase_quantity = 0
+            purchase_reason = ""
+            
+            if minimum_labor_needed > 0:
+                # Priority 1: Survival purchasing (even if it exceeds budget)
+                survival_purchase = min(offer.quantity, minimum_labor_needed)
+                purchase_quantity = survival_purchase
+                purchase_reason = "SURVIVAL"
+                minimum_labor_needed -= survival_purchase
+                labor_survival_bought += survival_purchase
+                
+            elif total_spent + (offer.quantity * offer.price) <= available_money:
+                # Priority 2: Regular budget-based purchasing
+                purchase_quantity = offer.quantity
+                purchase_reason = "REGULAR"
+                
+            elif (available_money - total_spent) > 0.01:
+                # Priority 3: Partial purchase within remaining budget
                 affordable_quantity = (available_money - total_spent) / offer.price
-                if affordable_quantity > 0.01:  # Minimum threshold
-                    self.accept(offer, quantity=affordable_quantity)
-                    total_spent += affordable_quantity * offer.price
-                    print(f"      Partially accepted labor offer: {affordable_quantity:.2f} units for ${affordable_quantity * offer.price:.2f}")
+                if affordable_quantity > 0.01:
+                    purchase_quantity = affordable_quantity
+                    purchase_reason = "PARTIAL"
+            
+            # Execute the purchase
+            if purchase_quantity > 0:
+                purchase_cost = purchase_quantity * offer.price
+                
+                # For survival purchases, ensure we have enough money (create debt if needed)
+                if purchase_reason == "SURVIVAL" and self['money'] < purchase_cost:
+                    money_needed = purchase_cost - self['money']
+                    self.create('money', money_needed)
+                    print(f"      🏦 Created ${money_needed:.2f} debt for survival purchasing")
+                    self.debt_created_this_round += money_needed
+                
+                if purchase_quantity == offer.quantity:
+                    self.accept(offer)
+                    print(f"      {purchase_reason}: Accepted full labor offer: {offer.quantity:.2f} units for ${purchase_cost:.2f}")
                 else:
-                    print(f"      Cannot afford labor offer: {offer.quantity:.2f} units for ${cost:.2f}")
-                break  # Budget exhausted
+                    self.accept(offer, quantity=purchase_quantity)
+                    print(f"      {purchase_reason}: Partially accepted labor offer: {purchase_quantity:.2f} units for ${purchase_cost:.2f}")
+                
+                total_spent += purchase_cost
+                if purchase_reason == "SURVIVAL":
+                    survival_spending += purchase_cost
+            else:
+                print(f"      SKIPPED: Cannot afford labor offer: {offer.quantity:.2f} units for ${offer.quantity * offer.price:.2f}")
+                break  # Budget exhausted and no survival needs
         
         # Track labor purchased this round
         labor_end = self['labor']
         self.labor_purchased = labor_end - labor_start
+        regular_spending = total_spent - survival_spending
         
-        print(f"    Commodity Producer {self.id}: Spent ${total_spent:.2f} on labor, purchased {self.labor_purchased:.2f} units")
+        print(f"    Commodity Producer {self.id}: Labor purchasing complete:")
+        print(f"      Total spent: ${total_spent:.2f} (survival: ${survival_spending:.2f}, regular: ${regular_spending:.2f})")
+        print(f"      Labor purchased: {self.labor_purchased:.2f} (survival: {labor_survival_bought:.2f})")
+        print(f"      Money remaining: ${self['money']:.2f}")
+        
+        if self['money'] < 0:
+            print(f"      WARNING: Producer went into debt (${self['money']:.2f}) to ensure minimum production for intermediary firms!")
 
     def production(self):
         """ Produce commodities using labor """
@@ -181,6 +250,10 @@ class CommodityProducer(abce.Agent, abce.Firm):
         cumulative_inventory = self[self.output]
         current_money = self['money']
         
+        # Check if producer is in debt and if minimum production for intermediary firms is met
+        is_in_debt = current_money < 0
+        minimum_production_met = cumulative_inventory >= self.minimum_production_responsibility
+        
         # Log the data using abcEconomics logging
         self.log('production', {
             'production': self.production_this_round,
@@ -188,10 +261,14 @@ class CommodityProducer(abce.Agent, abce.Firm):
             'inventory_change': inventory_change,
             'cumulative_inventory': cumulative_inventory,
             'labor_purchased': self.labor_purchased,
-            'money': current_money
+            'money': current_money,
+            'is_in_debt': is_in_debt,
+            'minimum_production_responsibility': self.minimum_production_responsibility,
+            'minimum_production_met': minimum_production_met,
+            'debt_created_this_round': self.debt_created_this_round
         })
         
-        print(f"    Commodity Producer {self.id}: Logged - Production: {self.production_this_round:.2f}, Sales: {self.sales_this_round:.2f}, Labor purchased: {self.labor_purchased:.2f}, Inventory: {cumulative_inventory:.2f}, Money: ${current_money:.2f}")
+        print(f"    Commodity Producer {self.id}: Logged - Production: {self.production_this_round:.2f}, Sales: {self.sales_this_round:.2f}, Labor purchased: {self.labor_purchased:.2f}, Inventory: {cumulative_inventory:.2f}, Money: ${current_money:.2f}, In debt: {is_in_debt}, Min. production met: {minimum_production_met}, Debt created this round: ${self.debt_created_this_round:.2f}")
 
     def apply_climate_stress(self, stress_factor):
         """ Apply climate stress by reducing production capacity """
