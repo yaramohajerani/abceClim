@@ -68,7 +68,6 @@ Edit `simulation_configurations/fixed_supply_config.json`:
       "production": {
         "desired_output_quantity": 4,    // Fixed output target
         "profit_margin": 0.2,            // 20% target margin
-        "base_price": 1.0,               // Starting price
         "inputs": {"labor": 1}           // Cobb-Douglas exponents
       }
     }
@@ -79,7 +78,9 @@ Edit `simulation_configurations/fixed_supply_config.json`:
 Key parameters:
 - `desired_output_quantity`: The fixed production target
 - `profit_margin`: Target profit margin (e.g., 0.2 = 20%)
-- `base_price`: Initial price (before dynamic adjustments)
+- `inputs`: Production function inputs and their exponents
+
+**Note**: There is no `base_price` parameter because prices are calculated dynamically each round based on actual input costs and the desired profit margin. Initial prices are automatically calculated from expected input costs.
 
 ## Running the Model
 
@@ -147,7 +148,7 @@ Results are saved in `result_fixed_supply/` (or similar):
 
 1. **How do prices evolve during climate shocks?**
    - Look at the `price` column in production CSV files
-   - Compare to `base_price` in config
+   - Compare prices across different rounds and climate events
 
 2. **Which agents struggle most financially?**
    - Check `debt` and `net_worth` columns

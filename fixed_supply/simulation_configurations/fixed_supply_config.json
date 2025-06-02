@@ -59,7 +59,6 @@
           "labor": 1
         },
         "output": "commodity",
-        "base_price": 1.0,
         "minimum_production_for_supply_chain": 0.15
       },
       "climate": {
@@ -80,7 +79,6 @@
           "commodity": 0.5
         },
         "output": "intermediate_good",
-        "base_price": 2.0,
         "minimum_production_for_supply_chain": 0.2
       },
       "climate": {
@@ -100,8 +98,7 @@
           "labor": 0.5,
           "intermediate_good": 0.5
         },
-        "output": "final_good",
-        "base_price": 7
+        "output": "final_good"
       },
       "climate": {
         "base_vulnerability": 0.05,

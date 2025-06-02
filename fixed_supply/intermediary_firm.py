@@ -32,7 +32,6 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
         self.output = production_config['output']
         self.desired_output_quantity = production_config['desired_output_quantity']
         self.profit_margin = production_config['profit_margin']
-        self.base_price = production_config['base_price']
         
         # Financial tracking
         self.debt = 0  # Track total debt
@@ -56,8 +55,15 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
         self.chronic_stress_accumulated = 1.0
         self.climate_stressed = False
         
-        # Dynamic pricing
-        self.price = {self.output: self.base_price}
+        # Calculate initial price from expected costs using actual values from config
+        wage = config['wage']
+        commodity_price = config['commodity_price']
+        expected_labor_cost = self.inputs.get('labor', 0) * wage
+        expected_commodity_cost = self.inputs.get('commodity', 0) * commodity_price
+        expected_total_cost = expected_labor_cost + expected_commodity_cost
+        expected_cost_per_unit = expected_total_cost / self.desired_output_quantity
+        initial_price = expected_cost_per_unit * (1 + self.profit_margin)
+        self.price = {self.output: initial_price}
         
         # Track production data
         self.production_this_round = 0
@@ -73,7 +79,7 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
         print(f"  Initial money: ${initial_money}")
         print(f"  Desired output: {self.desired_output_quantity} (constant)")
         print(f"  Profit margin target: {self.profit_margin*100:.1f}%")
-        print(f"  Base price: ${self.base_price}")
+        print(f"  Initial price: ${initial_price:.2f} (wage: ${wage}, commodity: ${commodity_price:.2f})")
         print(f"  Climate vulnerability: {self.climate_vulnerability:.3f}")
         print(f"  Will distribute to {self.final_goods_count} final goods firms")
 
@@ -206,7 +212,7 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
             print(f"    Dynamic pricing for Intermediary Firm {self.id}:")
             print(f"      Base cost/unit: ${base_cost_per_unit:.2f}")
             print(f"      Climate impact: ${climate_extra_cost:.2f}/unit")
-            print(f"      New price: ${target_price:.2f} (was ${self.base_price:.2f})")
+            print(f"      New price: ${target_price:.2f} (was ${self.price[self.output]:.2f})")
 
     def sell_intermediate_goods(self):
         """ Sell intermediate goods to final goods firms """

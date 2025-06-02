@@ -110,6 +110,31 @@ def main(config_file_path):
     household_config['intermediary_firm_count'] = intermediary_config['count']
     household_config['final_goods_firm_count'] = final_goods_config['count']
     
+    # Add wage information to all firm configs for price calculation
+    wage = household_config['labor']['wage']
+    commodity_config['wage'] = wage
+    intermediary_config['wage'] = wage
+    final_goods_config['wage'] = wage
+    
+    # Calculate initial prices for each layer based on config parameters
+    # Commodity price calculation
+    commodity_labor_cost = commodity_config['production']['inputs'].get('labor', 0) * wage
+    commodity_cost_per_unit = commodity_labor_cost / commodity_config['production']['desired_output_quantity']
+    commodity_initial_price = commodity_cost_per_unit * (1 + commodity_config['production']['profit_margin'])
+    
+    # Add commodity price to intermediary config
+    intermediary_config['commodity_price'] = commodity_initial_price
+    
+    # Intermediate good price calculation
+    intermediary_labor_cost = intermediary_config['production']['inputs'].get('labor', 0) * wage
+    intermediary_commodity_cost = intermediary_config['production']['inputs'].get('commodity', 0) * commodity_initial_price
+    intermediary_total_cost = intermediary_labor_cost + intermediary_commodity_cost
+    intermediary_cost_per_unit = intermediary_total_cost / intermediary_config['production']['desired_output_quantity']
+    intermediary_initial_price = intermediary_cost_per_unit * (1 + intermediary_config['production']['profit_margin'])
+    
+    # Add intermediate good price to final goods config
+    final_goods_config['intermediate_good_price'] = intermediary_initial_price
+    
     # Build agents with their configurations
     commodity_producers = w.build_agents(
         CommodityProducer, 

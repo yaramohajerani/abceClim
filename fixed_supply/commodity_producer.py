@@ -32,7 +32,6 @@ class CommodityProducer(abce.Agent, abce.Firm):
         self.output = production_config['output']
         self.desired_output_quantity = production_config['desired_output_quantity']
         self.profit_margin = production_config['profit_margin']
-        self.base_price = production_config['base_price']
         
         # Financial tracking
         self.debt = 0  # Track total debt
@@ -56,8 +55,12 @@ class CommodityProducer(abce.Agent, abce.Firm):
         self.chronic_stress_accumulated = 1.0  # Multiplicative factor
         self.climate_stressed = False  # Track if currently stressed
         
-        # Dynamic pricing - will be updated each round based on costs
-        self.price = {self.output: self.base_price}
+        # Calculate initial price from expected costs using actual wage from config
+        wage = config['wage']
+        expected_labor_cost = self.inputs.get('labor', 0) * wage
+        expected_cost_per_unit = expected_labor_cost / self.desired_output_quantity
+        initial_price = expected_cost_per_unit * (1 + self.profit_margin)
+        self.price = {self.output: initial_price}
         
         # Track production data for proper logging
         self.production_this_round = 0
@@ -73,7 +76,7 @@ class CommodityProducer(abce.Agent, abce.Firm):
         print(f"  Initial money: ${initial_money}")
         print(f"  Desired output: {self.desired_output_quantity} (constant)")
         print(f"  Profit margin target: {self.profit_margin*100:.1f}%")
-        print(f"  Base price: ${self.base_price}")
+        print(f"  Initial price: ${initial_price:.2f} (wage: ${wage}, labor: {self.inputs.get('labor', 0)})")
         print(f"  Climate vulnerability: {self.climate_vulnerability:.3f}")
         print(f"  Will distribute to {self.intermediary_count} intermediary firms")
 
@@ -231,7 +234,7 @@ class CommodityProducer(abce.Agent, abce.Firm):
             print(f"      Climate impact: ${climate_extra_cost:.2f}/unit")
             print(f"      Customer bears: ${customer_burden:.2f}/unit")
             print(f"      Producer bears: ${producer_burden:.2f}/unit")
-            print(f"      New price: ${target_price:.2f} (was ${self.base_price:.2f})")
+            print(f"      New price: ${target_price:.2f} (was ${self.price[self.output]:.2f})")
 
     def sell_commodities(self):
         """ Sell commodities to intermediary firms at dynamically calculated price """
