@@ -205,7 +205,7 @@ class ConfigLoader:
             'rounds': sim_config['rounds'],
             'climate_stress_enabled': climate_config['stress_enabled'],
             'acute_stress_probability': climate_config.get('acute_stress_probability', 0.15),
-            'chronic_stress_factor': climate_config.get('chronic_stress_factor', 0.96),
+            'chronic_rules': climate_config.get('chronic_rules', []),  # Only support selective chronic stress
             'geographical_effects': climate_config.get('geographical_effects', True),
             'create_visualizations': viz_config.get('create_visualizations', True),
             'create_dynamic_visualization': viz_config.get('create_dynamic_visualization', True),

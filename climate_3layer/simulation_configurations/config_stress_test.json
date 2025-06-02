@@ -9,45 +9,39 @@
   },
   "climate": {
     "stress_enabled": true,
-    "acute_stress_probability": 0.25,
-    "chronic_stress_factor": 0.94,
     "geographical_effects": true,
-    "shock_rules": [
+    "chronic_rules": [
       {
-        "name": "frequent_global_disruption",
-        "description": "Frequent global climate disruptions affecting all sectors",
-        "probability": 0.30,
-        "agent_types": ["commodity_producer", "intermediary_firm", "final_goods_firm"],
-        "continents": ["all"],
-        "stress_factor": 0.6,
-        "duration": 1
-      },
-      {
-        "name": "severe_commodity_crisis",
-        "description": "Severe commodity production crisis",
-        "probability": 0.25,
+        "name": "agricultural_soil_degradation",
+        "description": "Long-term soil degradation reducing agricultural productivity",
         "agent_types": ["commodity_producer"],
         "continents": ["all"],
-        "stress_factor": 0.4,
-        "duration": 2
+        "stress_factor": 0.94
       },
       {
-        "name": "regional_manufacturing_collapse",
-        "description": "Regional manufacturing collapse in multiple continents",
-        "probability": 0.20,
+        "name": "industrial_heat_stress",
+        "description": "Rising temperatures reducing industrial efficiency",
+        "agent_types": ["intermediary_firm"],
+        "continents": ["Africa", "Asia"],
+        "stress_factor": 0.97
+      },
+      {
+        "name": "infrastructure_degradation",
+        "description": "Climate-induced infrastructure damage affecting final goods production",
+        "agent_types": ["final_goods_firm"],
+        "continents": ["North America"],
+        "stress_factor": 0.995
+      }
+    ],
+    "shock_rules": [
+      {
+        "name": "extreme_weather_event",
+        "description": "Severe weather disrupting all production",
+        "probability": 0.3,
         "agent_types": ["commodity_producer", "intermediary_firm"],
-        "continents": ["Asia", "Africa", "South America"],
-        "stress_factor": 0.3,
-        "duration": 3
-      },
-      {
-        "name": "supply_chain_breakdown",
-        "description": "Complete supply chain breakdown",
-        "probability": 0.10,
-        "agent_types": ["commodity_producer", "intermediary_firm", "final_goods_firm"],
         "continents": ["all"],
-        "stress_factor": 0.2,
-        "duration": 2
+        "stress_factor": 0.5,
+        "duration": 1
       }
     ]
   },

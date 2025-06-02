@@ -9,22 +9,27 @@
   },
   "climate": {
     "stress_enabled": true,
-    "acute_stress_probability": 0.12,
-    "chronic_stress_factor": 0.96,
     "geographical_effects": true,
-    "shock_rules": [
+    "chronic_rules": [
       {
-        "name": "asian_manufacturing_crisis",
-        "description": "Major manufacturing disruption in Asia affecting all production",
-        "probability": 0.20,
-        "agent_types": ["commodity_producer", "intermediary_firm"],
+        "name": "asian_monsoon_disruption",
+        "description": "Changing monsoon patterns reducing agricultural productivity in Asia",
+        "agent_types": ["commodity_producer"],
         "continents": ["Asia"],
-        "stress_factor": 0.5,
-        "duration": 2
+        "stress_factor": 0.96
       },
       {
-        "name": "asian_commodity_shortage",
-        "description": "Commodity production crisis in Asia",
+        "name": "african_desertification",
+        "description": "Desertification affecting agricultural productivity in Africa",
+        "agent_types": ["commodity_producer"],
+        "continents": ["Africa"],
+        "stress_factor": 0.95
+      }
+    ],
+    "shock_rules": [
+      {
+        "name": "asia_commodity_disruption",
+        "description": "Climate shock affecting Asian commodity producers",
         "probability": 0.15,
         "agent_types": ["commodity_producer"],
         "continents": ["Asia"],
@@ -32,13 +37,13 @@
         "duration": 1
       },
       {
-        "name": "global_supply_chain_shock",
-        "description": "Global supply chain disruption due to Asian production issues",
-        "probability": 0.08,
-        "agent_types": ["commodity_producer", "intermediary_firm", "final_goods_firm"],
-        "continents": ["all"],
-        "stress_factor": 0.8,
-        "duration": 1
+        "name": "africa_agricultural_crisis",
+        "description": "Severe agricultural crisis in Africa",
+        "probability": 0.10,
+        "agent_types": ["commodity_producer"],
+        "continents": ["Africa"],
+        "stress_factor": 0.4,
+        "duration": 2
       }
     ]
   },

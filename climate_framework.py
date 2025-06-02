@@ -75,21 +75,23 @@ class ClimateFramework:
     def apply_geographical_climate_stress(self, agent_groups: Dict[str, List]) -> Dict[str, str]:
         """
         Apply climate stress events by continent using group-level method calls.
-        Uses only the new shock_rules system for acute events.
+        Uses configurable rules for both acute and chronic events.
         """
         climate_events = {}
         
-        # Apply chronic stress first if enabled (happens every round)
-        chronic_stress_factor = self.params.get('chronic_stress_factor', 1.0)
-        if chronic_stress_factor != 1.0:
-            print(f"\n Applying chronic stress (factor: {chronic_stress_factor}) to all agents...")
-            self._apply_chronic_stress(agent_groups, chronic_stress_factor)
+        # Apply selective chronic stress using chronic_rules (happens every round)
+        chronic_rules = self.params.get('chronic_rules', [])
+        if chronic_rules:
+            print(f"\n🏭 Applying selective chronic stress...")
+            self._apply_chronic_stress_selective(agent_groups, chronic_rules)
+        else:
+            print(f"\n🏭 No chronic stress rules configured")
         
-        # Apply acute events using shock_rules system only
+        # Apply acute events using shock_rules system
         shock_rules = self.params.get('shock_rules', [])
         
         if shock_rules:
-            # Use new configurable shock system
+            # Use configurable shock system
             climate_events = self._apply_configurable_shocks(agent_groups, shock_rules)
         else:
             # No acute events if shock_rules is empty
@@ -109,22 +111,88 @@ class ClimateFramework:
         print(f"Climate events recorded: {climate_events}")
         return climate_events
     
-    def _apply_chronic_stress(self, agent_groups: Dict[str, List], chronic_stress_factor: float):
+    def _apply_chronic_stress_selective(self, agent_groups: Dict[str, List], chronic_rules: List[Dict]):
         """
-        Apply chronic climate stress (permanent productivity degradation) to all agents.
+        Apply chronic climate stress selectively based on configurable rules.
         
         Args:
             agent_groups: Dictionary mapping agent type names to abcEconomics agent groups
-            chronic_stress_factor: Multiplier for permanent productivity reduction (e.g., 0.95 = 5% permanent loss)
+            chronic_rules: List of chronic stress rule configurations
+        
+        Each chronic rule should have:
+        - agent_types: List of agent types to affect
+        - continents: List of continents to affect (optional, defaults to 'all')
+        - stress_factor: Multiplier for permanent productivity reduction (e.g., 0.99 = 1% permanent loss per round)
+        - description: Optional description of the chronic stress
         """
-        for agent_type, agent_group in agent_groups.items():
-            if hasattr(agent_group, 'apply_chronic_stress'):
+        for rule in chronic_rules:
+            rule_name = rule.get('name', 'chronic_stress')
+            agent_types = rule.get('agent_types', [])
+            continents = rule.get('continents', ['all'])
+            stress_factor = rule.get('stress_factor', 0.99)
+            description = rule.get('description', '')
+            
+            print(f"  Applying chronic stress rule: {rule_name}")
+            if description:
+                print(f"    Description: {description}")
+            print(f"    Affects: {agent_types} in {continents}")
+            print(f"    Stress factor: {stress_factor} (permanent)")
+            
+            # Apply chronic stress to specified agent types and continents
+            self._apply_targeted_chronic_stress(
+                agent_groups, agent_types, continents, stress_factor, rule_name
+            )
+
+    def _apply_targeted_chronic_stress(self, agent_groups: Dict[str, List], 
+                                     target_agent_types: List[str], 
+                                     target_continents: List[str], 
+                                     stress_factor: float,
+                                     rule_name: str):
+        """
+        Apply chronic stress to specific agent types in specific continents.
+        
+        Args:
+            agent_groups: Dictionary mapping agent type names to abcEconomics agent groups
+            target_agent_types: List of agent types to affect
+            target_continents: List of continents to affect (or ['all'] for all continents)
+            stress_factor: Multiplier for permanent productivity reduction (e.g., 0.99 = 1% permanent loss)
+            rule_name: Name of the chronic stress rule for logging
+        """
+        # Expand 'all' continents to actual continent list
+        if 'all' in target_continents:
+            target_continents = list(CONTINENTS.keys())
+        
+        for agent_type in target_agent_types:
+            if agent_type not in agent_groups:
+                print(f"    Warning: Agent type '{agent_type}' not found in simulation")
+                continue
+                
+            agent_group = agent_groups[agent_type]
+            
+            # Check if this agent type has geographical assignments
+            if agent_type not in self.geographical_assignments:
+                print(f"    Warning: No geographical assignments for '{agent_type}'")
+                continue
+            
+            assignments = self.geographical_assignments[agent_type]
+            
+            # Find agents in target continents
+            affected_agent_ids = []
+            for agent_id, agent_info in assignments.items():
+                agent_continent = agent_info['continent']
+                if agent_continent in target_continents:
+                    affected_agent_ids.append(agent_id)
+            
+            if affected_agent_ids and hasattr(agent_group, 'apply_chronic_stress'):
                 try:
-                    agent_group.apply_chronic_stress(chronic_stress_factor)
-                    print(f"    Applied chronic stress to {agent_type} group (factor: {chronic_stress_factor})")
+                    # Apply chronic stress to the entire group - abcEconomics will handle distribution
+                    agent_group.apply_chronic_stress(stress_factor)
+                    print(f"    Applied {rule_name} to {len(affected_agent_ids)} {agent_type}s in {target_continents}")
                 except Exception as e:
-                    print(f"    Could not apply chronic stress to {agent_type} group: {e}")
-    
+                    print(f"    Could not apply {rule_name} to {agent_type} group: {e}")
+            else:
+                print(f"    No applicable {agent_type}s found in target continents: {target_continents}")
+
     def _apply_configurable_shocks(self, agent_groups: Dict[str, List], shock_rules: List[Dict]) -> Dict[str, str]:
         """
         Apply climate shocks based on configurable rules.

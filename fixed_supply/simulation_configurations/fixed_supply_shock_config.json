@@ -26,28 +26,17 @@
   "climate": {
     "stress_enabled": true,
     "acute_stress_probability": 0.20,
-    "chronic_stress_factor": 0.98,
     "geographical_effects": true,
-    "shock_rules": [
+    "chronic_rules": [
       {
-        "name": "commodity_supply_shock",
-        "description": "Climate shock affecting commodity producers",
-        "probability": 0.25,
+        "name": "commodity_chronic_degradation",
+        "description": "Chronic climate stress affecting only commodity production (agriculture/mining)",
         "agent_types": ["commodity_producer"],
-        "continents": ["Asia", "Africa"],
-        "stress_factor": 0.7,
-        "duration": 2
-      },
-      {
-        "name": "widespread_climate_event", 
-        "description": "Major climate event affecting multiple sectors",
-        "probability": 0.10,
-        "agent_types": ["commodity_producer", "intermediary_firm"],
         "continents": ["all"],
-        "stress_factor": 0.8,
-        "duration": 1
+        "stress_factor": 0.98
       }
-    ]
+    ],
+    "shock_rules": []
   },
   "agents": {
     "commodity_producer": {

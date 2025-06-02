@@ -23,8 +23,16 @@
   },
   "climate": {
     "stress_enabled": true,
-    "chronic_stress_factor": 0.98,
     "geographical_effects": true,
+    "chronic_rules": [
+      {
+        "name": "agricultural_productivity_decline",
+        "description": "Long-term soil degradation and climate change reducing agricultural productivity",
+        "agent_types": ["commodity_producer"],
+        "continents": ["all"],
+        "stress_factor": 0.98
+      }
+    ],
     "shock_rules": []
   },
   "agents": {

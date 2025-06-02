@@ -24,8 +24,30 @@
   "climate": {
     "stress_enabled": false,
     "acute_stress_probability": 0.15,
-    "chronic_stress_factor": 0.96,
     "geographical_effects": true,
+    "chronic_rules": [
+      {
+        "name": "agricultural_soil_degradation",
+        "description": "Long-term soil degradation affecting commodity production globally",
+        "agent_types": ["commodity_producer"],
+        "continents": ["all"],
+        "stress_factor": 0.992
+      },
+      {
+        "name": "tropical_heat_stress",
+        "description": "Rising temperatures reducing industrial productivity in tropical regions",
+        "agent_types": ["intermediary_firm"],
+        "continents": ["Africa", "South America"],
+        "stress_factor": 0.996
+      },
+      {
+        "name": "arctic_infrastructure_degradation",
+        "description": "Permafrost thaw damaging infrastructure in cold regions",
+        "agent_types": ["final_goods_firm"],
+        "continents": ["North America"],
+        "stress_factor": 0.999
+      }
+    ],
     "shock_rules": [
       {
         "name": "global_commodity_shock",
