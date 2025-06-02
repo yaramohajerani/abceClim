@@ -148,28 +148,20 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
         'household': 'panel_household_consumption.csv'
     }
     
-    production_goods = {
-        'commodity_producer': 'commodity',
-        'intermediary_firm': 'intermediate_good',
-        'final_goods_firm': 'final_good',
-        'household': 'final_good'  # households consume final goods
-    }
-    
-    # Initialize production totals
+    # Initialize production and inventory totals
     round_data['production'] = {
         'commodity': 0,
         'intermediary': 0,
         'final_goods': 0
     }
     
-    # Initialize inventory totals (cumulative stock at end of round)
     round_data['inventories'] = {
         'commodity': 0,
         'intermediary': 0,
         'final_goods': 0
     }
     
-    # Read data from CSV files for all agent types including households
+    # Read data from CSV files for all agent types
     for agent_type, filename in production_files.items():
         file_path = os.path.join(simulation_path, filename)
         if os.path.exists(file_path):
@@ -189,13 +181,16 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
                             agent_type, agent_id, round_data['climate'], climate_framework
                         )
                         
-                        # Get wealth (money) data if available
-                        wealth = row.get('money', 0)
-                        
-                        # Get production/consumption data
+                        # Get wealth (money) data
                         if agent_type == 'household':
-                            # For households, track consumption, not production
-                            consumption = row.get(production_goods[agent_type], 0)
+                            wealth = row.get('consumption_money', 0)
+                        else:
+                            wealth = row.get('production_money', 0)
+                        
+                        # Get production/consumption data from new CSV structure
+                        if agent_type == 'household':
+                            # For households, track consumption (using consumption_ prefix)
+                            consumption = row.get('consumption_consumption', 0)
                             agent_data = {
                                 'id': agent_id,
                                 'type': agent_type,
@@ -209,14 +204,16 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
                                 'vulnerability': get_agent_vulnerability(agent_type, agent_id, climate_framework)
                             }
                         else:
-                            # For production agents
-                            production = row.get(production_goods[agent_type], 0)
+                            # For production agents - read actual production from new CSV format (using production_ prefix)
+                            production = row.get('production_production', 0)
+                            cumulative_inventory = row.get('production_cumulative_inventory', 0)
+                            
                             agent_data = {
                                 'id': agent_id,
                                 'type': agent_type,
                                 'round': round_num,
                                 'production': production,
-                                'production_capacity': production,  # Use actual production as capacity for now
+                                'production_capacity': production,  # Use actual production as capacity
                                 'climate_stressed': is_climate_stressed,
                                 'wealth': wealth,
                                 'continent': get_agent_continent(agent_type, agent_id, climate_framework),
@@ -225,11 +222,12 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
                         
                         round_data['agents'].append(agent_data)
                     
-                    # Sum total production for production layers (not households)
+                    # Sum total production and inventory for production layers (not households)
                     if agent_type != 'household':
-                        good_column = production_goods[agent_type]
-                        total_production = round_df[good_column].sum()
-                        total_inventory = round_df[good_column].sum()  # This IS the cumulative inventory
+                        # Sum actual production this round (using production_ prefix)
+                        total_production = round_df['production_production'].sum()
+                        # Sum cumulative inventory at end of round (using production_ prefix)
+                        total_inventory = round_df['production_cumulative_inventory'].sum()
                         
                         if agent_type == 'commodity_producer':
                             round_data['production']['commodity'] = total_production
@@ -538,7 +536,7 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         ax1.text(5, 3.7, 'Layer 3\nFinal Goods', ha='center', fontsize=10, fontweight='bold')
         ax1.text(6.5, 3.7, 'Households', ha='center', fontsize=10, fontweight='bold')
         
-        # Plot 2: Production levels up to current frame
+        # Plot 2: Production & Inventory Levels Over Time
         ax2.set_title('Production & Inventory Levels Over Time')
         rounds_so_far = visualization_data['rounds'][:frame+1]
         
@@ -551,19 +549,26 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         intermediary_inv = [visualization_data['inventory_data'][i]['intermediary'] for i in range(frame+1)]
         final_goods_inv = [visualization_data['inventory_data'][i]['final_goods'] for i in range(frame+1)]
         
-        # Plot production (solid lines)
+        # Plot production (solid lines) - LEFT Y-AXIS
         ax2.plot(rounds_so_far, commodity_prod, 'o-', label='Commodity Prod', color='#8B4513', linewidth=2)
         ax2.plot(rounds_so_far, intermediary_prod, 's-', label='Intermediary Prod', color='#DAA520', linewidth=2)
         ax2.plot(rounds_so_far, final_goods_prod, '^-', label='Final Goods Prod', color='#00FF00', linewidth=2)
+        ax2.set_ylabel('Production per Round', color='black')
         
-        # Plot inventory (dashed lines)
-        ax2.plot(rounds_so_far, commodity_inv, 'o--', label='Commodity Inv', color='#8B4513', alpha=0.7, linewidth=1)
-        ax2.plot(rounds_so_far, intermediary_inv, 's--', label='Intermediary Inv', color='#DAA520', alpha=0.7, linewidth=1)
-        ax2.plot(rounds_so_far, final_goods_inv, '^--', label='Final Goods Inv', color='#00FF00', alpha=0.7, linewidth=1)
+        # Plot inventory (dashed lines) - RIGHT Y-AXIS  
+        ax2_twin = ax2.twinx()
+        ax2_twin.plot(rounds_so_far, commodity_inv, 'o--', label='Commodity Inv', color='#8B4513', alpha=0.7, linewidth=1)
+        ax2_twin.plot(rounds_so_far, intermediary_inv, 's--', label='Intermediary Inv', color='#DAA520', alpha=0.7, linewidth=1)
+        ax2_twin.plot(rounds_so_far, final_goods_inv, '^--', label='Final Goods Inv', color='#00FF00', alpha=0.7, linewidth=1)
+        ax2_twin.set_ylabel('Cumulative Inventory', color='gray')
+        ax2_twin.tick_params(axis='y', labelcolor='gray')
         
-        ax2.legend(fontsize=7, loc='upper left')
+        # Combine legends
+        lines1, labels1 = ax2.get_legend_handles_labels()
+        lines2, labels2 = ax2_twin.get_legend_handles_labels()
+        ax2.legend(lines1 + lines2, labels1 + labels2, fontsize=7, loc='upper left')
+        
         ax2.set_xlabel('Round')
-        ax2.set_ylabel('Production/Inventory Level')
         ax2.grid(True, alpha=0.3)
         
         # Plot 3: Geographical Distribution World Map
@@ -726,7 +731,8 @@ def collect_all_visualization_data(simulation_path, climate_framework, num_round
         
         # Add debug info
         total_production = sum(round_data['production'].values())
-        print(f"    Round {r}: Total production = {total_production:.2f} (commodity: {round_data['production']['commodity']:.2f}, intermediary: {round_data['production']['intermediary']:.2f}, final_goods: {round_data['production']['final_goods']:.2f})")
+        total_inventory = sum(round_data['inventories'].values())
+        print(f"    Round {r}: Production = {total_production:.2f}, Inventory = {total_inventory:.2f}")
     
     print("✅ Visualization data collection completed!")
     return visualization_data

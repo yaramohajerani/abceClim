@@ -47,14 +47,28 @@ class CommodityProducer(abce.Agent, abce.Firm):
         # Create production function
         self.pf = self.create_cobb_douglas(self.output, self.current_output_quantity, self.inputs)
         
+        # Track production data for proper logging
+        self.production_this_round = 0
+        self.sales_this_round = 0
+        self.labor_purchased = 0
+        self.inventory_at_start = self[self.output]
+        
         print(f"Commodity Producer {self.id} initialized:")
         print(f"  Initial money: ${initial_money}")
         print(f"  Production capacity: {self.base_output_quantity}")
         print(f"  Climate vulnerability: {self.climate_vulnerability:.3f}")
         print(f"  Price: ${self.price[self.output]}")
 
+    def start_round(self):
+        """Called at the start of each round to reset tracking variables"""
+        self.production_this_round = 0
+        self.sales_this_round = 0
+        self.labor_purchased = 0
+        self.inventory_at_start = self[self.output]
+
     def buy_labor(self):
         """ Buy labor from households """
+        labor_start = self['labor']
         offers = self.get_offers("labor")
         available_money = self['money']
         total_spent = 0
@@ -78,11 +92,16 @@ class CommodityProducer(abce.Agent, abce.Firm):
                     print(f"      Cannot afford labor offer: {offer.quantity:.2f} units for ${cost:.2f}")
                 break  # Budget exhausted
         
-        print(f"    Commodity Producer {self.id}: Spent ${total_spent:.2f} on labor")
+        # Track labor purchased this round
+        labor_end = self['labor']
+        self.labor_purchased = labor_end - labor_start
+        
+        print(f"    Commodity Producer {self.id}: Spent ${total_spent:.2f} on labor, purchased {self.labor_purchased:.2f} units")
 
     def production(self):
         """ Produce commodities using labor """
         # Log inventory before production
+        inventory_before = self[self.output]
         print(f"    Commodity Producer {self.id}: BEFORE production:")
         print(f"      Current output quantity (multiplier): {self.current_output_quantity}")
         print(f"      Inputs recipe: {self.inputs}")
@@ -114,15 +133,21 @@ class CommodityProducer(abce.Agent, abce.Firm):
         except Exception as e:
             print(f"    Commodity Producer {self.id}: Production failed: {e}")
         
+        # Calculate actual production this round
+        inventory_after = self[self.output]
+        self.production_this_round = inventory_after - inventory_before
+        
         # Log inventory after production
         print(f"    Commodity Producer {self.id}: AFTER production:")
         for good in ['money', 'labor', self.output]:
             print(f"      {good}: {self[good]:.3f}")
-        print(f"      Change in {self.output}: +{self[self.output]}")
+        print(f"      Production this round: {self.production_this_round:.3f}")
 
     def sell_commodities(self):
         """ Sell commodities to intermediary firms """
         commodity_stock = self[self.output]
+        self.inventory_before_sales = commodity_stock  # Track inventory before creating offers
+        
         print(f"    Commodity Producer {self.id}: Has {commodity_stock:.2f} {self.output}s to sell")
         if commodity_stock > 0:
             # Distribute sales among intermediary firms
@@ -134,6 +159,35 @@ class CommodityProducer(abce.Agent, abce.Firm):
                              quantity_per_firm, self.price[self.output])
         else:
             print(f"    Commodity Producer {self.id}: No {self.output}s to sell")
+
+    def calculate_sales_after_market_clearing(self):
+        """Calculate actual sales after market clearing has occurred"""
+        if hasattr(self, 'inventory_before_sales'):
+            current_inventory = self[self.output]
+            self.sales_this_round = self.inventory_before_sales - current_inventory
+            print(f"    Commodity Producer {self.id}: Sales calculated after market clearing: {self.sales_this_round:.2f} {self.output}s")
+        else:
+            self.sales_this_round = 0
+            print(f"    Commodity Producer {self.id}: No sales tracking data available")
+
+    def log_round_data(self):
+        """Log production, sales, and inventory data for this round"""
+        # Calculate inventory change and cumulative inventory
+        inventory_change = self.production_this_round - self.sales_this_round
+        cumulative_inventory = self[self.output]
+        current_money = self['money']
+        
+        # Log the data using abcEconomics logging
+        self.log('production', {
+            'production': self.production_this_round,
+            'sales': self.sales_this_round,
+            'inventory_change': inventory_change,
+            'cumulative_inventory': cumulative_inventory,
+            'labor_purchased': self.labor_purchased,
+            'money': current_money
+        })
+        
+        print(f"    Commodity Producer {self.id}: Logged - Production: {self.production_this_round:.2f}, Sales: {self.sales_this_round:.2f}, Labor purchased: {self.labor_purchased:.2f}, Inventory: {cumulative_inventory:.2f}, Money: ${current_money:.2f}")
 
     def apply_climate_stress(self, stress_factor):
         """ Apply climate stress by reducing production capacity """

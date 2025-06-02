@@ -162,6 +162,12 @@ def main(config_file_path):
         
         w.advance_round(r)
         
+        # Initialize round tracking for all agents
+        commodity_producers.start_round()
+        intermediary_firms.start_round()
+        final_goods_firms.start_round()
+        households.start_round()
+        
         # Apply geographical climate stress using the framework
         climate_events = {}
         if simulation_parameters['climate_stress_enabled']:
@@ -185,41 +191,45 @@ def main(config_file_path):
             sim_logger.set_phase("Layer 1: Commodity Producers")
         commodity_producers.buy_labor()
         commodity_producers.production()
-        commodity_producers.panel_log(goods=[commodity_config['production']['output'], 'money'])
         
         # Layer 2: Intermediary firms buy commodities and labor, then produce
         print(f"  Layer 2: Intermediary firms...")
         if sim_logger:
             sim_logger.set_phase("Layer 2: Intermediary Firms")
-        commodity_producers.sell_commodities()
-        intermediary_firms.buy_commodities()
+        commodity_producers.sell_commodities()  # Create offers for commodities
+        intermediary_firms.buy_commodities()    # Accept commodity offers - THIS changes inventory
+        commodity_producers.calculate_sales_after_market_clearing()  # Now calculate actual sales
+        commodity_producers.log_round_data()    # Log with correct sales data
         intermediary_firms.buy_labor()
         intermediary_firms.production()
-        intermediary_firms.panel_log(goods=[intermediary_config['production']['output'], 'money'])
         
         # Layer 3: Final goods firms buy intermediate goods and labor, then produce
         print(f"  Layer 3: Final goods firms...")
         if sim_logger:
             sim_logger.set_phase("Layer 3: Final Goods Firms")
-        intermediary_firms.sell_intermediate_goods()
-        final_goods_firms.buy_intermediate_goods()
+        intermediary_firms.sell_intermediate_goods()  # Create offers for intermediate goods
+        final_goods_firms.buy_intermediate_goods()    # Accept intermediate good offers - THIS changes inventory
+        intermediary_firms.calculate_sales_after_market_clearing()  # Now calculate actual sales
+        intermediary_firms.log_round_data()           # Log with correct sales data
         final_goods_firms.buy_labor()
         final_goods_firms.production()
-        final_goods_firms.panel_log(goods=[final_goods_config['production']['output'], 'money'])
         
         # Households buy final goods and consume
         print(f"  Consumer market...")
         if sim_logger:
             sim_logger.set_phase("Consumer Market")
-        final_goods_firms.sell_final_goods()
-        households.buy_final_goods()
-        households.panel_log(goods=[household_config['consumption']['preference'], 'money'])
+        final_goods_firms.sell_final_goods()   # Create offers for final goods
+        households.buy_final_goods()           # Accept final good offers - THIS changes inventory
+        final_goods_firms.calculate_sales_after_market_clearing()  # Now calculate actual sales
+        final_goods_firms.log_round_data()     # Log with correct sales data
         households.consumption()
+        households.log_round_data()
         
-        # Collect data using the new framework method
+        # Collect data using the new framework method (still needed for climate data)
         if sim_logger:
             sim_logger.set_phase("Data Collection")
-        climate_framework.collect_panel_data(agent_groups, goods_to_track)
+        # DISABLED: Old panel_log data collection - we now use our own comprehensive logging
+        # climate_framework.collect_panel_data(agent_groups, goods_to_track)
         
         print("completed")
     

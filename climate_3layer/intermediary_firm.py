@@ -47,14 +47,30 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
         # Create production function
         self.pf = self.create_cobb_douglas(self.output, self.current_output_quantity, self.inputs)
         
+        # Track production data for proper logging
+        self.production_this_round = 0
+        self.sales_this_round = 0
+        self.labor_purchased = 0
+        self.commodities_purchased = 0
+        self.inventory_at_start = self[self.output]
+        
         print(f"Intermediary Firm {self.id} initialized:")
         print(f"  Initial money: ${initial_money}")
         print(f"  Production capacity: {self.base_output_quantity}")
         print(f"  Climate vulnerability: {self.climate_vulnerability:.3f}")
         print(f"  Price: ${self.price[self.output]}")
 
+    def start_round(self):
+        """Called at the start of each round to reset tracking variables"""
+        self.production_this_round = 0
+        self.sales_this_round = 0
+        self.labor_purchased = 0
+        self.commodities_purchased = 0
+        self.inventory_at_start = self[self.output]
+
     def buy_commodities(self):
         """ Buy commodities from commodity producers """
+        commodities_start = self['commodity']
         offers = self.get_offers("commodity")
         available_money = self['money']
         total_spent = 0
@@ -84,10 +100,15 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
         if not offers:
             print(f"    Intermediary Firm {self.id}: No commodity offers received")
         
-        print(f"    Intermediary Firm {self.id}: Spent ${total_spent:.2f} on commodities")
+        # Track commodities purchased this round
+        commodities_end = self['commodity']
+        self.commodities_purchased = commodities_end - commodities_start
+        
+        print(f"    Intermediary Firm {self.id}: Spent ${total_spent:.2f} on commodities, purchased {self.commodities_purchased:.2f} units")
 
     def buy_labor(self):
         """ Buy labor from households """
+        labor_start = self['labor']
         offers = self.get_offers("labor")
         available_money = self['money']
         total_spent = 0
@@ -111,11 +132,16 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
                     print(f"      Cannot afford labor offer: {offer.quantity:.2f} units for ${cost:.2f}")
                 break
         
-        print(f"    Intermediary Firm {self.id}: Spent ${total_spent:.2f} on labor")
+        # Track labor purchased this round
+        labor_end = self['labor']
+        self.labor_purchased = labor_end - labor_start
+        
+        print(f"    Intermediary Firm {self.id}: Spent ${total_spent:.2f} on labor, purchased {self.labor_purchased:.2f} units")
 
     def production(self):
         """ Produce intermediate goods using labor and commodities """
         # Log inventory before production
+        inventory_before = self[self.output]
         print(f"    Intermediary Firm {self.id}: BEFORE production:")
         print(f"      Current output quantity (multiplier): {self.current_output_quantity}")
         print(f"      Inputs recipe: {self.inputs}")
@@ -147,23 +173,62 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
         except Exception as e:
             print(f"    Intermediary Firm {self.id}: Production failed: {e}")
         
+        # Calculate actual production this round
+        inventory_after = self[self.output]
+        self.production_this_round = inventory_after - inventory_before
+        
         # Log inventory after production
         print(f"    Intermediary Firm {self.id}: AFTER production:")
         for good in ['money', 'labor', 'commodity', self.output]:
             print(f"      {good}: {self[good]:.3f}")
-        produced = self[self.output]
-        print(f"      Total {self.output} produced: {produced:.3f}")
+        print(f"      Production this round: {self.production_this_round:.3f}")
 
     def sell_intermediate_goods(self):
         """ Sell intermediate goods to final goods firms """
         intermediate_stock = self[self.output]
+        self.inventory_before_sales = intermediate_stock  # Track inventory before creating offers
+        
+        print(f"    Intermediary Firm {self.id}: Has {intermediate_stock:.2f} {self.output}s to sell")
         if intermediate_stock > 0:
             # Distribute sales among final goods firms
             quantity_per_firm = intermediate_stock / 2  # Assuming 2 final goods firms
             for final_firm_id in range(2):
                 if quantity_per_firm > 0:
+                    print(f"      Offering {quantity_per_firm:.2f} {self.output}s to final_goods_firm {final_firm_id} at price {self.price[self.output]}")
                     self.sell(('final_goods_firm', final_firm_id), self.output, 
                              quantity_per_firm, self.price[self.output])
+        else:
+            print(f"    Intermediary Firm {self.id}: No {self.output}s to sell")
+
+    def calculate_sales_after_market_clearing(self):
+        """Calculate actual sales after market clearing has occurred"""
+        if hasattr(self, 'inventory_before_sales'):
+            current_inventory = self[self.output]
+            self.sales_this_round = self.inventory_before_sales - current_inventory
+            print(f"    Intermediary Firm {self.id}: Sales calculated after market clearing: {self.sales_this_round:.2f} {self.output}s")
+        else:
+            self.sales_this_round = 0
+            print(f"    Intermediary Firm {self.id}: No sales tracking data available")
+
+    def log_round_data(self):
+        """Log production, sales, and inventory data for this round"""
+        # Calculate inventory change and cumulative inventory
+        inventory_change = self.production_this_round - self.sales_this_round
+        cumulative_inventory = self[self.output]
+        current_money = self['money']
+        
+        # Log the data using abcEconomics logging
+        self.log('production', {
+            'production': self.production_this_round,
+            'sales': self.sales_this_round,
+            'inventory_change': inventory_change,
+            'cumulative_inventory': cumulative_inventory,
+            'labor_purchased': self.labor_purchased,
+            'commodities_purchased': self.commodities_purchased,
+            'money': current_money
+        })
+        
+        print(f"    Intermediary Firm {self.id}: Logged - Production: {self.production_this_round:.2f}, Sales: {self.sales_this_round:.2f}, Labor: {self.labor_purchased:.2f}, Commodities: {self.commodities_purchased:.2f}, Inventory: {cumulative_inventory:.2f}, Money: ${current_money:.2f}")
 
     def apply_climate_stress(self, stress_factor):
         """ Apply climate stress by reducing production capacity """
