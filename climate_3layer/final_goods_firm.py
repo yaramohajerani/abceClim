@@ -365,8 +365,7 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         cumulative_inventory = self[self.output]
         current_money = self['money']
         
-        # Check if firm is in debt and if minimum production for households is met
-        is_in_debt = current_money < 0
+        # Check if minimum production for households is met
         total_minimum_needed = self.total_minimum_production_responsibility
         minimum_production_met = cumulative_inventory >= total_minimum_needed
         
@@ -379,14 +378,13 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
             'labor_purchased': self.labor_purchased,
             'intermediate_goods_purchased': self.intermediate_goods_purchased,
             'money': current_money,
-            'is_in_debt': is_in_debt,
             'minimum_production_responsibility': self.total_minimum_production_responsibility,
             'total_minimum_needed': total_minimum_needed,
             'minimum_production_met': minimum_production_met,
             'debt_created_this_round': self.debt_created_this_round
         })
         
-        print(f"    Final Goods Firm {self.id}: Logged - Production: {self.production_this_round:.2f}, Sales: {self.sales_this_round:.2f}, Labor: {self.labor_purchased:.2f}, Intermediate goods: {self.intermediate_goods_purchased:.2f}, Inventory: {cumulative_inventory:.2f}, Money: ${current_money:.2f}, In debt: {is_in_debt}, Min. production met: {minimum_production_met}, Debt created this round: ${self.debt_created_this_round:.2f}")
+        print(f"    Final Goods Firm {self.id}: Logged - Production: {self.production_this_round:.2f}, Sales: {self.sales_this_round:.2f}, Labor: {self.labor_purchased:.2f}, Intermediate goods: {self.intermediate_goods_purchased:.2f}, Inventory: {cumulative_inventory:.2f}, Money: ${current_money:.2f}, Min. production met: {minimum_production_met}, Debt created this round: ${self.debt_created_this_round:.2f}")
 
     def apply_climate_stress(self, stress_factor):
         """ Apply climate stress by reducing production capacity """
