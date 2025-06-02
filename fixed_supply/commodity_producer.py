@@ -44,9 +44,6 @@ class CommodityProducer(abce.Agent, abce.Firm):
         # Climate productivity factor (affects how much input needed for output)
         self.climate_productivity = 1.0  # 1.0 means normal, <1.0 means need more inputs
         
-        # Calculate minimum production responsibility for intermediary firms' survival needs
-        self.minimum_production_responsibility = config.get('commodity_minimum_per_producer', 0.0)
-        
         # Climate stress parameters from configuration
         climate_config = config['climate']
         base_vulnerability = climate_config['base_vulnerability']
@@ -92,24 +89,36 @@ class CommodityProducer(abce.Agent, abce.Firm):
         self.climate_cost_burden = 0
 
     def calculate_required_inputs(self):
-        """Calculate how much of each input is needed to produce desired output,
-        accounting for climate-reduced productivity"""
+        """Calculate inputs needed to produce desired output with current climate productivity"""
         required_inputs = {}
         
-        # For Cobb-Douglas: Q = A * L^α * K^β...
-        # With climate: actual_productivity = base_productivity * climate_productivity
-        # So we need: L = (Q / (A * climate_productivity))^(1/α) if only labor
+        # For Cobb-Douglas Q = A * L^α * K^β..., to get desired output:
+        # If we want Q = desired_output_quantity and A = desired_output_quantity * climate_productivity
+        # Then: desired_output_quantity = (desired_output_quantity * climate_productivity) * L^α * K^β...
+        # Simplifying: 1 = climate_productivity * L^α * K^β...
+        # So: L^α * K^β... = 1/climate_productivity
         
-        # For simplicity with multiple inputs, assume equal productivity loss
-        # So if climate_productivity = 0.8, we need 1/0.8 = 1.25x inputs
-        productivity_multiplier = 1.0 / self.climate_productivity if self.climate_productivity > 0 else 999
+        # For simple case with single input (labor with exponent α):
+        # L^α = 1/climate_productivity, so L = (1/climate_productivity)^(1/α)
         
-        for input_good, exponent in self.inputs.items():
-            # Basic requirement for desired output
-            base_requirement = self.desired_output_quantity * exponent
-            # Adjust for climate productivity
-            required_inputs[input_good] = base_requirement * productivity_multiplier
-            
+        productivity_factor = 1.0 / self.climate_productivity if self.climate_productivity > 0 else 999
+        
+        # For each input, calculate required quantity
+        # This assumes inputs work multiplicatively: each input^exponent multiplied together should equal productivity_factor
+        # Simple approach: distribute the productivity requirement equally among inputs
+        num_inputs = len(self.inputs)
+        if num_inputs == 1:
+            # Single input case
+            for input_good, exponent in self.inputs.items():
+                required_inputs[input_good] = productivity_factor ** (1.0 / exponent)
+        else:
+            # Multiple inputs case - assume balanced inputs
+            for input_good, exponent in self.inputs.items():
+                # Each input contributes its share: L^α * K^β = productivity_factor
+                # Assume L = K for simplicity, then L^(α+β) = productivity_factor, so L = productivity_factor^(1/(α+β))
+                total_exponents = sum(self.inputs.values())
+                required_inputs[input_good] = productivity_factor ** (exponent / total_exponents / exponent)
+                
         return required_inputs
 
     def buy_labor(self):
@@ -117,7 +126,7 @@ class CommodityProducer(abce.Agent, abce.Firm):
         labor_start = self['labor']
         offers = self.get_offers("labor")
         
-        # Calculate required labor
+        # Calculate required labor for desired output using production function
         required_inputs = self.calculate_required_inputs()
         labor_needed = required_inputs.get('labor', 0)
         
@@ -137,13 +146,13 @@ class CommodityProducer(abce.Agent, abce.Firm):
             quantity_to_buy = min(offer.quantity, labor_needed - labor_purchased)
             cost = quantity_to_buy * offer.price
             
-            # Check if we need debt to buy
+            # Check if we need debt to buy (ALWAYS ensure we get the inputs needed)
             if self['money'] < cost:
                 debt_needed = cost - self['money']
                 self.create('money', debt_needed)
                 self.debt += debt_needed
                 self.debt_created_this_round += debt_needed
-                print(f"      💳 Created ${debt_needed:.2f} debt to maintain production")
+                print(f"      💳 Created ${debt_needed:.2f} debt to maintain fixed production")
             
             # Make the purchase
             if quantity_to_buy == offer.quantity:
@@ -158,50 +167,58 @@ class CommodityProducer(abce.Agent, abce.Firm):
             print(f"      Bought {quantity_to_buy:.2f} labor for ${cost:.2f}")
         
         self.labor_purchased = labor_purchased
+        
+        # If we couldn't buy enough, still track what we bought
+        if labor_purchased < labor_needed * 0.99:
+            print(f"      ⚠️ Could only buy {labor_purchased:.2f} labor (needed {labor_needed:.2f})")
+        
         print(f"      Total labor purchased: {labor_purchased:.2f} for ${total_cost:.2f}")
         print(f"      Money remaining: ${self['money']:.2f}")
 
     def production(self):
-        """ Produce fixed quantity of commodities """
-        # In fixed supply model, we always produce the desired quantity
-        # (assuming we got the inputs we needed)
+        """ Produce commodities using labor with actual production function """
         inventory_before = self[self.output]
         
-        # Check if we have sufficient inputs
-        can_produce = True
-        for input_good, required in self.calculate_required_inputs().items():
-            if self[input_good] < required * 0.95:  # Allow 5% tolerance
-                can_produce = False
-                print(f"    ⚠️ Insufficient {input_good}: have {self[input_good]:.2f}, need {required:.2f}")
+        print(f"    Fixed Supply Commodity Producer {self.id}: PRODUCTION:")
+        print(f"      Target output: {self.desired_output_quantity}")
+        print(f"      Climate productivity: {self.climate_productivity:.3f}")
         
-        if can_produce:
-            # Consume inputs
-            for input_good, required in self.calculate_required_inputs().items():
-                actual_use = min(self[input_good], required)
-                self.destroy(input_good, actual_use)
-            
-            # Produce fixed output
-            self.create(self.output, self.desired_output_quantity)
-            self.production_this_round = self.desired_output_quantity
-            print(f"    Fixed Supply Commodity Producer {self.id}: Produced {self.desired_output_quantity} {self.output}s")
-        else:
-            # Partial production based on most limiting input
-            production_ratio = 1.0
-            for input_good, required in self.calculate_required_inputs().items():
-                if required > 0:
-                    ratio = self[input_good] / required
-                    production_ratio = min(production_ratio, ratio)
-            
-            actual_production = self.desired_output_quantity * production_ratio
-            
-            # Consume inputs proportionally
-            for input_good, required in self.calculate_required_inputs().items():
-                actual_use = required * production_ratio
-                self.destroy(input_good, min(self[input_good], actual_use))
-            
-            self.create(self.output, actual_production)
-            self.production_this_round = actual_production
-            print(f"    ⚠️ Partial production: {actual_production:.2f} instead of {self.desired_output_quantity}")
+        # Create production function with climate-adjusted productivity
+        # In fixed supply model, we use desired_output_quantity as the base productivity (A in Cobb-Douglas)
+        adjusted_productivity = self.desired_output_quantity * self.climate_productivity
+        production_function = self.create_cobb_douglas(self.output, adjusted_productivity, self.inputs)
+        
+        # Prepare actual input quantities available
+        actual_inputs = {}
+        for input_good in self.inputs.keys():
+            actual_inputs[input_good] = self[input_good]
+            print(f"      Available {input_good}: {actual_inputs[input_good]:.3f}")
+        
+        # Calculate expected output using Cobb-Douglas: Q = A * L^α * K^β...
+        expected_output = adjusted_productivity
+        for input_good, exponent in self.inputs.items():
+            available_quantity = actual_inputs[input_good]
+            expected_output *= (available_quantity ** exponent)
+        
+        print(f"      Expected output: {adjusted_productivity:.3f} * {' * '.join([f'{actual_inputs[good]:.3f}^{exp}' for good, exp in self.inputs.items()])} = {expected_output:.3f}")
+        
+        # Use the actual production function
+        try:
+            self.produce(production_function, actual_inputs)
+            print(f"      Production function executed successfully")
+        except Exception as e:
+            print(f"      Production function failed: {e}")
+        
+        # Calculate actual production this round
+        inventory_after = self[self.output]
+        self.production_this_round = inventory_after - inventory_before
+        
+        print(f"      Actual production: {self.production_this_round:.3f}")
+        print(f"      Total inventory: {inventory_after:.3f}")
+        
+        # In fixed supply model, we should produce close to desired amount
+        if abs(self.production_this_round - self.desired_output_quantity) > 0.1:
+            print(f"      ⚠️ Production deviation: wanted {self.desired_output_quantity}, got {self.production_this_round:.3f}")
 
     def calculate_dynamic_price(self):
         """Calculate price based on input costs and desired profit margin,

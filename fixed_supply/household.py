@@ -48,7 +48,7 @@ class Household(abce.Agent, abce.Household):
         # Track consumption data
         self.consumption_this_round = 0
         self.final_goods_purchased = 0
-        self.inventory_at_start = self.get(self.consumption_preference, 0)
+        self.inventory_at_start = self[self.consumption_preference]
         
         # Get firm counts from config for labor distribution
         self.commodity_producer_count = config['commodity_producer_count']
@@ -76,7 +76,7 @@ class Household(abce.Agent, abce.Household):
         """Called at the start of each round to reset tracking variables"""
         self.consumption_this_round = 0
         self.final_goods_purchased = 0
-        self.inventory_at_start = self.get(self.consumption_preference, 0)
+        self.inventory_at_start = self[self.consumption_preference]
         self.debt_created_this_round = 0
         self.income = 0
         self.spending = 0

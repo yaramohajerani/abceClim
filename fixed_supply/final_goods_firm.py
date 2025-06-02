@@ -92,14 +92,28 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         self.climate_cost_burden = 0
 
     def calculate_required_inputs(self):
-        """Calculate required inputs for desired output, accounting for climate"""
+        """Calculate inputs needed to produce desired output with current climate productivity"""
         required_inputs = {}
-        productivity_multiplier = 1.0 / self.climate_productivity if self.climate_productivity > 0 else 999
+        
+        # For Cobb-Douglas Q = A * L^α * K^β..., to get desired output:
+        # If we want Q = desired_output_quantity and A = desired_output_quantity * climate_productivity
+        # Then: desired_output_quantity = (desired_output_quantity * climate_productivity) * L^α * K^β...
+        # Simplifying: 1 = climate_productivity * L^α * K^β...
+        # So: L^α * K^β... = 1/climate_productivity
+        
+        productivity_factor = 1.0 / self.climate_productivity if self.climate_productivity > 0 else 999
+        
+        # For multiple inputs case - assume balanced inputs
+        # Each input contributes its share: L^α * K^β = productivity_factor
+        # Assume L = K for simplicity, then L^(α+β) = productivity_factor, so L = productivity_factor^(1/(α+β))
+        total_exponents = sum(self.inputs.values())
         
         for input_good, exponent in self.inputs.items():
-            base_requirement = self.desired_output_quantity * exponent
-            required_inputs[input_good] = base_requirement * productivity_multiplier
-            
+            if total_exponents > 0:
+                required_inputs[input_good] = productivity_factor ** (1.0 / total_exponents)
+            else:
+                required_inputs[input_good] = productivity_factor
+                
         return required_inputs
 
     def buy_inputs_optimally(self):
@@ -150,44 +164,48 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
                 print(f"      ⚠️ Could only buy {purchased:.2f} {input_good} (needed {needed:.2f})")
 
     def production(self):
-        """ Produce fixed quantity of final goods """
+        """ Produce final goods using actual production function """
         inventory_before = self[self.output]
         
-        # Check if we have sufficient inputs
-        can_produce = True
-        for input_good, required in self.calculate_required_inputs().items():
-            if self[input_good] < required * 0.95:
-                can_produce = False
-                print(f"    ⚠️ Insufficient {input_good}: have {self[input_good]:.2f}, need {required:.2f}")
+        print(f"    Fixed Supply Final Goods Firm {self.id}: PRODUCTION:")
+        print(f"      Target output: {self.desired_output_quantity}")
+        print(f"      Climate productivity: {self.climate_productivity:.3f}")
         
-        if can_produce:
-            # Consume inputs
-            for input_good, required in self.calculate_required_inputs().items():
-                actual_use = min(self[input_good], required)
-                self.destroy(input_good, actual_use)
-            
-            # Produce fixed output
-            self.create(self.output, self.desired_output_quantity)
-            self.production_this_round = self.desired_output_quantity
-            print(f"    Fixed Supply Final Goods Firm {self.id}: Produced {self.desired_output_quantity} {self.output}s")
-        else:
-            # Partial production
-            production_ratio = 1.0
-            for input_good, required in self.calculate_required_inputs().items():
-                if required > 0:
-                    ratio = self[input_good] / required
-                    production_ratio = min(production_ratio, ratio)
-            
-            actual_production = self.desired_output_quantity * production_ratio
-            
-            # Consume inputs proportionally
-            for input_good, required in self.calculate_required_inputs().items():
-                actual_use = required * production_ratio
-                self.destroy(input_good, min(self[input_good], actual_use))
-            
-            self.create(self.output, actual_production)
-            self.production_this_round = actual_production
-            print(f"    ⚠️ Partial production: {actual_production:.2f} instead of {self.desired_output_quantity}")
+        # Create production function with climate-adjusted productivity
+        adjusted_productivity = self.desired_output_quantity * self.climate_productivity
+        production_function = self.create_cobb_douglas(self.output, adjusted_productivity, self.inputs)
+        
+        # Prepare actual input quantities available
+        actual_inputs = {}
+        for input_good in self.inputs.keys():
+            actual_inputs[input_good] = self[input_good]
+            print(f"      Available {input_good}: {actual_inputs[input_good]:.3f}")
+        
+        # Calculate expected output using Cobb-Douglas: Q = A * L^α * K^β...
+        expected_output = adjusted_productivity
+        for input_good, exponent in self.inputs.items():
+            available_quantity = actual_inputs[input_good]
+            expected_output *= (available_quantity ** exponent)
+        
+        print(f"      Expected output: {adjusted_productivity:.3f} * {' * '.join([f'{actual_inputs[good]:.3f}^{exp}' for good, exp in self.inputs.items()])} = {expected_output:.3f}")
+        
+        # Use the actual production function
+        try:
+            self.produce(production_function, actual_inputs)
+            print(f"      Production function executed successfully")
+        except Exception as e:
+            print(f"      Production function failed: {e}")
+        
+        # Calculate actual production this round
+        inventory_after = self[self.output]
+        self.production_this_round = inventory_after - inventory_before
+        
+        print(f"      Actual production: {self.production_this_round:.3f}")
+        print(f"      Total inventory: {inventory_after:.3f}")
+        
+        # In fixed supply model, we should produce close to desired amount
+        if abs(self.production_this_round - self.desired_output_quantity) > 0.1:
+            print(f"      ⚠️ Production deviation: wanted {self.desired_output_quantity}, got {self.production_this_round:.3f}")
 
     def calculate_dynamic_price(self):
         """Calculate price with 50-50 climate cost sharing"""
@@ -220,9 +238,12 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         
         print(f"    Fixed Supply Final Goods Firm {self.id}: Has {inventory:.2f} {self.output}s to sell at ${self.price[self.output]:.2f}")
         if inventory > 0:
-            # Offer all final goods to all households (they will decide how much to buy)
-            self.sell(('household', 'all'), self.output, 
-                     inventory, self.price[self.output])
+            # Distribute sales among all households
+            quantity_per_household = inventory / self.household_count
+            for household_id in range(self.household_count):
+                if quantity_per_household > 0:
+                    self.sell(('household', household_id), self.output, 
+                             quantity_per_household, self.price[self.output])
 
     def calculate_sales_after_market_clearing(self):
         """Calculate actual sales and financial metrics"""

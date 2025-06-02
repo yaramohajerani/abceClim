@@ -62,26 +62,26 @@ def validate_results(result_dir):
         df = pd.read_csv(commodity_file)
         
         # Check if debt column exists
-        if 'debt' not in df.columns:
-            issues.append("Missing 'debt' column in commodity producer data")
+        if 'production_debt' not in df.columns:
+            issues.append("Missing 'production_debt' column in commodity producer data")
             
         # Check if financial metrics exist
-        expected_columns = ['profit', 'actual_margin', 'target_margin', 'price']
+        expected_columns = ['production_profit', 'production_actual_margin', 'production_target_margin', 'production_price']
         for col in expected_columns:
             if col not in df.columns:
                 issues.append(f"Missing '{col}' column in commodity producer data")
                 
         # Check if prices are dynamic (should vary from base)
-        if 'price' in df.columns:
-            price_variance = df['price'].std()
+        if 'production_price' in df.columns:
+            price_variance = df['production_price'].std()
             if price_variance < 0.01:
                 issues.append("Prices appear to be static (no variance)")
             else:
                 print(f"✅ Dynamic pricing working - price variance: {price_variance:.3f}")
                 
         # Check if debt is being created
-        if 'debt' in df.columns:
-            max_debt = df['debt'].max()
+        if 'production_debt' in df.columns:
+            max_debt = df['production_debt'].max()
             if max_debt > 0:
                 print(f"✅ Debt mechanism working - max debt: ${max_debt:.2f}")
             else:
@@ -92,8 +92,8 @@ def validate_results(result_dir):
     if os.path.exists(household_file):
         df = pd.read_csv(household_file)
         
-        if 'minimum_consumption_met' in df.columns:
-            unmet = df[df['minimum_consumption_met'] == False]
+        if 'consumption_minimum_consumption_met' in df.columns:
+            unmet = df[df['consumption_minimum_consumption_met'] == False]
             if len(unmet) > 0:
                 print(f"⚠️  Some households didn't meet minimum consumption: {len(unmet)} instances")
                 
@@ -109,10 +109,10 @@ def analyze_financial_health(result_dir):
         if os.path.exists(file):
             df = pd.read_csv(file)
             
-            if 'profit' in df.columns and 'actual_margin' in df.columns:
-                avg_profit = df.groupby('round')['profit'].mean().mean()
-                avg_margin = df.groupby('round')['actual_margin'].mean().mean()
-                total_debt = df['debt'].max() if 'debt' in df.columns else 0
+            if 'production_profit' in df.columns and 'production_actual_margin' in df.columns:
+                avg_profit = df.groupby('round')['production_profit'].mean().mean()
+                avg_margin = df.groupby('round')['production_actual_margin'].mean().mean()
+                total_debt = df['production_debt'].max() if 'production_debt' in df.columns else 0
                 
                 print(f"\n{firm_type.replace('_', ' ').title()}:")
                 print(f"  Average profit: ${avg_profit:.2f}")

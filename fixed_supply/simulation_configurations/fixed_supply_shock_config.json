@@ -60,8 +60,7 @@
         "inputs": {
           "labor": 1
         },
-        "output": "commodity",
-        "minimum_production_for_supply_chain": 0.15
+        "output": "commodity"
       },
       "climate": {
         "base_vulnerability": 0.4,
@@ -80,8 +79,7 @@
           "labor": 0.5,
           "commodity": 0.5
         },
-        "output": "intermediate_good",
-        "minimum_production_for_supply_chain": 0.2
+        "output": "intermediate_good"
       },
       "climate": {
         "base_vulnerability": 0.2,
