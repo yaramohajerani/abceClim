@@ -1,0 +1,136 @@
+{
+  "simulation": {
+    "name": "stable_economy_test",
+    "trade_logging": "on",
+    "random_seed": 42,
+    "rounds": 20,
+    "result_path": "result_stable_economy"
+  },
+  "logging": {
+    "agent_activity_logging": true,
+    "console_level": "WARNING",
+    "detailed_agent_actions": true,
+    "log_filename": "simulation_detailed_log.txt",
+    "agent_keywords": [
+      "Household", "Producer", "Firm", "Commodity", "Intermediary", "Final",
+      "buy", "sell", "production", "consumption", "labor", "market",
+      "money", "trade", "offer", "accepted", "spent", "received"
+    ],
+    "climate_keywords": [
+      "Climate", "stress", "shock", "CLIMATE", "Weather", "Event",
+      "Disruption", "Impact", "Crisis", "reset", "applied", "cleared"
+    ]
+  },
+  "climate": {
+    "stress_enabled": false,
+    "acute_stress_probability": 0.15,
+    "chronic_stress_factor": 0.96,
+    "geographical_effects": true,
+    "shock_rules": [
+      {
+        "name": "global_commodity_shock",
+        "description": "Global shock affecting all commodity producers",
+        "probability": 0.20,
+        "agent_types": ["commodity_producer"],
+        "continents": ["all"],
+        "stress_factor": 0.6,
+        "duration": 1
+      },
+      {
+        "name": "severe_climate_event", 
+        "description": "Severe weather disrupting commodity production",
+        "probability": 0.15,
+        "agent_types": ["commodity_producer"],
+        "continents": ["all"],
+        "stress_factor": 0.4,
+        "duration": 2
+      }
+    ]
+  },
+  "agents": {
+    "commodity_producer": {
+      "count": 4,
+      "initial_money": 100,
+      "initial_inventory": {},
+      "production": {
+        "base_output_quantity": 4,
+        "inputs": {
+          "labor": 1
+        },
+        "output": "commodity",
+        "price": 1.0
+      },
+      "climate": {
+        "base_vulnerability": 0.3,
+        "vulnerability_variance": 0.1
+      },
+      "geographical_distribution": ["Europe", "Asia", "Africa"]
+    },
+    "intermediary_firm": {
+      "count": 3,
+      "initial_money": 200,
+      "initial_inventory": {},
+      "production": {
+        "base_output_quantity": 2.0,
+        "inputs": {
+          "labor": 0.5,
+          "commodity": 0.5
+        },
+        "output": "intermediate_good",
+        "price": 2.0
+      },
+      "climate": {
+        "base_vulnerability": 0.1,
+        "vulnerability_variance": 0.05
+      },
+      "geographical_distribution": ["North America", "Europe"]
+    },
+    "final_goods_firm": {
+      "count": 2,
+      "initial_money": 200,
+      "initial_inventory": {},
+      "production": {
+        "base_output_quantity": 1.0,
+        "inputs": {
+          "labor": 0.5,
+          "intermediate_good": 0.5
+        },
+        "output": "final_good",
+        "price": 7
+      },
+      "climate": {
+        "base_vulnerability": 0.05,
+        "vulnerability_variance": 0.02
+      },
+      "geographical_distribution": ["North America", "South America"]
+    },
+    "household": {
+      "count": 20,
+      "initial_money": 50,
+      "initial_inventory": {},
+      "labor": {
+        "endowment": 1,
+        "wage": 4
+      },
+      "consumption": {
+        "preference": "final_good",
+        "budget_fraction": 0.8,
+        "consumption_fraction": 0.9
+      },
+      "geographical_distribution": ["all"]
+    }
+  },
+  "data_collection": {
+    "track_goods": {
+      "commodity_producer": ["commodity"],
+      "intermediary_firm": ["intermediate_good"],
+      "final_goods_firm": ["final_good"],
+      "household": ["final_good"]
+    }
+  },
+  "visualization": {
+    "create_visualizations": false,
+    "create_dynamic_visualization": true,
+    "save_climate_summary": true
+  }
+} 

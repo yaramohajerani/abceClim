@@ -42,8 +42,9 @@ def main(config_file_path):
     Args:
         config_file_path: Path to the JSON configuration file. If None, uses default "model_config.json"
     """
-    # Load configuration
-    config_file_path = os.path.join(os.path.dirname(__file__), "model_config.json")
+    # Load configuration - use provided path or default
+    if config_file_path is None:
+        config_file_path = os.path.join(os.path.dirname(__file__), "model_config.json")
     
     print(f"🔧 Loading configuration from: {config_file_path}")
     config_loader = load_model_config(config_file_path)

@@ -1,11 +1,10 @@
 {
   "simulation": {
-    "name": "supply_chain_stress_test",
+    "name": "shock_stable_economy_test",
     "trade_logging": "on",
     "random_seed": 42,
-    "rounds": 15,
-    "result_path": "result_supply_chain_test",
-    "climate_stress_enabled": true
+    "rounds": 20,
+    "result_path": "result_shock_stable_economy"
   },
   "logging": {
     "agent_activity_logging": true,
@@ -97,7 +96,7 @@
           "intermediate_good": 0.5
         },
         "output": "final_good",
-        "price": 4.0
+        "price": 7
       },
       "climate": {
         "base_vulnerability": 0.05,
@@ -111,7 +110,7 @@
       "initial_inventory": {},
       "labor": {
         "endowment": 1,
-        "wage": 6.0
+        "wage": 4
       },
       "consumption": {
         "preference": "final_good",
