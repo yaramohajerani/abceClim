@@ -10,7 +10,7 @@ class Household(abce.Agent):
             config: Configuration dictionary with initial resources, labor, and consumption parameters.
         """
         # Initialize money
-        initial_money = config.get('initial_money', 10)
+        initial_money = config['initial_money']
         self.create('money', initial_money)
         
         # Initialize inventory from configuration
@@ -19,15 +19,15 @@ class Household(abce.Agent):
             self.create(good, quantity)
         
         # Labor parameters from configuration
-        labor_config = config.get('labor', {})
-        self.labor_endowment = labor_config.get('endowment', 1)
-        self.wage = labor_config.get('wage', 1.0)
+        labor_config = config['labor']
+        self.labor_endowment = labor_config['endowment']
+        self.wage = labor_config['wage']
         
         # Consumption parameters from configuration
-        consumption_config = config.get('consumption', {})
-        self.preferred_good = consumption_config.get('preference', 'final_good')
-        self.budget_fraction = consumption_config.get('budget_fraction', 0.8)
-        self.consumption_fraction = consumption_config.get('consumption_fraction', 0.9)  # Fraction of goods to consume
+        consumption_config = config['consumption']
+        self.preferred_good = consumption_config['preference']
+        self.budget_fraction = consumption_config['budget_fraction']
+        self.consumption_fraction = consumption_config['consumption_fraction']  # Fraction of goods to consume
         
         # Climate stress (not directly applicable to households but kept for compatibility)
         self.climate_stressed = False
@@ -45,12 +45,18 @@ class Household(abce.Agent):
         self.labor_sold = 0
         self.inventory_at_start = self[self.preferred_good]
         
+        # Get firm counts from config for proper labor distribution
+        self.commodity_producer_count = config['commodity_producer_count']
+        self.intermediary_firm_count = config['intermediary_firm_count']
+        self.final_goods_firm_count = config['final_goods_firm_count']
+        
         print(f"Household {self.id} initialized:")
         print(f"  Initial money: ${initial_money}")
         print(f"  Labor endowment: {self.labor_endowment}")
         print(f"  Wage: ${self.wage}")
         print(f"  Consumption preference: {self.preferred_good}")
         print(f"  Budget fraction: {self.budget_fraction:.1%}")
+        print(f"  Will sell labor to {self.commodity_producer_count + self.intermediary_firm_count + self.final_goods_firm_count} firms total")
 
     def start_round(self):
         """Called at the start of each round to reset tracking variables"""
@@ -71,13 +77,13 @@ class Household(abce.Agent):
             # Distribute labor offers among all types of firms
             firms = []
             # Add commodity producers
-            for i in range(3):  # Assuming 3 commodity producers
+            for i in range(self.commodity_producer_count):
                 firms.append(('commodity_producer', i))
             # Add intermediary firms  
-            for i in range(2):  # Assuming 2 intermediary firms
+            for i in range(self.intermediary_firm_count):
                 firms.append(('intermediary_firm', i))
             # Add final goods firms
-            for i in range(2):  # Assuming 2 final goods firms
+            for i in range(self.final_goods_firm_count):
                 firms.append(('final_goods_firm', i))
             
             # Distribute labor among firms

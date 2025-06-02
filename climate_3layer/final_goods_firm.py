@@ -18,7 +18,7 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
             config: Configuration dictionary with production parameters, climate settings, etc.
         """
         # Initialize money
-        initial_money = config.get('initial_money', 60)
+        initial_money = config['initial_money']
         self.create('money', initial_money)
         
         # Initialize inventory from configuration
@@ -27,22 +27,22 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
             self.create(good, quantity)
         
         # Production parameters from configuration
-        production_config = config.get('production', {})
-        self.inputs = production_config.get('inputs', {"labor": 1, "intermediate_good": 1})
-        self.output = production_config.get('output', "final_good")
-        self.base_output_quantity = production_config.get('base_output_quantity', 1.8)
+        production_config = config['production']
+        self.inputs = production_config['inputs']
+        self.output = production_config['output']
+        self.base_output_quantity = production_config['base_output_quantity']
         self.current_output_quantity = self.base_output_quantity
         
         # Climate stress parameters from configuration
-        climate_config = config.get('climate', {})
-        base_vulnerability = climate_config.get('base_vulnerability', 0.05)
-        vulnerability_variance = climate_config.get('vulnerability_variance', 0.02)
+        climate_config = config['climate']
+        base_vulnerability = climate_config['base_vulnerability']
+        vulnerability_variance = climate_config['vulnerability_variance']
         self.climate_vulnerability = base_vulnerability + (self.id * vulnerability_variance)
         self.chronic_stress_accumulated = 1.0  # Multiplicative factor
         self.climate_stressed = False  # Track if currently stressed
         
         # Pricing from configuration
-        self.price = {self.output: production_config.get('price', 5.0)}
+        self.price = {self.output: production_config['price']}
         
         # Create production function
         self.pf = self.create_cobb_douglas(self.output, self.current_output_quantity, self.inputs)
@@ -54,11 +54,15 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         self.intermediate_goods_purchased = 0
         self.inventory_at_start = self[self.output]
         
+        # Get household count from config for proper distribution
+        self.num_households = config['household_count']
+        
         print(f"Final Goods Firm {self.id} initialized:")
         print(f"  Initial money: ${initial_money}")
         print(f"  Production capacity: {self.base_output_quantity}")
         print(f"  Climate vulnerability: {self.climate_vulnerability:.3f}")
         print(f"  Price: ${self.price[self.output]}")
+        print(f"  Will distribute to {self.num_households} households")
 
     def start_round(self):
         """Called at the start of each round to reset tracking variables"""
@@ -190,8 +194,9 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         
         print(f"    Final Goods Firm {self.id}: Has {final_goods_stock:.2f} {self.output}s to sell")
         if final_goods_stock > 0:
-            # Distribute sales among households
-            num_households = 4  # Assuming 4 households
+            # Distribute sales among households - get actual household count dynamically
+            # Use the household count from configuration (no fallback since config is required)
+            num_households = self.num_households
             quantity_per_household = final_goods_stock / num_households
             for household_id in range(num_households):
                 if quantity_per_household > 0:

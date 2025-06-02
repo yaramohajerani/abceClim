@@ -95,6 +95,16 @@ def main(config_file_path):
     final_goods_config = config_loader.get_agent_config('final_goods_firm')
     household_config = config_loader.get_agent_config('household')
     
+    # Add cross-agent information needed for market distribution
+    final_goods_config['household_count'] = household_config['count']
+    intermediary_config['final_goods_count'] = final_goods_config['count']
+    commodity_config['intermediary_count'] = intermediary_config['count']
+    
+    # Add firm counts to household config for labor distribution
+    household_config['commodity_producer_count'] = commodity_config['count']
+    household_config['intermediary_firm_count'] = intermediary_config['count']
+    household_config['final_goods_firm_count'] = final_goods_config['count']
+    
     # Build agents with their configurations
     commodity_producers = w.build_agents(
         CommodityProducer, 

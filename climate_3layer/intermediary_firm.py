@@ -18,7 +18,7 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
             config: Configuration dictionary with production parameters, climate settings, etc.
         """
         # Initialize money
-        initial_money = config.get('initial_money', 50)
+        initial_money = config['initial_money']
         self.create('money', initial_money)
         
         # Initialize inventory from configuration
@@ -27,22 +27,22 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
             self.create(good, quantity)
         
         # Production parameters from configuration
-        production_config = config.get('production', {})
-        self.inputs = production_config.get('inputs', {"labor": 1, "commodity": 1})
-        self.output = production_config.get('output', "intermediate_good")
-        self.base_output_quantity = production_config.get('base_output_quantity', 1.5)
+        production_config = config['production']
+        self.inputs = production_config['inputs']
+        self.output = production_config['output']
+        self.base_output_quantity = production_config['base_output_quantity']
         self.current_output_quantity = self.base_output_quantity
         
         # Climate stress parameters from configuration
-        climate_config = config.get('climate', {})
-        base_vulnerability = climate_config.get('base_vulnerability', 0.1)
-        vulnerability_variance = climate_config.get('vulnerability_variance', 0.05)
+        climate_config = config['climate']
+        base_vulnerability = climate_config['base_vulnerability']
+        vulnerability_variance = climate_config['vulnerability_variance']
         self.climate_vulnerability = base_vulnerability + (self.id * vulnerability_variance)
         self.chronic_stress_accumulated = 1.0  # Multiplicative factor
         self.climate_stressed = False  # Track if currently stressed
         
         # Pricing from configuration
-        self.price = {self.output: production_config.get('price', 2.0)}
+        self.price = {self.output: production_config['price']}
         
         # Create production function
         self.pf = self.create_cobb_douglas(self.output, self.current_output_quantity, self.inputs)
@@ -54,11 +54,15 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
         self.commodities_purchased = 0
         self.inventory_at_start = self[self.output]
         
+        # Get final goods firm count from config for proper distribution
+        self.final_goods_count = config['final_goods_count']
+        
         print(f"Intermediary Firm {self.id} initialized:")
         print(f"  Initial money: ${initial_money}")
         print(f"  Production capacity: {self.base_output_quantity}")
         print(f"  Climate vulnerability: {self.climate_vulnerability:.3f}")
         print(f"  Price: ${self.price[self.output]}")
+        print(f"  Will distribute to {self.final_goods_count} final goods firms")
 
     def start_round(self):
         """Called at the start of each round to reset tracking variables"""
@@ -191,8 +195,8 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
         print(f"    Intermediary Firm {self.id}: Has {intermediate_stock:.2f} {self.output}s to sell")
         if intermediate_stock > 0:
             # Distribute sales among final goods firms
-            quantity_per_firm = intermediate_stock / 2  # Assuming 2 final goods firms
-            for final_firm_id in range(2):
+            quantity_per_firm = intermediate_stock / self.final_goods_count  # Assuming final_goods_count final goods firms
+            for final_firm_id in range(self.final_goods_count):
                 if quantity_per_firm > 0:
                     print(f"      Offering {quantity_per_firm:.2f} {self.output}s to final_goods_firm {final_firm_id} at price {self.price[self.output]}")
                     self.sell(('final_goods_firm', final_firm_id), self.output, 

@@ -3,7 +3,7 @@
     "name": "supply_chain_stress_test",
     "trade_logging": "on",
     "random_seed": 42,
-    "rounds": 3,
+    "rounds": 15,
     "result_path": "result_supply_chain_test",
     "climate_stress_enabled": true
   },
@@ -78,7 +78,7 @@
           "commodity": 1
         },
         "output": "intermediate_good",
-        "price": 2.0
+        "price": 1.0
       },
       "climate": {
         "base_vulnerability": 0.1,
@@ -88,7 +88,7 @@
     },
     "final_goods_firm": {
       "count": 2,
-      "initial_money": 50,
+      "initial_money": 200,
       "initial_inventory": {},
       "production": {
         "base_output_quantity": 1.0,
@@ -107,7 +107,7 @@
     },
     "household": {
       "count": 20,
-      "initial_money": 100,
+      "initial_money": 50,
       "initial_inventory": {},
       "labor": {
         "endowment": 1,
@@ -129,7 +129,7 @@
     }
   },
   "visualization": {
-    "create_visualizations": true,
+    "create_visualizations": false,
     "create_dynamic_visualization": true,
     "save_climate_summary": true
   }
