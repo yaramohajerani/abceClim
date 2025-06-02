@@ -258,6 +258,10 @@ def main(config_file_path):
         }
         sim_logger.log_simulation_end(summary_stats)
     
+    # Always export climate summary for animation visualizer (regardless of visualization settings)
+    print("Exporting climate summary for animation visualizer...")
+    climate_framework.export_climate_summary(actual_simulation_path, "climate_3_layer_summary.csv")
+    
     # Create visualizations using the custom supply chain visualizer
     if simulation_parameters['create_visualizations']:
         print("Creating specialized supply chain visualizations...")
@@ -273,9 +277,6 @@ def main(config_file_path):
             simulation_path=actual_simulation_path,
             model_name="Climate 3-Layer Supply Chain Model"
         )
-        
-        # Export climate summary using climate framework
-        climate_framework.export_climate_summary(actual_simulation_path, "climate_3_layer_summary.csv")
         
         print("Specialized supply chain visualizations completed!")
     

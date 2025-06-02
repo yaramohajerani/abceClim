@@ -19,7 +19,78 @@ def load_real_geographical_assignments(simulation_path):
     
     if not os.path.exists(climate_summary_file):
         print(f"⚠️ Climate summary file not found: {climate_summary_file}")
-        return {}
+        print(f"   Creating fallback geographical assignments...")
+        
+        # Create default geographical assignments based on typical configuration
+        geographical_assignments = {
+            'commodity_producer': {},
+            'intermediary_firm': {},
+            'final_goods_firm': {},
+            'household': {}
+        }
+        
+        # Try to infer agent counts from CSV files
+        try:
+            # Check commodity producers
+            commodity_file = os.path.join(simulation_path, 'panel_commodity_producer_production.csv')
+            if os.path.exists(commodity_file):
+                df = pd.read_csv(commodity_file)
+                unique_names = df['name'].unique()
+                continents = ['Europe', 'Asia', 'Africa']
+                for i, name in enumerate(unique_names):
+                    agent_id = int(name.replace('commodity_producer', ''))
+                    geographical_assignments['commodity_producer'][agent_id] = {
+                        'continent': continents[i % len(continents)],
+                        'vulnerability': 0.1 + (i * 0.02)
+                    }
+            
+            # Check intermediary firms
+            intermediary_file = os.path.join(simulation_path, 'panel_intermediary_firm_production.csv')
+            if os.path.exists(intermediary_file):
+                df = pd.read_csv(intermediary_file)
+                unique_names = df['name'].unique()
+                continents = ['North America', 'Europe']
+                for i, name in enumerate(unique_names):
+                    agent_id = int(name.replace('intermediary_firm', ''))
+                    geographical_assignments['intermediary_firm'][agent_id] = {
+                        'continent': continents[i % len(continents)],
+                        'vulnerability': 0.08 + (i * 0.02)
+                    }
+            
+            # Check final goods firms
+            final_goods_file = os.path.join(simulation_path, 'panel_final_goods_firm_production.csv')
+            if os.path.exists(final_goods_file):
+                df = pd.read_csv(final_goods_file)
+                unique_names = df['name'].unique()
+                continents = ['North America', 'South America']
+                for i, name in enumerate(unique_names):
+                    agent_id = int(name.replace('final_goods_firm', ''))
+                    geographical_assignments['final_goods_firm'][agent_id] = {
+                        'continent': continents[i % len(continents)],
+                        'vulnerability': 0.05 + (i * 0.01)
+                    }
+            
+            # Check households
+            household_file = os.path.join(simulation_path, 'panel_household_consumption.csv')
+            if os.path.exists(household_file):
+                df = pd.read_csv(household_file)
+                unique_names = df['name'].unique()
+                continents = ['North America', 'Europe', 'Asia', 'South America', 'Africa']
+                for i, name in enumerate(unique_names):
+                    agent_id = int(name.replace('household', ''))
+                    geographical_assignments['household'][agent_id] = {
+                        'continent': continents[i % len(continents)],
+                        'vulnerability': 0.06 + (i * 0.005)
+                    }
+            
+            print(f"✅ Created fallback geographical assignments for {len(geographical_assignments)} agent types")
+            for agent_type, assignments in geographical_assignments.items():
+                print(f"    {agent_type}: {len(assignments)} agents")
+                
+        except Exception as e:
+            print(f"⚠️ Error creating fallback assignments: {e}")
+        
+        return geographical_assignments
     
     try:
         df = pd.read_csv(climate_summary_file)
@@ -334,6 +405,47 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     ax1.plot(rounds, intermediary_production, 's-', label='Intermediary Production', color='#DAA520', linewidth=2, markersize=4)
     ax1.plot(rounds, final_goods_production, '^-', label='Final Goods Production', color='#00FF00', linewidth=2, markersize=4)
     
+    # Add climate shock indicators
+    shock_colors = {
+        'commodity_producer': '#8B4513',
+        'intermediary_firm': '#DAA520', 
+        'final_goods_firm': '#00FF00',
+        'household': '#4169E1',
+        'all_sectors': '#FF0000'
+    }
+    
+    climate_shock_legend_added = False
+    for shock_round in rounds:
+        if shock_round < len(visualization_data['climate_events']):
+            events = visualization_data['climate_events'][shock_round]
+            if events:
+                affected_sectors = set()
+                for event_name, event_data in events.items():
+                    if isinstance(event_data, dict) and 'agent_types' in event_data:
+                        affected_sectors.update(event_data['agent_types'])
+                
+                if len(affected_sectors) > 1:
+                    line_color = shock_colors['all_sectors']
+                    line_label = 'Multi-Sector Climate Shock'
+                elif len(affected_sectors) == 1:
+                    sector = list(affected_sectors)[0]
+                    line_color = shock_colors.get(sector, '#FF0000')
+                    sector_names = {
+                        'commodity_producer': 'Commodity',
+                        'intermediary_firm': 'Intermediary', 
+                        'final_goods_firm': 'Final Goods',
+                        'household': 'Household'
+                    }
+                    line_label = f'{sector_names.get(sector, sector)} Climate Shock'
+                else:
+                    line_color = '#FF0000'
+                    line_label = 'Climate Shock'
+                
+                ax1.axvline(x=shock_round, color=line_color, linestyle='--', 
+                           alpha=0.8, linewidth=2, 
+                           label=line_label if not climate_shock_legend_added else "")
+                climate_shock_legend_added = True
+    
     ax1.set_title('Production Levels Over Time (Real Data)', fontweight='bold')
     ax1.set_xlabel('Round')
     ax1.set_ylabel('Production Level')
@@ -344,6 +456,39 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     ax2.plot(rounds, commodity_inventory, 'o-', label='Commodity Inventory', color='#8B4513', linewidth=2, markersize=4)
     ax2.plot(rounds, intermediary_inventory, 's-', label='Intermediary Inventory', color='#DAA520', linewidth=2, markersize=4)
     ax2.plot(rounds, final_goods_inventory, '^-', label='Final Goods Inventory', color='#00FF00', linewidth=2, markersize=4)
+    
+    # Add climate shock indicators to inventory plot too
+    climate_shock_legend_added_inv = False
+    for shock_round in rounds:
+        if shock_round < len(visualization_data['climate_events']):
+            events = visualization_data['climate_events'][shock_round]
+            if events:
+                affected_sectors = set()
+                for event_name, event_data in events.items():
+                    if isinstance(event_data, dict) and 'agent_types' in event_data:
+                        affected_sectors.update(event_data['agent_types'])
+                
+                if len(affected_sectors) > 1:
+                    line_color = shock_colors['all_sectors']
+                    line_label = 'Multi-Sector Climate Shock'
+                elif len(affected_sectors) == 1:
+                    sector = list(affected_sectors)[0]
+                    line_color = shock_colors.get(sector, '#FF0000')
+                    sector_names = {
+                        'commodity_producer': 'Commodity',
+                        'intermediary_firm': 'Intermediary', 
+                        'final_goods_firm': 'Final Goods',
+                        'household': 'Household'
+                    }
+                    line_label = f'{sector_names.get(sector, sector)} Climate Shock'
+                else:
+                    line_color = '#FF0000'
+                    line_label = 'Climate Shock'
+                
+                ax2.axvline(x=shock_round, color=line_color, linestyle='--', 
+                           alpha=0.8, linewidth=2, 
+                           label=line_label if not climate_shock_legend_added_inv else "")
+                climate_shock_legend_added_inv = True
     
     ax2.set_title('Inventory Levels Over Time (Real Data)', fontweight='bold')
     ax2.set_xlabel('Round')
@@ -356,6 +501,40 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     ax3.plot(rounds, intermediary_wealth, 's-', label='Intermediary Firms', color='#DAA520', linewidth=2, markersize=4)
     ax3.plot(rounds, final_goods_wealth, '^-', label='Final Goods Firms', color='#00FF00', linewidth=2, markersize=4)
     ax3.plot(rounds, household_wealth, 'd-', label='Households', color='#4169E1', linewidth=2, markersize=4)
+    
+    # Add climate shock indicators to wealth plot
+    climate_shock_legend_added_wealth = False
+    for shock_round in rounds:
+        if shock_round < len(visualization_data['climate_events']):
+            events = visualization_data['climate_events'][shock_round]
+            if events:
+                affected_sectors = set()
+                for event_name, event_data in events.items():
+                    if isinstance(event_data, dict) and 'agent_types' in event_data:
+                        affected_sectors.update(event_data['agent_types'])
+                
+                if len(affected_sectors) > 1:
+                    line_color = shock_colors['all_sectors']
+                    line_label = 'Multi-Sector Climate Shock'
+                elif len(affected_sectors) == 1:
+                    sector = list(affected_sectors)[0]
+                    line_color = shock_colors.get(sector, '#FF0000')
+                    sector_names = {
+                        'commodity_producer': 'Commodity',
+                        'intermediary_firm': 'Intermediary', 
+                        'final_goods_firm': 'Final Goods',
+                        'household': 'Household'
+                    }
+                    line_label = f'{sector_names.get(sector, sector)} Climate Shock'
+                else:
+                    line_color = '#FF0000'
+                    line_label = 'Climate Shock'
+                
+                ax3.axvline(x=shock_round, color=line_color, linestyle='--', 
+                           alpha=0.8, linewidth=2, 
+                           label=line_label if not climate_shock_legend_added_wealth else "")
+                climate_shock_legend_added_wealth = True
+    
     ax3.set_title('Wealth Evolution by Sector (Real Data)', fontweight='bold')
     ax3.set_xlabel('Round')
     ax3.set_ylabel('Total Wealth ($)')
@@ -601,13 +780,13 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         
         # Add layer labels with actual counts
         if 'commodity_producer' in agent_counts:
-            ax1.text(1, 5.7, f'Layer 1\nCommodity\n({agent_counts["commodity_producer"]})', ha='center', fontsize=10, fontweight='bold')
+            ax1.text(1, 5.3, f'Layer 1\nCommodity\n({agent_counts["commodity_producer"]})', ha='center', fontsize=10, fontweight='bold')
         if 'intermediary_firm' in agent_counts:
-            ax1.text(3, 5.7, f'Layer 2\nIntermediary\n({agent_counts["intermediary_firm"]})', ha='center', fontsize=10, fontweight='bold')
+            ax1.text(3, 5.3, f'Layer 2\nIntermediary\n({agent_counts["intermediary_firm"]})', ha='center', fontsize=10, fontweight='bold')
         if 'final_goods_firm' in agent_counts:
-            ax1.text(5, 5.7, f'Layer 3\nFinal Goods\n({agent_counts["final_goods_firm"]})', ha='center', fontsize=10, fontweight='bold')
+            ax1.text(5, 5.3, f'Layer 3\nFinal Goods\n({agent_counts["final_goods_firm"]})', ha='center', fontsize=10, fontweight='bold')
         if 'household' in agent_counts:
-            ax1.text(7, 5.7, f'Households\n({agent_counts["household"]})', ha='center', fontsize=10, fontweight='bold')
+            ax1.text(7, 5.3, f'Households\n({agent_counts["household"]})', ha='center', fontsize=10, fontweight='bold')
         
         # Plot 2: Production & Inventory Levels Over Time
         ax2.set_title('Production & Inventory Levels Over Time')
@@ -636,6 +815,51 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         ax2_twin.tick_params(axis='y', labelcolor='gray')
         # Explicitly set the label position to the right side
         ax2_twin.yaxis.set_label_position('right')
+        
+        # Add climate shock indicators as vertical lines
+        shock_colors = {
+            'commodity_producer': '#8B4513',
+            'intermediary_firm': '#DAA520', 
+            'final_goods_firm': '#00FF00',
+            'household': '#4169E1',
+            'all_sectors': '#FF0000'  # For multi-sector shocks
+        }
+        
+        climate_shock_legend_added = False
+        for shock_round in range(frame + 1):
+            if shock_round < len(visualization_data['climate_events']):
+                events = visualization_data['climate_events'][shock_round]
+                if events:  # Climate events occurred in this round
+                    # Determine which sectors were affected
+                    affected_sectors = set()
+                    for event_name, event_data in events.items():
+                        if isinstance(event_data, dict) and 'agent_types' in event_data:
+                            affected_sectors.update(event_data['agent_types'])
+                    
+                    # Choose line color based on affected sectors
+                    if len(affected_sectors) > 1:
+                        line_color = shock_colors['all_sectors']
+                        line_label = 'Multi-Sector Climate Shock'
+                    elif len(affected_sectors) == 1:
+                        sector = list(affected_sectors)[0]
+                        line_color = shock_colors.get(sector, '#FF0000')
+                        sector_names = {
+                            'commodity_producer': 'Commodity',
+                            'intermediary_firm': 'Intermediary', 
+                            'final_goods_firm': 'Final Goods',
+                            'household': 'Household'
+                        }
+                        line_label = f'{sector_names.get(sector, sector)} Climate Shock'
+                    else:
+                        line_color = '#FF0000'
+                        line_label = 'Climate Shock'
+                    
+                    # Add vertical line at the shock round
+                    ax2.axvline(x=shock_round, color=line_color, linestyle='--', 
+                               alpha=0.8, linewidth=2, 
+                               label=line_label if not climate_shock_legend_added else "")
+                    
+                    climate_shock_legend_added = True
         
         # Combine legends
         lines1, labels1 = ax2.get_legend_handles_labels()
@@ -761,6 +985,43 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         ax4.plot(rounds_so_far, intermediary_wealth_series, 's-', label='Intermediary Firms', color='#DAA520', linewidth=2, markersize=4)
         ax4.plot(rounds_so_far, final_goods_wealth_series, '^-', label='Final Goods Firms', color='#00FF00', linewidth=2, markersize=4)
         ax4.plot(rounds_so_far, household_wealth_series, 'd-', label='Households', color='#4169E1', linewidth=2, markersize=4)
+        
+        # Add climate shock indicators as vertical lines (same as production plot)
+        climate_shock_legend_added_wealth = False
+        for shock_round in range(frame + 1):
+            if shock_round < len(visualization_data['climate_events']):
+                events = visualization_data['climate_events'][shock_round]
+                if events:  # Climate events occurred in this round
+                    # Determine which sectors were affected
+                    affected_sectors = set()
+                    for event_name, event_data in events.items():
+                        if isinstance(event_data, dict) and 'agent_types' in event_data:
+                            affected_sectors.update(event_data['agent_types'])
+                    
+                    # Choose line color based on affected sectors
+                    if len(affected_sectors) > 1:
+                        line_color = shock_colors['all_sectors']
+                        line_label = 'Multi-Sector Climate Shock'
+                    elif len(affected_sectors) == 1:
+                        sector = list(affected_sectors)[0]
+                        line_color = shock_colors.get(sector, '#FF0000')
+                        sector_names = {
+                            'commodity_producer': 'Commodity',
+                            'intermediary_firm': 'Intermediary', 
+                            'final_goods_firm': 'Final Goods',
+                            'household': 'Household'
+                        }
+                        line_label = f'{sector_names.get(sector, sector)} Climate Shock'
+                    else:
+                        line_color = '#FF0000'
+                        line_label = 'Climate Shock'
+                    
+                    # Add vertical line at the shock round
+                    ax4.axvline(x=shock_round, color=line_color, linestyle='--', 
+                               alpha=0.8, linewidth=2, 
+                               label=line_label if not climate_shock_legend_added_wealth else "")
+                    
+                    climate_shock_legend_added_wealth = True
         
         ax4.set_xlabel('Round')
         ax4.set_ylabel('Total Wealth ($)')

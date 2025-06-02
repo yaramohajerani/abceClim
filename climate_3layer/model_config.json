@@ -51,10 +51,10 @@
   "agents": {
     "commodity_producer": {
       "count": 4,
-      "initial_money": 10,
+      "initial_money": 100,
       "initial_inventory": {},
       "production": {
-        "base_output_quantity": 1,
+        "base_output_quantity": 4,
         "inputs": {
           "labor": 1
         },
@@ -69,10 +69,10 @@
     },
     "intermediary_firm": {
       "count": 3,
-      "initial_money": 20,
+      "initial_money": 200,
       "initial_inventory": {},
       "production": {
-        "base_output_quantity": 1.0,
+        "base_output_quantity": 2.0,
         "inputs": {
           "labor": 1,
           "commodity": 1
@@ -111,7 +111,7 @@
       "initial_inventory": {},
       "labor": {
         "endowment": 1,
-        "wage": 1.0
+        "wage": 6.0
       },
       "consumption": {
         "preference": "final_good",
