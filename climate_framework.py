@@ -75,25 +75,55 @@ class ClimateFramework:
     def apply_geographical_climate_stress(self, agent_groups: Dict[str, List]) -> Dict[str, str]:
         """
         Apply climate stress events by continent using group-level method calls.
-        Now supports configurable shock rules from simulation parameters.
+        Uses only the new shock_rules system for acute events.
         """
         climate_events = {}
         
-        # Get shock rules from simulation parameters
+        # Apply chronic stress first if enabled (happens every round)
+        chronic_stress_factor = self.params.get('chronic_stress_factor', 1.0)
+        if chronic_stress_factor != 1.0:
+            print(f"\n Applying chronic stress (factor: {chronic_stress_factor}) to all agents...")
+            self._apply_chronic_stress(agent_groups, chronic_stress_factor)
+        
+        # Apply acute events using shock_rules system only
         shock_rules = self.params.get('shock_rules', [])
         
         if shock_rules:
             # Use new configurable shock system
             climate_events = self._apply_configurable_shocks(agent_groups, shock_rules)
         else:
-            # Fall back to original system for backward compatibility
-            climate_events = self._apply_legacy_climate_stress(agent_groups)
+            # No acute events if shock_rules is empty
+            print(f"\n  No shock rules configured - no acute climate events this round")
+            # Reset all agents to normal production
+            print(f"\n  Resetting all agents to normal production...")
+            for agent_type, agent_group in agent_groups.items():
+                try:
+                    agent_group.reset_climate_stress()
+                    print(f"    Reset climate stress for {agent_type} group")
+                except Exception as e:
+                    print(f"    Could not reset {agent_type}: {e}")
         
         # Store climate events
         self.climate_events_history.append(climate_events)
         
         print(f"Climate events recorded: {climate_events}")
         return climate_events
+    
+    def _apply_chronic_stress(self, agent_groups: Dict[str, List], chronic_stress_factor: float):
+        """
+        Apply chronic climate stress (permanent productivity degradation) to all agents.
+        
+        Args:
+            agent_groups: Dictionary mapping agent type names to abcEconomics agent groups
+            chronic_stress_factor: Multiplier for permanent productivity reduction (e.g., 0.95 = 5% permanent loss)
+        """
+        for agent_type, agent_group in agent_groups.items():
+            if hasattr(agent_group, 'apply_chronic_stress'):
+                try:
+                    agent_group.apply_chronic_stress(chronic_stress_factor)
+                    print(f"    Applied chronic stress to {agent_type} group (factor: {chronic_stress_factor})")
+                except Exception as e:
+                    print(f"    Could not apply chronic stress to {agent_type} group: {e}")
     
     def _apply_configurable_shocks(self, agent_groups: Dict[str, List], shock_rules: List[Dict]) -> Dict[str, str]:
         """
@@ -211,59 +241,6 @@ class ClimateFramework:
                 print(f"    No applicable {agent_type}s found in target continents: {target_continents}")
         
         return affected_agents
-    
-    def _apply_legacy_climate_stress(self, agent_groups: Dict[str, List]) -> Dict[str, str]:
-        """
-        Apply climate stress using the original system for backward compatibility.
-        """
-        climate_events = {}
-        
-        # Determine which continents experience acute stress
-        for continent, info in CONTINENTS.items():
-            continent_risk = info['climate_risk']
-            adjusted_probability = self.params['acute_stress_probability'] * continent_risk
-            
-            if random.random() < adjusted_probability:
-                climate_events[continent] = 'acute_stress'
-                print(f"[ACUTE CLIMATE STRESS in {continent}]", end=" ")
-        
-        # Reset all agents to normal production first
-        print(f"\n  Resetting all agents to normal production...")
-        for agent_type, agent_group in agent_groups.items():
-            try:
-                agent_group.reset_climate_stress()
-                print(f"    Reset climate stress for {agent_type} group")
-            except Exception as e:
-                print(f"    Could not reset {agent_type}: {e}")
-
-        # Apply climate stress to affected agents by continent
-        if climate_events:
-            print(f"  Applying climate stress by continent...")
-            
-            for agent_type, agent_group in agent_groups.items():
-                # Check if this agent type has geographical assignments
-                if agent_type in self.geographical_assignments:
-                    assignments = self.geographical_assignments[agent_type]
-                    
-                    # Apply stress to agents in affected continents
-                    affected_agents = []
-                    for agent_id, agent_info in assignments.items():
-                        continent = agent_info['continent']
-                        
-                        if continent in climate_events:
-                            affected_agents.append(agent_id)
-                    
-                    if affected_agents and hasattr(agent_group, 'apply_climate_stress'):
-                        # Calculate stress factor based on vulnerability
-                        stress_factor = 0.7  # 30% reduction in production
-                        try:
-                            # Apply to the entire group - abcEconomics will handle distribution
-                            agent_group.apply_climate_stress(stress_factor)
-                            print(f"    Applied climate stress to {len(affected_agents)} {agent_type}s in {list(climate_events.keys())}")
-                        except Exception as e:
-                            print(f"    Could not apply stress to {agent_type} group: {e}")
-        
-        return climate_events
     
     def collect_panel_data(self, agent_groups: Dict[str, List], goods_to_track: Dict[str, List]):
         """
