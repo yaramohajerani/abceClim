@@ -69,11 +69,19 @@ class Household(abce.Agent):
 
     def sell_labor(self):
         """ Offer labor to firms """
-        # Create fresh labor from endowment each round
+        # Reset labor to exactly the endowment each round
+        try:
+            current_labor = self['labor']
+            if current_labor > 0:
+                self.destroy('labor', current_labor)
+        except KeyError:
+            current_labor = 0  # No existing labor
         self.create('labor', self.labor_endowment)
         
         labor_stock = self['labor']
         labor_start = labor_stock
+        
+        print(f"    Household {self.id}: Reset labor to {self.labor_endowment} (was {current_labor:.2f})")
         
         if labor_stock > 0:
             # Distribute labor offers among all types of firms
@@ -283,4 +291,26 @@ class Household(abce.Agent):
             'continent': getattr(self, 'continent', 'Unknown'),
             'vulnerability': 0,  # No direct climate vulnerability
             'consumption': self.get(self.preferred_good, 0)
-        } 
+        }
+
+    def calculate_labor_income(self):
+        """Calculate income from labor sales"""
+        # Labor income = (initial labor - remaining labor) * wage
+        # Ensure we never calculate negative labor sold due to over-selling
+        labor_remaining = max(0, self['labor'])  # Protect against negative values
+        labor_sold = max(0, self.labor_endowment - labor_remaining)
+        
+        # Cap labor sold at the endowment to prevent over-selling
+        labor_sold = min(labor_sold, self.labor_endowment)
+        
+        self.labor_sold = labor_sold
+        self.income = labor_sold * self.wage
+        print(f"  Household {self.id}: Sold {labor_sold:.2f} labor, earned ${self.income:.2f}")
+        
+        # If we detect negative labor remaining, log an error
+        if self['labor'] < 0:
+            print(f"    ⚠️ ERROR: Household {self.id} has negative labor remaining: {self['labor']:.2f}")
+            print(f"    This indicates over-selling in the labor market!")
+            # Reset to zero to prevent further issues
+            self.destroy('labor', self['labor'])  # Remove negative amount
+            self.create('labor', 0)  # Set to zero 

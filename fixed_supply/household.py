@@ -85,8 +85,18 @@ class Household(abce.Agent, abce.Household):
         """ Refresh labor services - called before selling to reset available labor """
         if units is None:
             units = getattr(self, derived_from, 0)
+        
+        # First destroy any existing labor to reset to zero
+        try:
+            current_labor = self[service]
+            if current_labor > 0:
+                self.destroy(service, current_labor)
+        except KeyError:
+            current_labor = 0  # No existing labor
+        
+        # Then create exactly the endowment amount
         self.create(service, units)
-        print(f"  Household {self.id}: Refreshed {service} to {units} units")
+        print(f"  Household {self.id}: Refreshed {service} to {units} units (was {current_labor:.2f})")
 
     def sell_labor(self):
         """ Sell labor to firms based on predetermined allocation strategy """
@@ -94,7 +104,7 @@ class Household(abce.Agent, abce.Household):
         
         print(f"  Household {self.id}: Selling {labor_available:.2f} units of labor at ${self.wage}/unit")
         
-        # Distribute labor offers among different firm types based on allocation
+        # Calculate total labor demand and scale offers proportionally to avoid over-offering
         
         # Commodity producers
         commodity_labor = labor_available * self.labor_allocation['commodity_producer']
@@ -122,6 +132,13 @@ class Household(abce.Agent, abce.Household):
                 self.sell(('final_goods_firm', firm_id), 'labor', 
                          labor_per_firm, self.wage)
             print(f"    Offered {final_labor:.2f} labor to final goods firms")
+        
+        # Verify total offers don't exceed available labor
+        total_offered = commodity_labor + intermediary_labor + final_labor
+        print(f"    Total labor offered: {total_offered:.2f} (available: {labor_available:.2f})")
+        
+        if abs(total_offered - labor_available) > 0.001:
+            print(f"    ⚠️ WARNING: Labor allocation mismatch! Offered {total_offered:.2f}, available {labor_available:.2f}")
 
     def calculate_labor_income(self):
         """Calculate income from labor sales after market clearing"""
@@ -129,6 +146,12 @@ class Household(abce.Agent, abce.Household):
         labor_sold = self.labor_endowment - self['labor']
         self.income = labor_sold * self.wage
         print(f"  Household {self.id}: Sold {labor_sold:.2f} labor, earned ${self.income:.2f}")
+        
+        # If we detect negative labor remaining, log for debugging
+        if self['labor'] < 0:
+            print(f"    🐛 DEBUG: Household {self.id} has negative labor remaining: {self['labor']:.2f}")
+            print(f"    This indicates over-selling in the labor market!")
+            print(f"    Labor endowment: {self.labor_endowment}, Labor sold: {labor_sold:.2f}")
 
     def buy_final_goods(self):
         """ Buy final goods to meet consumption needs, using debt if necessary """
@@ -195,14 +218,22 @@ class Household(abce.Agent, abce.Household):
             else:
                 print(f"    SKIPPED: Offer of {offer.quantity:.2f} at ${offer.price:.2f}/unit")
         
-        final_goods_end = self[self.consumption_preference]
-        self.final_goods_purchased = final_goods_end - final_goods_start
+        # Use the actual total purchased rather than inventory change
+        self.final_goods_purchased = total_purchased
         self.spending = total_spent
+        
+        final_goods_end = self[self.consumption_preference]
+        actual_inventory_change = final_goods_end - final_goods_start
         
         print(f"  Household {self.id}: Purchasing complete")
         print(f"    Total purchased: {self.final_goods_purchased:.2f} for ${total_spent:.2f}")
+        print(f"    Inventory: {final_goods_start:.2f} → {final_goods_end:.2f} (change: {actual_inventory_change:.2f})")
         print(f"    Money remaining: ${self['money']:.2f}")
         print(f"    Total debt: ${self.debt:.2f}")
+        
+        # Verify our calculation matches actual inventory change
+        if abs(actual_inventory_change - total_purchased) > 0.001:
+            print(f"    ⚠️ WARNING: Purchase calculation mismatch! Calculated {total_purchased:.3f}, actual change {actual_inventory_change:.3f}")
 
     def consumption(self):
         """ Consume final goods """
@@ -232,13 +263,15 @@ class Household(abce.Agent, abce.Household):
         minimum_consumption_met = self.consumption_this_round >= self.minimum_survival_consumption
         desired_consumption_met = self.consumption_this_round >= self.desired_consumption
         
-        # Log the data
+        # Log the data - keep original calculation to see negative values for debugging
+        labor_sold = self.labor_endowment - self['labor']
+        
         self.log('consumption', {
             'consumption': self.consumption_this_round,
             'purchases': self.final_goods_purchased,
             'inventory_change': inventory_change,
             'cumulative_inventory': cumulative_inventory,
-            'labor_sold': self.labor_endowment - self['labor'],
+            'labor_sold': labor_sold,  # Keep original to detect negatives
             'income': self.income,
             'spending': self.spending,
             'money': current_money,
