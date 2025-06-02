@@ -13,8 +13,8 @@ import matplotlib.animation as animation
 import numpy as np
 from datetime import datetime
 
-def load_real_geographical_assignments(simulation_path):
-    """Load REAL geographical assignments from the climate summary CSV file."""
+def load_geographical_assignments(simulation_path):
+    """Load geographical assignments from the climate summary CSV file."""
     climate_summary_file = os.path.join(simulation_path, 'climate_3_layer_summary.csv')
     
     if not os.path.exists(climate_summary_file):
@@ -115,7 +115,7 @@ def load_real_geographical_assignments(simulation_path):
                 'vulnerability': vulnerability
             }
         
-        print(f"✅ Loaded REAL geographical assignments for {len(geographical_assignments)} agent types")
+        print(f"✅ Loaded geographical assignments for {len(geographical_assignments)} agent types")
         for agent_type, assignments in geographical_assignments.items():
             print(f"    {agent_type}: {len(assignments)} agents")
         
@@ -125,8 +125,8 @@ def load_real_geographical_assignments(simulation_path):
         print(f"❌ Error loading geographical assignments: {e}")
         return {}
 
-def load_real_climate_events(simulation_path):
-    """Load REAL climate events from the climate summary CSV file."""
+def load_climate_events(simulation_path):
+    """Load climate events from the climate summary CSV file."""
     climate_summary_file = os.path.join(simulation_path, 'climate_3_layer_summary.csv')
     
     if not os.path.exists(climate_summary_file):
@@ -176,7 +176,7 @@ def load_real_climate_events(simulation_path):
                 climate_events_history.append({})
         
         total_events = sum(len(events) for events in climate_events_history)
-        print(f"✅ Loaded REAL climate events: {total_events} events across {len(climate_events_history)} rounds")
+        print(f"✅ Loaded climate events: {total_events} events across {len(climate_events_history)} rounds")
         
         # Show event summary
         for round_num, events in enumerate(climate_events_history):
@@ -191,7 +191,7 @@ def load_real_climate_events(simulation_path):
         return []
 
 class ClimateFrameworkFromData:
-    """Simple climate framework that loads real data from CSV files."""
+    """Simple climate framework that loads data from CSV files."""
     def __init__(self, geographical_assignments, climate_events_history):
         self.geographical_assignments = geographical_assignments
         self.climate_events_history = climate_events_history
@@ -369,9 +369,9 @@ def get_agent_vulnerability(agent_type, agent_id, climate_framework):
     return 0.0
 
 def create_time_evolution_visualization(visualization_data, simulation_path):
-    """Create time-evolving visualization from real simulation data."""
+    """Create time-evolving visualization from simulation data."""
     
-    print("🎬 Creating time-evolving visualization from REAL simulation data...")
+    print("🎬 Creating time-evolving visualization from simulation data...")
     
     rounds = visualization_data['rounds']
     
@@ -446,7 +446,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
                            label=line_label if not climate_shock_legend_added else "")
                 climate_shock_legend_added = True
     
-    ax1.set_title('Production Levels Over Time (Real Data)', fontweight='bold')
+    ax1.set_title('Production Levels Over Time', fontweight='bold')
     ax1.set_xlabel('Round')
     ax1.set_ylabel('Production Level')
     ax1.legend(loc='center right', fontsize=9)
@@ -490,7 +490,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
                            label=line_label if not climate_shock_legend_added_inv else "")
                 climate_shock_legend_added_inv = True
     
-    ax2.set_title('Inventory Levels Over Time (Real Data)', fontweight='bold')
+    ax2.set_title('Inventory Levels Over Time', fontweight='bold')
     ax2.set_xlabel('Round')
     ax2.set_ylabel('Inventory Level')
     ax2.legend(loc='center right', fontsize=9)
@@ -535,7 +535,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
                            label=line_label if not climate_shock_legend_added_wealth else "")
                 climate_shock_legend_added_wealth = True
     
-    ax3.set_title('Wealth Evolution by Sector (Real Data)', fontweight='bold')
+    ax3.set_title('Wealth Evolution by Sector', fontweight='bold')
     ax3.set_xlabel('Round')
     ax3.set_ylabel('Total Wealth ($)')
     ax3.legend()
@@ -544,7 +544,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     # Plot 4: Climate stress events over time
     ax4.plot(rounds, climate_stress_counts, 'ro-', linewidth=3, markersize=6)
     ax4.fill_between(rounds, climate_stress_counts, alpha=0.3, color='red')
-    ax4.set_title('Climate Stress Events Over Time (Real Data)', fontweight='bold')
+    ax4.set_title('Climate Stress Events Over Time', fontweight='bold')
     ax4.set_xlabel('Round')
     ax4.set_ylabel('Number of Stressed Agents')
     ax4.grid(True, alpha=0.3)
@@ -561,7 +561,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     
     ax5.axis('off')
     
-    # Summary statistics from REAL simulation
+    # Summary statistics from simulation
     total_rounds = len(rounds)
     avg_climate_events = np.mean(climate_stress_counts)
     max_climate_events = np.max(climate_stress_counts)
@@ -573,7 +573,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     supply_chain_efficiency = (final_goods_production[-1] / final_goods_production[0] * 100) if final_goods_production[0] > 0 else 100
     
     summary_text = f"""
-    REAL SIMULATION ANALYSIS SUMMARY
+    SIMULATION ANALYSIS SUMMARY
     
     📊 Simulation Overview:
     • Total Rounds: {total_rounds}
@@ -672,12 +672,12 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         wealth_data = visualization_data['wealth_data'][frame]
         climate_events = visualization_data['climate_events'][frame]
         
-        # Plot 1: Agent network with real stress status
+        # Plot 1: Agent network with stress status
         ax1.set_title(f'Supply Chain Network - Round {round_num}')
         ax1.set_xlim(0, 8)
         ax1.set_ylim(0, 6)
         
-        # Count actual agents by type from real data
+        # Count actual agents by type from data
         agent_counts = {}
         for agent in agent_data:
             agent_type = agent['type']
@@ -751,7 +751,7 @@ def create_animated_supply_chain(visualization_data, simulation_path):
             'household': '#4169E1'
         }
         
-        # Plot each agent using real data and dynamic positions
+        # Plot each agent using data and dynamic positions
         pos_idx = {'commodity_producer': 0, 'intermediary_firm': 0, 'final_goods_firm': 0, 'household': 0}
         
         for agent in agent_data:
@@ -1099,21 +1099,19 @@ def run_animation_visualizations(simulation_path):
         print(f"❌ Error reading simulation data: {e}")
         return
     
-    # Load REAL geographical assignments and climate events from CSV files
-    print("🌍 Loading REAL geographical assignments from simulation data...")
-    geographical_assignments = load_real_geographical_assignments(simulation_path)
+    # Load geographical assignments and climate events from CSV files
+    print("🌍 Loading geographical assignments from simulation data...")
+    geographical_assignments = load_geographical_assignments(simulation_path)
     
-    print("🌪️ Loading REAL climate events from simulation data...")
-    climate_events_history = load_real_climate_events(simulation_path)
+    print("🌪️ Loading climate events from simulation data...")
+    climate_events_history = load_climate_events(simulation_path)
     
     # Ensure we have enough rounds in climate events (pad with empty events if needed)
     while len(climate_events_history) < num_rounds:
         climate_events_history.append({})
     
-    # Create simple climate framework using real data
+    # Create simple climate framework
     climate_framework = ClimateFrameworkFromData(geographical_assignments, climate_events_history)
-    
-    print(f"✅ Using 100% REAL simulation data - no reconstruction needed!")
     
     # Collect visualization data
     visualization_data = collect_all_visualization_data(

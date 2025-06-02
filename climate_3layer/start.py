@@ -11,7 +11,7 @@ to examine the macroeconomic effects.
 This example uses the reusable Climate Framework for geographical distribution,
 climate stress modeling, and visualization.
 
-Now supports configurable parameters through JSON configuration files.
+Simulation parameters are provided through JSON configuration files.
 """
 import sys
 import os

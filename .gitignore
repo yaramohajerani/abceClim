@@ -63,3 +63,4 @@ setup.cfg
 .ropeproject/
 *.png
 *.csv
+todo.md
