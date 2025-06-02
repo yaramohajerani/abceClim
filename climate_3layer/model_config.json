@@ -74,8 +74,8 @@
       "production": {
         "base_output_quantity": 2.0,
         "inputs": {
-          "labor": 1,
-          "commodity": 1
+          "labor": 0.5,
+          "commodity": 0.5
         },
         "output": "intermediate_good",
         "price": 2.0
@@ -93,8 +93,8 @@
       "production": {
         "base_output_quantity": 1.0,
         "inputs": {
-          "labor": 1,
-          "intermediate_good": 1
+          "labor": 0.5,
+          "intermediate_good": 0.5
         },
         "output": "final_good",
         "price": 4.0

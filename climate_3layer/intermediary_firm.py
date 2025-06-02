@@ -72,75 +72,95 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
         self.commodities_purchased = 0
         self.inventory_at_start = self[self.output]
 
-    def buy_commodities(self):
-        """ Buy commodities from commodity producers """
-        commodities_start = self['commodity']
-        offers = self.get_offers("commodity")
+    def buy_inputs_optimally(self):
+        """ Buy all inputs with optimal money allocation based on Cobb-Douglas exponents to maximize production """
+        print(f"    Intermediary Firm {self.id}: Starting optimal input purchasing with ${self['money']:.2f}")
+        
+        # Get all input offers
+        commodity_offers = self.get_offers("commodity")
+        labor_offers = self.get_offers("labor")
+        
         available_money = self['money']
+        
+        # Calculate optimal budget allocation using utility method
+        optimal_allocation = self.calculate_optimal_input_allocation(available_money, self.inputs)
+        
+        print(f"      Optimal allocation: Labor: ${optimal_allocation['labor']:.2f}, Commodities: ${optimal_allocation['commodity']:.2f}")
+        
+        # Track starting inventories
+        labor_start = self['labor']
+        commodities_start = self['commodity']
         total_spent = 0
         
-        print(f"    Intermediary Firm {self.id}: Received {len(offers)} commodity offers")
-        print(f"    Intermediary Firm {self.id}: Has ${available_money:.2f} money")
+        # Process commodity offers within optimal budget
+        commodity_budget = optimal_allocation['commodity']
+        commodity_spent = 0
         
-        for i, offer in enumerate(offers):
+        print(f"      Processing {len(commodity_offers)} commodity offers with budget ${commodity_budget:.2f}")
+        for i, offer in enumerate(commodity_offers):
             cost = offer.quantity * offer.price
-            print(f"      Offer {i}: {offer.good} quantity={offer.quantity} price={offer.price} from {offer.sender}")
+            print(f"        Offer {i}: {offer.quantity:.2f} units at ${offer.price:.2f} = ${cost:.2f}")
             
-            if total_spent + cost <= available_money:
+            if commodity_spent + cost <= commodity_budget:
                 self.accept(offer)
-                total_spent += cost
-                print(f"        Accepted: cost ${cost:.2f}")
+                commodity_spent += cost
+                print(f"          Accepted: ${cost:.2f}")
             else:
-                # Try partial acceptance
-                affordable_quantity = (available_money - total_spent) / offer.price
-                if affordable_quantity > 0.01:
-                    self.accept(offer, quantity=affordable_quantity)
-                    total_spent += affordable_quantity * offer.price
-                    print(f"        Partially accepted: {affordable_quantity:.2f} units for ${affordable_quantity * offer.price:.2f}")
+                # Try partial acceptance within commodity budget
+                remaining_budget = commodity_budget - commodity_spent
+                if remaining_budget > 0.01:
+                    affordable_quantity = remaining_budget / offer.price
+                    if affordable_quantity > 0.01:
+                        self.accept(offer, quantity=affordable_quantity)
+                        commodity_spent += affordable_quantity * offer.price
+                        print(f"          Partially accepted: {affordable_quantity:.2f} units for ${affordable_quantity * offer.price:.2f}")
+                    else:
+                        print(f"          Cannot afford: needs ${cost:.2f}, only ${remaining_budget:.2f} left in commodity budget")
                 else:
-                    print(f"        Cannot afford: needs ${cost:.2f}, only have ${available_money - total_spent:.2f} left")
+                    print(f"          Commodity budget exhausted")
                 break
         
-        if not offers:
-            print(f"    Intermediary Firm {self.id}: No commodity offers received")
+        # Process labor offers within optimal budget
+        labor_budget = optimal_allocation['labor']
+        labor_spent = 0
         
-        # Track commodities purchased this round
+        print(f"      Processing {len(labor_offers)} labor offers with budget ${labor_budget:.2f}")
+        for offer in labor_offers:
+            cost = offer.quantity * offer.price
+            print(f"        Labor offer: {offer.quantity:.2f} units at ${offer.price:.2f} = ${cost:.2f}")
+            
+            if labor_spent + cost <= labor_budget:
+                self.accept(offer)
+                labor_spent += cost
+                print(f"          Accepted: ${cost:.2f}")
+            else:
+                # Try partial acceptance within labor budget
+                remaining_budget = labor_budget - labor_spent
+                if remaining_budget > 0.01:
+                    affordable_quantity = remaining_budget / offer.price
+                    if affordable_quantity > 0.01:
+                        self.accept(offer, quantity=affordable_quantity)
+                        labor_spent += affordable_quantity * offer.price
+                        print(f"          Partially accepted: {affordable_quantity:.2f} units for ${affordable_quantity * offer.price:.2f}")
+                    else:
+                        print(f"          Cannot afford: needs ${cost:.2f}, only ${remaining_budget:.2f} left in labor budget")
+                else:
+                    print(f"          Labor budget exhausted")
+                break
+        
+        total_spent = commodity_spent + labor_spent
+        
+        # Track purchases
+        labor_end = self['labor']
         commodities_end = self['commodity']
+        self.labor_purchased = labor_end - labor_start
         self.commodities_purchased = commodities_end - commodities_start
         
-        print(f"    Intermediary Firm {self.id}: Spent ${total_spent:.2f} on commodities, purchased {self.commodities_purchased:.2f} units")
-
-    def buy_labor(self):
-        """ Buy labor from households """
-        labor_start = self['labor']
-        offers = self.get_offers("labor")
-        available_money = self['money']
-        total_spent = 0
-        
-        print(f"    Intermediary Firm {self.id}: Has ${available_money:.2f}, received {len(offers)} labor offers")
-        
-        for offer in offers:
-            cost = offer.quantity * offer.price
-            if total_spent + cost <= available_money:
-                self.accept(offer)
-                total_spent += cost
-                print(f"      Accepted labor offer: {offer.quantity:.2f} units for ${cost:.2f}")
-            else:
-                # Try partial acceptance
-                affordable_quantity = (available_money - total_spent) / offer.price
-                if affordable_quantity > 0.01:
-                    self.accept(offer, quantity=affordable_quantity)
-                    total_spent += affordable_quantity * offer.price
-                    print(f"      Partially accepted labor offer: {affordable_quantity:.2f} units for ${affordable_quantity * offer.price:.2f}")
-                else:
-                    print(f"      Cannot afford labor offer: {offer.quantity:.2f} units for ${cost:.2f}")
-                break
-        
-        # Track labor purchased this round
-        labor_end = self['labor']
-        self.labor_purchased = labor_end - labor_start
-        
-        print(f"    Intermediary Firm {self.id}: Spent ${total_spent:.2f} on labor, purchased {self.labor_purchased:.2f} units")
+        print(f"    Intermediary Firm {self.id}: Optimal purchasing complete:")
+        print(f"      Total spent: ${total_spent:.2f} of ${available_money:.2f}")
+        print(f"      Commodities: spent ${commodity_spent:.2f}, purchased {self.commodities_purchased:.2f}")
+        print(f"      Labor: spent ${labor_spent:.2f}, purchased {self.labor_purchased:.2f}")
+        print(f"      Money remaining: ${self['money']:.2f}")
 
     def production(self):
         """ Produce intermediate goods using labor and commodities """

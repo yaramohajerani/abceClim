@@ -207,10 +207,9 @@ def main(config_file_path):
         if sim_logger:
             sim_logger.set_phase("Layer 2: Intermediary Firms")
         commodity_producers.sell_commodities()  # Create offers for commodities
-        intermediary_firms.buy_commodities()    # Accept commodity offers - THIS changes inventory
-        commodity_producers.calculate_sales_after_market_clearing()  # Now calculate actual sales
+        intermediary_firms.buy_inputs_optimally()    # Buy commodities and labor with optimal allocation
+        commodity_producers.calculate_sales_after_market_clearing()
         commodity_producers.log_round_data()    # Log with correct sales data
-        intermediary_firms.buy_labor()
         intermediary_firms.production()
         
         # Layer 3: Final goods firms buy intermediate goods and labor, then produce
@@ -218,10 +217,9 @@ def main(config_file_path):
         if sim_logger:
             sim_logger.set_phase("Layer 3: Final Goods Firms")
         intermediary_firms.sell_intermediate_goods()  # Create offers for intermediate goods
-        final_goods_firms.buy_intermediate_goods()    # Accept intermediate good offers - THIS changes inventory
+        final_goods_firms.buy_inputs_optimally()    # Buy intermediate goods and labor with optimal allocation
         intermediary_firms.calculate_sales_after_market_clearing()  # Now calculate actual sales
         intermediary_firms.log_round_data()           # Log with correct sales data
-        final_goods_firms.buy_labor()
         final_goods_firms.production()
         
         # Households buy final goods and consume

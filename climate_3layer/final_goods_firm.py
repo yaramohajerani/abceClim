@@ -72,75 +72,95 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         self.intermediate_goods_purchased = 0
         self.inventory_at_start = self[self.output]
 
-    def buy_intermediate_goods(self):
-        """ Buy intermediate goods from intermediary firms """
-        intermediate_goods_start = self['intermediate_good']
-        offers = self.get_offers("intermediate_good")
+    def buy_inputs_optimally(self):
+        """ Buy all inputs with optimal money allocation based on Cobb-Douglas exponents to maximize production """
+        print(f"    Final Goods Firm {self.id}: Starting optimal input purchasing with ${self['money']:.2f}")
+        
+        # Get all input offers
+        intermediate_goods_offers = self.get_offers("intermediate_good")
+        labor_offers = self.get_offers("labor")
+        
         available_money = self['money']
+        
+        # Calculate optimal budget allocation using utility method
+        optimal_allocation = self.calculate_optimal_input_allocation(available_money, self.inputs)
+        
+        print(f"      Optimal allocation: Labor: ${optimal_allocation['labor']:.2f}, Intermediate goods: ${optimal_allocation['intermediate_good']:.2f}")
+        
+        # Track starting inventories
+        labor_start = self['labor']
+        intermediate_goods_start = self['intermediate_good']
         total_spent = 0
         
-        print(f"    Final Goods Firm {self.id}: Received {len(offers)} intermediate good offers")
-        print(f"    Final Goods Firm {self.id}: Has ${available_money:.2f} money")
+        # Process intermediate goods offers within optimal budget
+        intermediate_budget = optimal_allocation['intermediate_good']
+        intermediate_spent = 0
         
-        for i, offer in enumerate(offers):
+        print(f"      Processing {len(intermediate_goods_offers)} intermediate good offers with budget ${intermediate_budget:.2f}")
+        for i, offer in enumerate(intermediate_goods_offers):
             cost = offer.quantity * offer.price
-            print(f"      Offer {i}: {offer.good} quantity={offer.quantity} price={offer.price} from {offer.sender}")
+            print(f"        Offer {i}: {offer.quantity:.2f} units at ${offer.price:.2f} = ${cost:.2f} from {offer.sender}")
             
-            if total_spent + cost <= available_money:
+            if intermediate_spent + cost <= intermediate_budget:
                 self.accept(offer)
-                total_spent += cost
-                print(f"        Accepted: cost ${cost:.2f}")
+                intermediate_spent += cost
+                print(f"          Accepted: ${cost:.2f}")
             else:
-                # Try partial acceptance
-                affordable_quantity = (available_money - total_spent) / offer.price
-                if affordable_quantity > 0.01:
-                    self.accept(offer, quantity=affordable_quantity)
-                    total_spent += affordable_quantity * offer.price
-                    print(f"        Partially accepted: {affordable_quantity:.2f} units for ${affordable_quantity * offer.price:.2f}")
+                # Try partial acceptance within intermediate goods budget
+                remaining_budget = intermediate_budget - intermediate_spent
+                if remaining_budget > 0.01:
+                    affordable_quantity = remaining_budget / offer.price
+                    if affordable_quantity > 0.01:
+                        self.accept(offer, quantity=affordable_quantity)
+                        intermediate_spent += affordable_quantity * offer.price
+                        print(f"          Partially accepted: {affordable_quantity:.2f} units for ${affordable_quantity * offer.price:.2f}")
+                    else:
+                        print(f"          Cannot afford: needs ${cost:.2f}, only ${remaining_budget:.2f} left in intermediate goods budget")
                 else:
-                    print(f"        Cannot afford: needs ${cost:.2f}, only have ${available_money - total_spent:.2f} left")
+                    print(f"          Intermediate goods budget exhausted")
                 break
         
-        if not offers:
-            print(f"    Final Goods Firm {self.id}: No intermediate good offers received")
+        # Process labor offers within optimal budget
+        labor_budget = optimal_allocation['labor']
+        labor_spent = 0
         
-        # Track intermediate goods purchased this round
+        print(f"      Processing {len(labor_offers)} labor offers with budget ${labor_budget:.2f}")
+        for offer in labor_offers:
+            cost = offer.quantity * offer.price
+            print(f"        Labor offer: {offer.quantity:.2f} units at ${offer.price:.2f} = ${cost:.2f}")
+            
+            if labor_spent + cost <= labor_budget:
+                self.accept(offer)
+                labor_spent += cost
+                print(f"          Accepted: ${cost:.2f}")
+            else:
+                # Try partial acceptance within labor budget
+                remaining_budget = labor_budget - labor_spent
+                if remaining_budget > 0.01:
+                    affordable_quantity = remaining_budget / offer.price
+                    if affordable_quantity > 0.01:
+                        self.accept(offer, quantity=affordable_quantity)
+                        labor_spent += affordable_quantity * offer.price
+                        print(f"          Partially accepted: {affordable_quantity:.2f} units for ${affordable_quantity * offer.price:.2f}")
+                    else:
+                        print(f"          Cannot afford: needs ${cost:.2f}, only ${remaining_budget:.2f} left in labor budget")
+                else:
+                    print(f"          Labor budget exhausted")
+                break
+        
+        total_spent = intermediate_spent + labor_spent
+        
+        # Track purchases
+        labor_end = self['labor']
         intermediate_goods_end = self['intermediate_good']
+        self.labor_purchased = labor_end - labor_start
         self.intermediate_goods_purchased = intermediate_goods_end - intermediate_goods_start
         
-        print(f"    Final Goods Firm {self.id}: Spent ${total_spent:.2f} on intermediate goods, purchased {self.intermediate_goods_purchased:.2f} units")
-
-    def buy_labor(self):
-        """ Buy labor from households """
-        labor_start = self['labor']
-        offers = self.get_offers("labor")
-        available_money = self['money']
-        total_spent = 0
-        
-        print(f"    Final Goods Firm {self.id}: Has ${available_money:.2f}, received {len(offers)} labor offers")
-        
-        for offer in offers:
-            cost = offer.quantity * offer.price
-            if total_spent + cost <= available_money:
-                self.accept(offer)
-                total_spent += cost
-                print(f"      Accepted labor offer: {offer.quantity:.2f} units for ${cost:.2f}")
-            else:
-                # Try partial acceptance
-                affordable_quantity = (available_money - total_spent) / offer.price
-                if affordable_quantity > 0.01:
-                    self.accept(offer, quantity=affordable_quantity)
-                    total_spent += affordable_quantity * offer.price
-                    print(f"      Partially accepted labor offer: {affordable_quantity:.2f} units for ${affordable_quantity * offer.price:.2f}")
-                else:
-                    print(f"      Cannot afford labor offer: {offer.quantity:.2f} units for ${cost:.2f}")
-                break
-        
-        # Track labor purchased this round
-        labor_end = self['labor']
-        self.labor_purchased = labor_end - labor_start
-        
-        print(f"    Final Goods Firm {self.id}: Spent ${total_spent:.2f} on labor, purchased {self.labor_purchased:.2f} units")
+        print(f"    Final Goods Firm {self.id}: Optimal purchasing complete:")
+        print(f"      Total spent: ${total_spent:.2f} of ${available_money:.2f}")
+        print(f"      Intermediate goods: spent ${intermediate_spent:.2f}, purchased {self.intermediate_goods_purchased:.2f}")
+        print(f"      Labor: spent ${labor_spent:.2f}, purchased {self.labor_purchased:.2f}")
+        print(f"      Money remaining: ${self['money']:.2f}")
 
     def production(self):
         """ Produce final goods using intermediate goods and labor """

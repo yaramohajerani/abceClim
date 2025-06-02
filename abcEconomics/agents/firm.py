@@ -1,4 +1,3 @@
-
 # Copyright 2012 Davoud Taghawi-Nejad
 #
 # Module Author: Davoud Taghawi-Nejad
@@ -270,3 +269,31 @@ class Firm:
             return {output: ret}
 
         return production_function
+
+    def calculate_optimal_input_allocation(self, budget, input_exponents):
+        """ Calculate optimal budget allocation for inputs in a Cobb-Douglas production function
+        
+        For a Cobb-Douglas function Q = A × X1^α1 × X2^α2 × ... × Xn^αn
+        The optimal expenditure allocation to maximize production is:
+        Budget_i = (αi / Σαj) × Total_Budget
+        
+        Args:
+            budget: Total budget available for input purchases
+            input_exponents: Dictionary of input names and their exponents in the Cobb-Douglas function
+                           e.g., {'labor': 0.5, 'capital': 0.3, 'materials': 0.2}
+        
+        Returns:
+            Dictionary with optimal budget allocation for each input
+            e.g., {'labor': 50.0, 'capital': 30.0, 'materials': 20.0}
+        """
+        total_exponents = sum(input_exponents.values())
+        if total_exponents == 0:
+            # Fallback: equal allocation if no exponents specified
+            per_input_budget = budget / len(input_exponents)
+            return {input_name: per_input_budget for input_name in input_exponents.keys()}
+        
+        optimal_allocation = {}
+        for input_name, exponent in input_exponents.items():
+            optimal_allocation[input_name] = (exponent / total_exponents) * budget
+        
+        return optimal_allocation
