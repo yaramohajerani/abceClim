@@ -3,7 +3,7 @@
     "name": "fixed_supply_climate_shock_test",
     "trade_logging": "on",
     "random_seed": 42,
-    "rounds": 30,
+    "rounds": 20,
     "result_path": "result_fixed_supply_shock"
   },
   "logging": {
@@ -52,10 +52,10 @@
   "agents": {
     "commodity_producer": {
       "count": 4,
-      "initial_money": 100,
+      "initial_money": 50,
       "initial_inventory": {},
       "production": {
-        "desired_output_quantity": 4,
+        "desired_output_quantity": 0.9,
         "profit_margin": 0.2,
         "inputs": {
           "labor": 1
@@ -69,15 +69,15 @@
       "geographical_distribution": ["Europe", "Asia", "Africa"]
     },
     "intermediary_firm": {
-      "count": 3,
-      "initial_money": 200,
+      "count": 4,
+      "initial_money": 50,
       "initial_inventory": {},
       "production": {
-        "desired_output_quantity": 2.0,
+        "desired_output_quantity": 0.4,
         "profit_margin": 0.25,
         "inputs": {
-          "labor": 0.5,
-          "commodity": 0.5
+          "labor": 0.4,
+          "commodity": 0.6
         },
         "output": "intermediate_good"
       },
@@ -89,14 +89,14 @@
     },
     "final_goods_firm": {
       "count": 2,
-      "initial_money": 200,
+      "initial_money": 50,
       "initial_inventory": {},
       "production": {
-        "desired_output_quantity": 1.0,
-        "profit_margin": 0.3,
+        "desired_output_quantity": 2.0,
+        "profit_margin": 0.2,
         "inputs": {
-          "labor": 0.5,
-          "intermediate_good": 0.5
+          "labor": 0.6,
+          "intermediate_good": 0.4
         },
         "output": "final_good"
       },
@@ -114,7 +114,7 @@
       },
       "labor": {
         "endowment": 1,
-        "wage": 4
+        "wage": 5
       },
       "consumption": {
         "preference": "final_good",

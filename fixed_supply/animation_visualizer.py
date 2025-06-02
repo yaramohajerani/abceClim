@@ -803,7 +803,7 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         # Combine legends
         lines1, labels1 = ax2.get_legend_handles_labels()
         lines2, labels2 = ax2_twin.get_legend_handles_labels()
-        ax2.legend(lines1 + lines2, labels1 + labels2, fontsize=7, loc='upper left')
+        ax2.legend(lines1 + lines2, labels1 + labels2, fontsize=7)
         
         ax2.set_xlabel('Round')
         ax2.grid(True, alpha=0.3)
@@ -905,7 +905,7 @@ def create_animated_supply_chain(visualization_data, simulation_path):
                                         markerfacecolor='#FF0000', markersize=10, 
                                         label='Climate Stressed', markeredgecolor='black', markeredgewidth=0.5))
         
-        ax3.legend(handles=legend_elements, loc='lower right', fontsize=8, 
+        ax3.legend(handles=legend_elements, loc='lower center', fontsize=8, 
                   title='Agent Types', title_fontsize=9, framealpha=0.8)
         
         ax3.axis('off')  # Remove axes for cleaner world map look

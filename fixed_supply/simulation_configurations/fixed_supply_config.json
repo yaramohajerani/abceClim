@@ -53,7 +53,7 @@
       "initial_money": 50,
       "initial_inventory": {},
       "production": {
-        "desired_output_quantity": 2,
+        "desired_output_quantity": 0.9,
         "profit_margin": 0.2,
         "inputs": {
           "labor": 1
@@ -67,15 +67,15 @@
       "geographical_distribution": ["Europe", "Asia", "Africa"]
     },
     "intermediary_firm": {
-      "count": 3,
+      "count": 4,
       "initial_money": 50,
       "initial_inventory": {},
       "production": {
-        "desired_output_quantity": 2.0,
+        "desired_output_quantity": 0.4,
         "profit_margin": 0.25,
         "inputs": {
-          "labor": 0.5,
-          "commodity": 0.5
+          "labor": 0.4,
+          "commodity": 0.6
         },
         "output": "intermediate_good"
       },
@@ -90,11 +90,11 @@
       "initial_money": 50,
       "initial_inventory": {},
       "production": {
-        "desired_output_quantity": 2.0,
-        "profit_margin": 0.3,
-        "inputs": {
-          "labor": 0.5,
-          "intermediate_good": 0.5
+        "desired_output_quantity": 2,
+        "profit_margin": 0.2,
+        "inputs": { 
+          "labor": 0.6,
+          "intermediate_good": 0.4
         },
         "output": "final_good"
       },
