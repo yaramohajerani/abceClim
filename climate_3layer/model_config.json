@@ -50,7 +50,7 @@
   },
   "agents": {
     "commodity_producer": {
-      "count": 3,
+      "count": 4,
       "initial_money": 10,
       "initial_inventory": {},
       "production": {
@@ -68,7 +68,7 @@
       "geographical_distribution": ["Europe", "Asia", "Africa"]
     },
     "intermediary_firm": {
-      "count": 2,
+      "count": 3,
       "initial_money": 20,
       "initial_inventory": {},
       "production": {
@@ -78,7 +78,7 @@
           "commodity": 1
         },
         "output": "intermediate_good",
-        "price": 1.0
+        "price": 2.0
       },
       "climate": {
         "base_vulnerability": 0.1,
@@ -97,7 +97,7 @@
           "intermediate_good": 1
         },
         "output": "final_good",
-        "price": 5.0
+        "price": 4.0
       },
       "climate": {
         "base_vulnerability": 0.05,
@@ -115,7 +115,8 @@
       },
       "consumption": {
         "preference": "final_good",
-        "budget_fraction": 0.8
+        "budget_fraction": 0.8,
+        "consumption_fraction": 0.9
       },
       "geographical_distribution": ["all"]
     }

@@ -327,7 +327,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     
     # Create comprehensive time evolution plot
     fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, figsize=(20, 12))
-    fig.suptitle('REAL Climate 3-Layer Supply Chain: Time Evolution Analysis', fontsize=16, fontweight='bold')
+    fig.suptitle('Climate 3-Layer Supply Chain: Time Evolution Analysis', fontsize=16, fontweight='bold')
     
     # Plot 1: Production evolution over time
     ax1.plot(rounds, commodity_production, 'o-', label='Commodity Production', color='#8B4513', linewidth=2, markersize=4)
@@ -495,16 +495,75 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         
         # Plot 1: Agent network with real stress status
         ax1.set_title(f'Supply Chain Network - Round {round_num}')
-        ax1.set_xlim(0, 7)
-        ax1.set_ylim(0, 4)
+        ax1.set_xlim(0, 8)
+        ax1.set_ylim(0, 6)
         
-        # Define positions for consistent agent layout
-        agent_positions = {
-            'commodity_producer': [(1, 1), (1, 2), (1, 3)],
-            'intermediary_firm': [(3, 1.5), (3, 2.5)],
-            'final_goods_firm': [(5, 1.5), (5, 2.5)],
-            'household': [(6.5, 0.5), (6.5, 1.5), (6.5, 2.5), (6.5, 3.5)]
-        }
+        # Count actual agents by type from real data
+        agent_counts = {}
+        for agent in agent_data:
+            agent_type = agent['type']
+            if agent_type not in agent_counts:
+                agent_counts[agent_type] = 0
+            agent_counts[agent_type] += 1
+        
+        # Dynamically create positions based on actual agent counts
+        def create_agent_positions(agent_counts):
+            positions = {}
+            
+            # Column positions for each agent type
+            commodity_x = 1
+            intermediary_x = 3
+            final_goods_x = 5
+            household_x = 7
+            
+            # Create positions for each agent type based on actual counts
+            for agent_type, count in agent_counts.items():
+                positions[agent_type] = []
+                
+                if agent_type == 'commodity_producer':
+                    # Vertical spacing for commodity producers
+                    y_spacing = 5.0 / max(count, 1)
+                    for i in range(count):
+                        y = 0.5 + i * y_spacing
+                        positions[agent_type].append((commodity_x, y))
+                        
+                elif agent_type == 'intermediary_firm':
+                    # Vertical spacing for intermediary firms
+                    y_spacing = 5.0 / max(count, 1)
+                    for i in range(count):
+                        y = 0.5 + i * y_spacing
+                        positions[agent_type].append((intermediary_x, y))
+                        
+                elif agent_type == 'final_goods_firm':
+                    # Vertical spacing for final goods firms
+                    y_spacing = 5.0 / max(count, 1)
+                    for i in range(count):
+                        y = 0.5 + i * y_spacing
+                        positions[agent_type].append((final_goods_x, y))
+                        
+                elif agent_type == 'household':
+                    # Grid layout for households (can be many)
+                    if count <= 6:
+                        # Single column
+                        y_spacing = 5.0 / max(count, 1)
+                        for i in range(count):
+                            y = 0.5 + i * y_spacing
+                            positions[agent_type].append((household_x, y))
+                    else:
+                        # Multiple columns if many households
+                        cols = 2 if count <= 12 else 3
+                        rows_per_col = (count + cols - 1) // cols  # Ceiling division
+                        
+                        for i in range(count):
+                            col = i // rows_per_col
+                            row = i % rows_per_col
+                            x = household_x + col * 0.3  # Slightly offset columns
+                            y = 0.5 + row * (5.0 / rows_per_col)
+                            positions[agent_type].append((x, y))
+            
+            return positions
+        
+        agent_positions = create_agent_positions(agent_counts)
         
         agent_type_colors = {
             'commodity_producer': '#8B4513',
@@ -513,6 +572,7 @@ def create_animated_supply_chain(visualization_data, simulation_path):
             'household': '#4169E1'
         }
         
+        # Plot each agent using real data and dynamic positions
         pos_idx = {'commodity_producer': 0, 'intermediary_firm': 0, 'final_goods_firm': 0, 'household': 0}
         
         for agent in agent_data:
@@ -528,18 +588,26 @@ def create_animated_supply_chain(visualization_data, simulation_path):
                 ax1.text(pos[0], pos[1]-0.2, f"${agent['wealth']:.0f}", 
                         ha='center', fontsize=8)
         
-        # Add supply chain flow arrows
-        ax1.annotate('', xy=(2.8, 2), xytext=(1.2, 2), 
-                    arrowprops=dict(arrowstyle='->', lw=2, color='gray'))
-        ax1.annotate('', xy=(4.8, 2), xytext=(3.2, 2), 
-                    arrowprops=dict(arrowstyle='->', lw=2, color='gray'))
-        ax1.annotate('', xy=(6.3, 2), xytext=(5.2, 2), 
-                    arrowprops=dict(arrowstyle='->', lw=2, color='gray'))
+        # Add supply chain flow arrows (dynamic positioning)
+        if 'commodity_producer' in agent_counts and 'intermediary_firm' in agent_counts:
+            ax1.annotate('', xy=(2.8, 2.5), xytext=(1.2, 2.5), 
+                        arrowprops=dict(arrowstyle='->', lw=2, color='gray'))
+        if 'intermediary_firm' in agent_counts and 'final_goods_firm' in agent_counts:
+            ax1.annotate('', xy=(4.8, 2.5), xytext=(3.2, 2.5), 
+                        arrowprops=dict(arrowstyle='->', lw=2, color='gray'))
+        if 'final_goods_firm' in agent_counts and 'household' in agent_counts:
+            ax1.annotate('', xy=(6.8, 2.5), xytext=(5.2, 2.5), 
+                        arrowprops=dict(arrowstyle='->', lw=2, color='gray'))
         
-        ax1.text(1, 3.7, 'Layer 1\nCommodity', ha='center', fontsize=10, fontweight='bold')
-        ax1.text(3, 3.7, 'Layer 2\nIntermediary', ha='center', fontsize=10, fontweight='bold')
-        ax1.text(5, 3.7, 'Layer 3\nFinal Goods', ha='center', fontsize=10, fontweight='bold')
-        ax1.text(6.5, 3.7, 'Households', ha='center', fontsize=10, fontweight='bold')
+        # Add layer labels with actual counts
+        if 'commodity_producer' in agent_counts:
+            ax1.text(1, 5.7, f'Layer 1\nCommodity\n({agent_counts["commodity_producer"]})', ha='center', fontsize=10, fontweight='bold')
+        if 'intermediary_firm' in agent_counts:
+            ax1.text(3, 5.7, f'Layer 2\nIntermediary\n({agent_counts["intermediary_firm"]})', ha='center', fontsize=10, fontweight='bold')
+        if 'final_goods_firm' in agent_counts:
+            ax1.text(5, 5.7, f'Layer 3\nFinal Goods\n({agent_counts["final_goods_firm"]})', ha='center', fontsize=10, fontweight='bold')
+        if 'household' in agent_counts:
+            ax1.text(7, 5.7, f'Households\n({agent_counts["household"]})', ha='center', fontsize=10, fontweight='bold')
         
         # Plot 2: Production & Inventory Levels Over Time
         ax2.set_title('Production & Inventory Levels Over Time')

@@ -26,8 +26,8 @@ class Household(abce.Agent):
         # Consumption parameters from configuration
         consumption_config = config['consumption']
         self.preferred_good = consumption_config['preference']
-        self.budget_fraction = consumption_config['budget_fraction']
-        self.consumption_fraction = consumption_config['consumption_fraction']  # Fraction of goods to consume
+        self.budget_fraction = consumption_config['budget_fraction']  # Fraction of money to spend each round
+        self.consumption_fraction = consumption_config['consumption_fraction']  # Fraction of available goods to consume each round
         
         # Climate stress (not directly applicable to households but kept for compatibility)
         self.climate_stressed = False
@@ -55,7 +55,8 @@ class Household(abce.Agent):
         print(f"  Labor endowment: {self.labor_endowment}")
         print(f"  Wage: ${self.wage}")
         print(f"  Consumption preference: {self.preferred_good}")
-        print(f"  Budget fraction: {self.budget_fraction:.1%}")
+        print(f"  Budget fraction (spend per round): {self.budget_fraction:.1%}")
+        print(f"  Consumption fraction (consume per round): {self.consumption_fraction:.1%}")
         print(f"  Will sell labor to {self.commodity_producer_count + self.intermediary_firm_count + self.final_goods_firm_count} firms total")
 
     def start_round(self):
@@ -100,29 +101,32 @@ class Household(abce.Agent):
         """ Buy final goods from final goods firms """
         offers = self.get_offers(self.preferred_good)
         available_money = self['money']
+        
+        # Calculate budget for this round (fraction of available money)
+        budget_for_round = available_money * self.budget_fraction
         total_spent = 0
         purchases_start = self[self.preferred_good]
         
-        print(f"    Household {self.id}: Has ${available_money:.2f}, received {len(offers)} {self.preferred_good} offers")
+        print(f"    Household {self.id}: Has ${available_money:.2f}, budget for round: ${budget_for_round:.2f}, received {len(offers)} {self.preferred_good} offers")
         
         for offer in offers:
             cost = offer.quantity * offer.price
-            if total_spent + cost <= available_money:
+            if total_spent + cost <= budget_for_round:
                 self.accept(offer)
                 total_spent += cost
                 print(f"      Accepted offer: {offer.quantity:.2f} units for ${cost:.2f}")
             else:
-                # Try partial acceptance if we can afford at least part of it
-                affordable_quantity = (available_money - total_spent) / offer.price
+                # Try partial acceptance if we can afford at least part of it within budget
+                affordable_quantity = (budget_for_round - total_spent) / offer.price
                 if affordable_quantity > 0.01:  # Minimum threshold
                     self.accept(offer, quantity=affordable_quantity)
                     total_spent += affordable_quantity * offer.price
                     print(f"      Partially accepted offer: {affordable_quantity:.2f} units for ${affordable_quantity * offer.price:.2f}")
                 else:
-                    print(f"      Cannot afford offer: {offer.quantity:.2f} units for ${cost:.2f}")
+                    print(f"      Cannot afford offer within budget: {offer.quantity:.2f} units for ${cost:.2f}")
                 break  # Budget exhausted
         
-        print(f"    Household {self.id}: Spent ${total_spent:.2f} on {self.preferred_good}s")
+        print(f"    Household {self.id}: Spent ${total_spent:.2f} on {self.preferred_good}s (budget: ${budget_for_round:.2f})")
         
         # Calculate purchases for this round (increase in inventory)
         purchases_end = self[self.preferred_good]
@@ -140,7 +144,8 @@ class Household(abce.Agent):
         
         print(f"    Household {self.id}: Has {available_goods:.2f} {self.preferred_good}s available for consumption")
         
-        # Apply climate stress to consumption preferences (if any)
+        # Consume what was purchased this round (budget-based purchasing means we bought what we intended to consume)
+        # We consume most of what we have, keeping a small buffer for next round
         consumption_fraction = self.consumption_fraction
         if self.climate_stressed:
             consumption_fraction *= self.climate_stress_factor
