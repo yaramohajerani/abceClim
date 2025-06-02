@@ -58,7 +58,8 @@
           "labor": 1
         },
         "output": "commodity",
-        "price": 1.0
+        "price": 1.0,
+        "minimum_production_for_supply_chain": 0.15
       },
       "climate": {
         "base_vulnerability": 0.3,
@@ -77,7 +78,8 @@
           "commodity": 0.5
         },
         "output": "intermediate_good",
-        "price": 2.0
+        "price": 2.0,
+        "minimum_production_for_supply_chain": 0.2
       },
       "climate": {
         "base_vulnerability": 0.1,
@@ -107,7 +109,9 @@
     "household": {
       "count": 20,
       "initial_money": 50,
-      "initial_inventory": {},
+      "initial_inventory": {
+        "final_good": 0.1
+      },
       "labor": {
         "endowment": 1,
         "wage": 4
@@ -115,7 +119,8 @@
       "consumption": {
         "preference": "final_good",
         "budget_fraction": 0.8,
-        "consumption_fraction": 0.9
+        "consumption_fraction": 0.9,
+        "minimum_survival_consumption": 0.2
       },
       "geographical_distribution": ["all"]
     }

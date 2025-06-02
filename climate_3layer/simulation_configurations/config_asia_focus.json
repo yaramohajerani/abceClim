@@ -93,7 +93,7 @@
           "intermediate_good": 1
         },
         "output": "final_good",
-        "price": 6.0
+        "price": 7
       },
       "climate": {
         "base_vulnerability": 0.08,
@@ -111,7 +111,9 @@
       },
       "consumption": {
         "preference": "final_good",
-        "budget_fraction": 0.75
+        "budget_fraction": 0.8,
+        "consumption_fraction": 0.9,
+        "minimum_survival_consumption": 0.2
       },
       "geographical_distribution": ["all"]
     }

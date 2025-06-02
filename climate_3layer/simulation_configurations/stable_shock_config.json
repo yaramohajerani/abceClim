@@ -23,7 +23,6 @@
   },
   "climate": {
     "stress_enabled": true,
-    "acute_stress_probability": 0.15,
     "chronic_stress_factor": 0.96,
     "geographical_effects": true,
     "shock_rules": [
@@ -115,7 +114,8 @@
       "consumption": {
         "preference": "final_good",
         "budget_fraction": 0.8,
-        "consumption_fraction": 0.9
+        "consumption_fraction": 0.9,
+        "minimum_survival_consumption": 0.2
       },
       "geographical_distribution": ["all"]
     }

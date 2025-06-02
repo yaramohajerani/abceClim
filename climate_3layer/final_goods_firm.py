@@ -33,6 +33,29 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         self.base_output_quantity = production_config['base_output_quantity']
         self.current_output_quantity = self.base_output_quantity
         
+        # Calculate minimum production responsibility based on household survival needs
+        # This ensures coordination between household needs and firm production
+        household_minimum_survival = config.get('household_minimum_survival_consumption', 0.0)
+        num_final_goods_firms = config['final_goods_firm_count']
+        num_households = config['household_count']
+        
+        # Calculate total minimum needed for ALL households
+        total_minimum_needed_all_households = household_minimum_survival * num_households
+        
+        # Each firm is responsible for their share of the total
+        # Add a small safety buffer (10%) to account for market inefficiencies
+        safety_buffer = 1.1
+        self.minimum_production_per_household = household_minimum_survival  # Each household needs this amount
+        self.total_minimum_production_responsibility = (total_minimum_needed_all_households / num_final_goods_firms) * safety_buffer
+        
+        print(f"  Minimum production calculation:")
+        print(f"    Household survival consumption: {household_minimum_survival:.3f} per household")
+        print(f"    Number of households: {num_households}")
+        print(f"    Total minimum needed (all households): {total_minimum_needed_all_households:.3f}")
+        print(f"    Number of final goods firms: {num_final_goods_firms}")
+        print(f"    This firm's responsibility: {self.total_minimum_production_responsibility:.3f}")
+        print(f"    Safety buffer: {safety_buffer:.1f}")
+        
         # Climate stress parameters from configuration
         climate_config = config['climate']
         base_vulnerability = climate_config['base_vulnerability']
@@ -54,12 +77,14 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         self.intermediate_goods_purchased = 0
         self.inventory_at_start = self[self.output]
         
-        # Get household count from config for proper distribution
-        self.num_households = config['household_count']
+        # Store household count for distribution
+        self.num_households = num_households
         
         print(f"Final Goods Firm {self.id} initialized:")
         print(f"  Initial money: ${initial_money}")
         print(f"  Production capacity: {self.base_output_quantity}")
+        print(f"  Minimum production per household: {self.minimum_production_per_household:.3f}")
+        print(f"  Total minimum production responsibility: {self.total_minimum_production_responsibility:.3f}")
         print(f"  Climate vulnerability: {self.climate_vulnerability:.3f}")
         print(f"  Price: ${self.price[self.output]}")
         print(f"  Will distribute to {self.num_households} households")
@@ -81,74 +106,147 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         labor_offers = self.get_offers("labor")
         
         available_money = self['money']
+        current_inventory = self[self.output]
+        
+        # Calculate minimum inputs needed to ensure minimum production for households
+        total_minimum_needed = self.total_minimum_production_responsibility
+        minimum_production_needed = max(0, total_minimum_needed - current_inventory)
+        
+        print(f"      Current inventory: {current_inventory:.2f}")
+        print(f"      Total minimum needed for this firm's responsibility: {total_minimum_needed:.2f}")
+        print(f"      Additional production needed: {minimum_production_needed:.2f}")
+        
+        # Calculate inputs needed for minimum production
+        minimum_inputs_needed = {}
+        if minimum_production_needed > 0:
+            # For Cobb-Douglas Q = A * L^α * K^β where α + β = 1
+            # If we want Q = minimum_production_needed and symmetric inputs L = K
+            # Then: Q = A * L^α * L^β = A * L^(α+β) = A * L^1 = A * L
+            # So: L = Q/A = minimum_production_needed / current_output_quantity
+            required_input_level = minimum_production_needed / self.current_output_quantity
+            
+            for input_good in self.inputs.keys():
+                minimum_inputs_needed[input_good] = required_input_level
+        
+        print(f"      Minimum inputs needed: {minimum_inputs_needed}")
         
         # Calculate optimal budget allocation using utility method
         optimal_allocation = self.calculate_optimal_input_allocation(available_money, self.inputs)
         
-        print(f"      Optimal allocation: Labor: ${optimal_allocation['labor']:.2f}, Intermediate goods: ${optimal_allocation['intermediate_good']:.2f}")
+        print(f"      Optimal allocation (normal budget): Labor: ${optimal_allocation['labor']:.2f}, Intermediate goods: ${optimal_allocation['intermediate_good']:.2f}")
         
         # Track starting inventories
         labor_start = self['labor']
         intermediate_goods_start = self['intermediate_good']
         total_spent = 0
         
-        # Process intermediate goods offers within optimal budget
-        intermediate_budget = optimal_allocation['intermediate_good']
-        intermediate_spent = 0
+        # First pass: Buy minimum required inputs for survival production (can go into debt)
+        survival_spending = 0
+        minimum_intermediate_needed = minimum_inputs_needed.get('intermediate_good', 0)
+        minimum_labor_needed = minimum_inputs_needed.get('labor', 0)
         
-        print(f"      Processing {len(intermediate_goods_offers)} intermediate good offers with budget ${intermediate_budget:.2f}")
-        for i, offer in enumerate(intermediate_goods_offers):
-            cost = offer.quantity * offer.price
-            print(f"        Offer {i}: {offer.quantity:.2f} units at ${offer.price:.2f} = ${cost:.2f} from {offer.sender}")
-            
-            if intermediate_spent + cost <= intermediate_budget:
-                self.accept(offer)
-                intermediate_spent += cost
-                print(f"          Accepted: ${cost:.2f}")
-            else:
-                # Try partial acceptance within intermediate goods budget
-                remaining_budget = intermediate_budget - intermediate_spent
-                if remaining_budget > 0.01:
-                    affordable_quantity = remaining_budget / offer.price
-                    if affordable_quantity > 0.01:
-                        self.accept(offer, quantity=affordable_quantity)
-                        intermediate_spent += affordable_quantity * offer.price
-                        print(f"          Partially accepted: {affordable_quantity:.2f} units for ${affordable_quantity * offer.price:.2f}")
+        print(f"      SURVIVAL PRODUCTION MODE:")
+        print(f"        Need minimum intermediate goods: {minimum_intermediate_needed:.2f}")
+        print(f"        Need minimum labor: {minimum_labor_needed:.2f}")
+        
+        # Buy minimum intermediate goods for survival (even if it causes debt)
+        intermediate_survival_bought = 0
+        if minimum_intermediate_needed > 0:
+            for offer in intermediate_goods_offers:
+                if minimum_intermediate_needed <= 0:
+                    break
+                
+                survival_purchase = min(offer.quantity, minimum_intermediate_needed)
+                survival_cost = survival_purchase * offer.price
+                
+                if survival_purchase > 0:
+                    if survival_purchase == offer.quantity:
+                        self.accept(offer)
+                        print(f"          SURVIVAL: Accepted full intermediate offer: {offer.quantity:.2f} units for ${survival_cost:.2f}")
                     else:
-                        print(f"          Cannot afford: needs ${cost:.2f}, only ${remaining_budget:.2f} left in intermediate goods budget")
-                else:
-                    print(f"          Intermediate goods budget exhausted")
-                break
+                        self.accept(offer, quantity=survival_purchase)
+                        print(f"          SURVIVAL: Partially accepted intermediate offer: {survival_purchase:.2f} units for ${survival_cost:.2f}")
+                    
+                    survival_spending += survival_cost
+                    minimum_intermediate_needed -= survival_purchase
+                    intermediate_survival_bought += survival_purchase
         
-        # Process labor offers within optimal budget
-        labor_budget = optimal_allocation['labor']
-        labor_spent = 0
-        
-        print(f"      Processing {len(labor_offers)} labor offers with budget ${labor_budget:.2f}")
-        for offer in labor_offers:
-            cost = offer.quantity * offer.price
-            print(f"        Labor offer: {offer.quantity:.2f} units at ${offer.price:.2f} = ${cost:.2f}")
-            
-            if labor_spent + cost <= labor_budget:
-                self.accept(offer)
-                labor_spent += cost
-                print(f"          Accepted: ${cost:.2f}")
-            else:
-                # Try partial acceptance within labor budget
-                remaining_budget = labor_budget - labor_spent
-                if remaining_budget > 0.01:
-                    affordable_quantity = remaining_budget / offer.price
-                    if affordable_quantity > 0.01:
-                        self.accept(offer, quantity=affordable_quantity)
-                        labor_spent += affordable_quantity * offer.price
-                        print(f"          Partially accepted: {affordable_quantity:.2f} units for ${affordable_quantity * offer.price:.2f}")
+        # Buy minimum labor for survival (even if it causes debt)
+        labor_survival_bought = 0
+        if minimum_labor_needed > 0:
+            for offer in labor_offers:
+                if minimum_labor_needed <= 0:
+                    break
+                
+                survival_purchase = min(offer.quantity, minimum_labor_needed)
+                survival_cost = survival_purchase * offer.price
+                
+                if survival_purchase > 0:
+                    if survival_purchase == offer.quantity:
+                        self.accept(offer)
+                        print(f"          SURVIVAL: Accepted full labor offer: {offer.quantity:.2f} units for ${survival_cost:.2f}")
                     else:
-                        print(f"          Cannot afford: needs ${cost:.2f}, only ${remaining_budget:.2f} left in labor budget")
-                else:
-                    print(f"          Labor budget exhausted")
-                break
+                        self.accept(offer, quantity=survival_purchase)
+                        print(f"          SURVIVAL: Partially accepted labor offer: {survival_purchase:.2f} units for ${survival_cost:.2f}")
+                    
+                    survival_spending += survival_cost
+                    minimum_labor_needed -= survival_purchase
+                    labor_survival_bought += survival_purchase
         
-        total_spent = intermediate_spent + labor_spent
+        total_spent = survival_spending
+        print(f"      Survival spending: ${survival_spending:.2f} (intermediate: {intermediate_survival_bought:.2f}, labor: {labor_survival_bought:.2f})")
+        
+        # Second pass: Regular optimal purchasing with remaining money
+        remaining_money = available_money - survival_spending
+        if remaining_money > 0.01:
+            print(f"      Regular purchasing with remaining budget: ${remaining_money:.2f}")
+            
+            # Recalculate optimal allocation for remaining money
+            remaining_allocation = self.calculate_optimal_input_allocation(remaining_money, self.inputs)
+            
+            # Process remaining intermediate goods offers
+            intermediate_budget = remaining_allocation['intermediate_good']
+            intermediate_spent = 0
+            remaining_intermediate_offers = self.get_offers("intermediate_good")  # Get fresh offers
+            
+            for offer in remaining_intermediate_offers:
+                cost = offer.quantity * offer.price
+                if intermediate_spent + cost <= intermediate_budget:
+                    self.accept(offer)
+                    intermediate_spent += cost
+                    print(f"        Regular: Accepted intermediate offer: {offer.quantity:.2f} units for ${cost:.2f}")
+                else:
+                    remaining_budget = intermediate_budget - intermediate_spent
+                    if remaining_budget > 0.01:
+                        affordable_quantity = remaining_budget / offer.price
+                        if affordable_quantity > 0.01:
+                            self.accept(offer, quantity=affordable_quantity)
+                            intermediate_spent += affordable_quantity * offer.price
+                            print(f"        Regular: Partially accepted intermediate offer: {affordable_quantity:.2f} units for ${affordable_quantity * offer.price:.2f}")
+                    break
+            
+            # Process remaining labor offers
+            labor_budget = remaining_allocation['labor']
+            labor_spent = 0
+            remaining_labor_offers = self.get_offers("labor")  # Get fresh offers
+            
+            for offer in remaining_labor_offers:
+                cost = offer.quantity * offer.price
+                if labor_spent + cost <= labor_budget:
+                    self.accept(offer)
+                    labor_spent += cost
+                    print(f"        Regular: Accepted labor offer: {offer.quantity:.2f} units for ${cost:.2f}")
+                else:
+                    remaining_budget = labor_budget - labor_spent
+                    if remaining_budget > 0.01:
+                        affordable_quantity = remaining_budget / offer.price
+                        if affordable_quantity > 0.01:
+                            self.accept(offer, quantity=affordable_quantity)
+                            labor_spent += affordable_quantity * offer.price
+                            print(f"        Regular: Partially accepted labor offer: {affordable_quantity:.2f} units for ${affordable_quantity * offer.price:.2f}")
+                    break
+            
+            total_spent += intermediate_spent + labor_spent
         
         # Track purchases
         labor_end = self['labor']
@@ -156,11 +254,14 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         self.labor_purchased = labor_end - labor_start
         self.intermediate_goods_purchased = intermediate_goods_end - intermediate_goods_start
         
-        print(f"    Final Goods Firm {self.id}: Optimal purchasing complete:")
-        print(f"      Total spent: ${total_spent:.2f} of ${available_money:.2f}")
-        print(f"      Intermediate goods: spent ${intermediate_spent:.2f}, purchased {self.intermediate_goods_purchased:.2f}")
-        print(f"      Labor: spent ${labor_spent:.2f}, purchased {self.labor_purchased:.2f}")
-        print(f"      Money remaining: ${self['money']:.2f}")
+        print(f"    Final Goods Firm {self.id}: Input purchasing complete:")
+        print(f"      Total spent: ${total_spent:.2f} (survival: ${survival_spending:.2f}, regular: ${total_spent - survival_spending:.2f})")
+        print(f"      Intermediate goods: purchased {self.intermediate_goods_purchased:.2f}")
+        print(f"      Labor: purchased {self.labor_purchased:.2f}")
+        print(f"      Money remaining: ${self['money']:.2f} (may be negative if went into debt for survival)")
+        
+        if self['money'] < 0:
+            print(f"      WARNING: Firm went into debt (${self['money']:.2f}) to ensure minimum production for households!")
 
     def production(self):
         """ Produce final goods using intermediate goods and labor """
@@ -243,6 +344,11 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         cumulative_inventory = self[self.output]
         current_money = self['money']
         
+        # Check if firm is in debt and if minimum production for households is met
+        is_in_debt = current_money < 0
+        total_minimum_needed = self.total_minimum_production_responsibility
+        minimum_production_met = cumulative_inventory >= total_minimum_needed
+        
         # Log the data using abcEconomics logging
         self.log('production', {
             'production': self.production_this_round,
@@ -251,10 +357,14 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
             'cumulative_inventory': cumulative_inventory,
             'labor_purchased': self.labor_purchased,
             'intermediate_goods_purchased': self.intermediate_goods_purchased,
-            'money': current_money
+            'money': current_money,
+            'is_in_debt': is_in_debt,
+            'minimum_production_responsibility': self.total_minimum_production_responsibility,
+            'total_minimum_needed': total_minimum_needed,
+            'minimum_production_met': minimum_production_met
         })
         
-        print(f"    Final Goods Firm {self.id}: Logged - Production: {self.production_this_round:.2f}, Sales: {self.sales_this_round:.2f}, Labor: {self.labor_purchased:.2f}, Intermediate goods: {self.intermediate_goods_purchased:.2f}, Inventory: {cumulative_inventory:.2f}, Money: ${current_money:.2f}")
+        print(f"    Final Goods Firm {self.id}: Logged - Production: {self.production_this_round:.2f}, Sales: {self.sales_this_round:.2f}, Labor: {self.labor_purchased:.2f}, Intermediate goods: {self.intermediate_goods_purchased:.2f}, Inventory: {cumulative_inventory:.2f}, Money: ${current_money:.2f}, In debt: {is_in_debt}, Min. production met: {minimum_production_met}")
 
     def apply_climate_stress(self, stress_factor):
         """ Apply climate stress by reducing production capacity """

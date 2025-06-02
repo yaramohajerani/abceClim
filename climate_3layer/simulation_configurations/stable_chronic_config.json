@@ -95,7 +95,8 @@
       "consumption": {
         "preference": "final_good",
         "budget_fraction": 0.8,
-        "consumption_fraction": 0.9
+        "consumption_fraction": 0.9,
+        "minimum_survival_consumption": 0.2
       },
       "geographical_distribution": ["all"]
     }

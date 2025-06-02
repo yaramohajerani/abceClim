@@ -89,6 +89,13 @@ class ConfigLoader:
     
     def _process_agent_configs(self):
         """Process and prepare agent configurations for easier access."""
+        # Extract coordination parameters for cross-agent communication
+        household_config = self.config['agents'].get('household', {})
+        household_survival_consumption = household_config.get('consumption', {}).get('minimum_survival_consumption', 0.0)
+        
+        # Count agents for coordination
+        agent_counts = {agent_type: config['count'] for agent_type, config in self.config['agents'].items()}
+        
         for agent_type, config in self.config['agents'].items():
             self.agent_configs[agent_type] = {
                 'count': config['count'],
@@ -98,7 +105,13 @@ class ConfigLoader:
                 'climate': config.get('climate', {}),
                 'geographical_distribution': config.get('geographical_distribution', ['all']),
                 'labor': config.get('labor', {}),
-                'consumption': config.get('consumption', {})
+                'consumption': config.get('consumption', {}),
+                # Add coordination parameters for all agent types
+                'household_minimum_survival_consumption': household_survival_consumption,
+                'commodity_producer_count': agent_counts.get('commodity_producer', 0),
+                'intermediary_firm_count': agent_counts.get('intermediary_firm', 0),
+                'final_goods_firm_count': agent_counts.get('final_goods_firm', 0),
+                'household_count': agent_counts.get('household', 0)
             }
     
     def _print_config_summary(self):
