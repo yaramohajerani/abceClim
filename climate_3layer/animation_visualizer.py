@@ -465,6 +465,9 @@ def create_animated_supply_chain(visualization_data, simulation_path):
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 14))
     fig.suptitle('Climate 3-Layer Supply Chain Evolution (Animated)', fontsize=16, fontweight='bold')
     
+    # Create the twin axis outside the animate function to avoid overlapping axes
+    ax2_twin = ax2.twinx()
+    
     # Define continent positions for the world map (simplified layout)
     continent_positions = {
         'North America': (1, 3, 1.5, 1),     # (x, y, width, height)
@@ -478,6 +481,8 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         # Clear all subplots
         for ax in [ax1, ax2, ax3, ax4]:
             ax.clear()
+        # Clear the twin axis as well
+        ax2_twin.clear()
         
         if frame >= len(visualization_data['rounds']):
             return
@@ -555,13 +560,14 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         ax2.plot(rounds_so_far, final_goods_prod, '^-', label='Final Goods Prod', color='#00FF00', linewidth=2)
         ax2.set_ylabel('Production per Round', color='black')
         
-        # Plot inventory (dashed lines) - RIGHT Y-AXIS  
-        ax2_twin = ax2.twinx()
+        # Plot inventory (dashed lines) - RIGHT Y-AXIS using the pre-created twin axis
         ax2_twin.plot(rounds_so_far, commodity_inv, 'o--', label='Commodity Inv', color='#8B4513', alpha=0.7, linewidth=1)
         ax2_twin.plot(rounds_so_far, intermediary_inv, 's--', label='Intermediary Inv', color='#DAA520', alpha=0.7, linewidth=1)
         ax2_twin.plot(rounds_so_far, final_goods_inv, '^--', label='Final Goods Inv', color='#00FF00', alpha=0.7, linewidth=1)
         ax2_twin.set_ylabel('Cumulative Inventory', color='gray')
         ax2_twin.tick_params(axis='y', labelcolor='gray')
+        # Explicitly set the label position to the right side
+        ax2_twin.yaxis.set_label_position('right')
         
         # Combine legends
         lines1, labels1 = ax2.get_legend_handles_labels()
@@ -673,19 +679,25 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         
         ax3.axis('off')  # Remove axes for cleaner world map look
         
-        # Plot 4: Wealth distribution
-        ax4.set_title('Wealth by Sector')
-        wealth_types = list(wealth_data.keys())
-        wealth_amounts = list(wealth_data.values())
-        colors = ['#8B4513', '#DAA520', '#00FF00', '#4169E1']
+        # Plot 4: Wealth time-series by sector
+        ax4.set_title('Wealth Evolution by Sector')
         
-        bars = ax4.bar(wealth_types, wealth_amounts, color=colors, alpha=0.7)
+        # Collect wealth data over time up to current frame
+        commodity_wealth_series = [visualization_data['wealth_data'][i]['commodity'] for i in range(frame+1)]
+        intermediary_wealth_series = [visualization_data['wealth_data'][i]['intermediary'] for i in range(frame+1)]
+        final_goods_wealth_series = [visualization_data['wealth_data'][i]['final_goods'] for i in range(frame+1)]
+        household_wealth_series = [visualization_data['wealth_data'][i]['households'] for i in range(frame+1)]
+        
+        # Plot time-series lines
+        ax4.plot(rounds_so_far, commodity_wealth_series, 'o-', label='Commodity Producers', color='#8B4513', linewidth=2, markersize=4)
+        ax4.plot(rounds_so_far, intermediary_wealth_series, 's-', label='Intermediary Firms', color='#DAA520', linewidth=2, markersize=4)
+        ax4.plot(rounds_so_far, final_goods_wealth_series, '^-', label='Final Goods Firms', color='#00FF00', linewidth=2, markersize=4)
+        ax4.plot(rounds_so_far, household_wealth_series, 'd-', label='Households', color='#4169E1', linewidth=2, markersize=4)
+        
+        ax4.set_xlabel('Round')
         ax4.set_ylabel('Total Wealth ($)')
-        
-        # Add wealth labels
-        for bar, amount in zip(bars, wealth_amounts):
-            ax4.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(wealth_amounts)*0.01, 
-                    f'${amount:.0f}', ha='center', va='bottom', fontsize=9)
+        ax4.legend(fontsize=8)
+        ax4.grid(True, alpha=0.3)
         
         plt.tight_layout()
     

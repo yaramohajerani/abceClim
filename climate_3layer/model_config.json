@@ -5,9 +5,7 @@
     "random_seed": 42,
     "rounds": 3,
     "result_path": "result_supply_chain_test",
-    "climate_stress_enabled": true,
-    "create_visualizations": false,
-    "create_dynamic_visualization": false
+    "climate_stress_enabled": true
   },
   "logging": {
     "agent_activity_logging": true,
