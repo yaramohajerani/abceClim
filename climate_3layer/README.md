@@ -83,6 +83,35 @@ Each agent type supports:
 - `continents`: Array of continents to affect (`["Asia"]`, `["all"]`, etc.)
 - `stress_factor`: Production multiplier (0.0-1.0, where 0.7 = 30% reduction)
 
+### Minimum Consumption for Household Survival
+
+The model now includes a **minimum mandatory consumption system** to ensure household survival:
+
+#### Household Survival Mechanism
+- **Configurable minimum consumption**: Set `minimum_survival_consumption` in household configuration
+- **Survival-first purchasing**: Households purchase goods for survival before regular budget-based purchasing
+- **Debt tolerance**: Households can exceed their budget to secure minimum consumption
+- **Consumption protection**: Households never consume below their minimum survival level
+- **Status tracking**: Logging includes whether minimum consumption requirements are met
+
+#### Firm Minimum Production Requirement
+- **Production guarantees**: Firms must produce enough goods to meet household survival needs
+- **Debt-based production**: Firms can go into debt to purchase inputs for minimum production
+- **Supply chain coordination**: All firms (commodity, intermediary, final goods) support minimum production
+- **Crisis response**: System ensures goods availability even during economic or climate crises
+
+#### Configuration Parameters
+
+**Household Configuration:**
+```json
+"consumption": {
+  "preference": "final_good",
+  "budget_fraction": 0.8,
+  "consumption_fraction": 0.9,
+  "minimum_survival_consumption": 0.2  
+}
+```
+
 ## File Organization
 
 ```
@@ -166,10 +195,3 @@ python test_configurations.py --config simulation_configurations/model_config.js
 **"Missing required parameter"**
 - Review the error message for the specific missing parameter
 - Compare with the example configurations
-
-## Getting Help
-
-1. Check the example configurations in `simulation_configurations/`
-2. Review error messages carefully - they contain specific guidance
-3. Validate JSON syntax with online tools
-4. Start with minimal modifications to working configurations 
