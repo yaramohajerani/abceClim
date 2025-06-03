@@ -505,21 +505,50 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     ax4.set_ylabel('Total Debt ($)')
     ax4.grid(True, alpha=0.3)
     
-    # 5. Net Worth by Sector (NEW)
-    ax5.set_title('Net Worth Evolution (Wealth - Debt)')
-    commodity_net = [visualization_data['net_worth'][i]['commodity'] for i in range(len(rounds))]
-    intermediary_net = [visualization_data['net_worth'][i]['intermediary'] for i in range(len(rounds))]
-    final_goods_net = [visualization_data['net_worth'][i]['final_goods'] for i in range(len(rounds))]
-    household_net = [visualization_data['net_worth'][i]['households'] for i in range(len(rounds))]
+    # 5. Price Evolution by Sector (NEW - replacing redundant net worth)
+    ax5.set_title('Dynamic Price Evolution by Sector')
     
-    ax5.plot(rounds, commodity_net, 'o-', label='Commodity', color='#8B4513', linewidth=2)
-    ax5.plot(rounds, intermediary_net, 's-', label='Intermediary', color='#DAA520', linewidth=2)
-    ax5.plot(rounds, final_goods_net, '^-', label='Final Goods', color='#00FF00', linewidth=2)
-    ax5.plot(rounds, household_net, 'd-', label='Households', color='#4169E1', linewidth=2)
-    ax5.axhline(y=0, color='black', linestyle='--', alpha=0.5)
+    # Collect price data by sector over time
+    commodity_prices = []
+    intermediary_prices = []
+    final_goods_prices = []
+    
+    for i in range(len(rounds)):
+        agents = visualization_data['agents'][i]
+        
+        # Get average price for each sector (agents may have different prices)
+        commodity_price_sum = sum(a.get('dynamic_price', 0) for a in agents if a['type'] == 'commodity_producer')
+        commodity_count = len([a for a in agents if a['type'] == 'commodity_producer'])
+        commodity_avg_price = commodity_price_sum / commodity_count if commodity_count > 0 else 0
+        
+        intermediary_price_sum = sum(a.get('dynamic_price', 0) for a in agents if a['type'] == 'intermediary_firm')
+        intermediary_count = len([a for a in agents if a['type'] == 'intermediary_firm'])
+        intermediary_avg_price = intermediary_price_sum / intermediary_count if intermediary_count > 0 else 0
+        
+        final_goods_price_sum = sum(a.get('dynamic_price', 0) for a in agents if a['type'] == 'final_goods_firm')
+        final_goods_count = len([a for a in agents if a['type'] == 'final_goods_firm'])
+        final_goods_avg_price = final_goods_price_sum / final_goods_count if final_goods_count > 0 else 0
+        
+        commodity_prices.append(commodity_avg_price)
+        intermediary_prices.append(intermediary_avg_price)
+        final_goods_prices.append(final_goods_avg_price)
+    
+    # Plot price evolution
+    ax5.plot(rounds, commodity_prices, 'o-', label='Commodity Price', color='#8B4513', linewidth=2, markersize=4)
+    ax5.plot(rounds, intermediary_prices, 's-', label='Intermediate Good Price', color='#DAA520', linewidth=2, markersize=4)
+    ax5.plot(rounds, final_goods_prices, '^-', label='Final Good Price', color='#00FF00', linewidth=2, markersize=4)
+    
+    # Add baseline reference lines (initial prices)
+    if len(commodity_prices) > 0 and commodity_prices[0] > 0:
+        ax5.axhline(y=commodity_prices[0], color='#8B4513', linestyle=':', alpha=0.5, label='Commodity Baseline')
+    if len(intermediary_prices) > 0 and intermediary_prices[0] > 0:
+        ax5.axhline(y=intermediary_prices[0], color='#DAA520', linestyle=':', alpha=0.5, label='Intermediate Baseline')
+    if len(final_goods_prices) > 0 and final_goods_prices[0] > 0:
+        ax5.axhline(y=final_goods_prices[0], color='#00FF00', linestyle=':', alpha=0.5, label='Final Good Baseline')
+    
     ax5.set_xlabel('Round')
-    ax5.set_ylabel('Net Worth ($)')
-    ax5.legend()
+    ax5.set_ylabel('Price per Unit ($)')
+    ax5.legend(fontsize=9)
     ax5.grid(True, alpha=0.3)
     
     # 6. Profit and Climate Cost (NEW)
@@ -1053,7 +1082,7 @@ def create_animated_supply_chain(visualization_data, simulation_path):
     filename = f"{simulation_path}/fixed_supply_animation_{timestamp}.gif"
     
     print(f"💾 Saving animation as {filename}...")
-    anim.save(filename, writer='pillow', fps=0.67)  # Slower fps for better readability
+    anim.save(filename, writer='pillow', fps=1.5, dpi=72)
     print(f"✅ Animation saved: {filename}")
     
     plt.close()
