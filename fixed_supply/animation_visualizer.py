@@ -570,6 +570,24 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     ax6_twin.set_ylabel('Climate Cost Absorbed ($)', color='orange')
     ax6_twin.tick_params(axis='y', labelcolor='orange')
     
+    # Explicitly set the label position to the right side
+    ax6_twin.yaxis.set_label_position('right')
+    
+    # Fix scientific notation offset text positioning - move to right axis
+    try:
+        # Position the right axis offset text correctly
+        offset_text = ax6_twin.yaxis.get_offset_text()
+        offset_text.set_position((1.02, 1))  # Position on right side
+        offset_text.set_horizontalalignment('left')
+        
+        # Hide any offset text on the left axis to avoid confusion
+        left_offset_text = ax6.yaxis.get_offset_text()
+        if hasattr(left_offset_text, 'set_visible'):
+            left_offset_text.set_visible(False)
+    except Exception:
+        # Fallback if offset text manipulation fails
+        pass
+    
     # Combined legend
     lines = line1 + line2
     labels = [l.get_label() for l in lines]
@@ -793,6 +811,21 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         ax2_twin.tick_params(axis='y', labelcolor='gray')
         # Explicitly set the label position to the right side
         ax2_twin.yaxis.set_label_position('right')
+        
+        # Fix scientific notation offset text positioning - move to right axis
+        try:
+            # Position the right axis offset text correctly
+            offset_text = ax2_twin.yaxis.get_offset_text()
+            offset_text.set_position((1.02, 1))  # Position on right side
+            offset_text.set_horizontalalignment('left')
+            
+            # Hide any offset text on the left axis to avoid confusion
+            left_offset_text = ax2.yaxis.get_offset_text()
+            if hasattr(left_offset_text, 'set_visible'):
+                left_offset_text.set_visible(False)
+        except Exception:
+            # Fallback if offset text manipulation fails
+            pass
         
         # Add climate shock indicators as vertical lines
         shock_colors = {
