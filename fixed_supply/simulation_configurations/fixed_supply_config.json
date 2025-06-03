@@ -134,7 +134,7 @@
       },
       "labor": {
         "endowment": 1,
-        "wage": 6.5
+        "wage": 9
       },
       "consumption": {
         "preference": "final_good",

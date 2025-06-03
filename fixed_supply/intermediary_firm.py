@@ -264,6 +264,28 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
             print(f"      Profit: ${self.profit:.2f}")
             print(f"      Target margin: {self.profit_margin*100:.1f}%")
             print(f"      Actual margin: {self.actual_margin*100:.1f}%")
+            
+            # Automatically repay debt if we have cash
+            self.repay_debt()
+
+    def repay_debt(self):
+        """Automatically repay debt using available cash after sales"""
+        if self.debt > 0 and self['money'] > 0:
+            # Determine how much debt we can repay (don't spend all money - keep some for operations)
+            available_for_debt = self['money']
+            debt_payment = min(available_for_debt, self.debt)
+            
+            if debt_payment > 0:
+                # Reduce money and debt by the payment amount
+                self.destroy('money', debt_payment)
+                self.debt -= debt_payment
+                
+                print(f"    💰 Intermediary Firm {self.id}: Repaid ${debt_payment:.2f} debt")
+                print(f"      Remaining debt: ${self.debt:.2f}, Remaining money: ${self['money']:.2f}")
+            
+            # Set to zero if very small to avoid floating point issues
+            if self.debt < 0.01:
+                self.debt = 0
 
     def log_round_data(self):
         """Log comprehensive data including financial metrics"""
