@@ -3,7 +3,7 @@ This is a modified version of the 3-layer supply chain model where:
 - Firms maintain fixed output quantities (desired_output_quantity from config)
 - Input requirements are calculated dynamically based on climate-affected productivity
 - Prices are calculated dynamically based on input costs and profit margins
-- Climate cost increases are split 50-50 between producers and consumers
+- Climate cost increases are split according to configurable cost_sharing parameters per agent type
 - Agents can go into debt to maintain production/consumption levels
 - Enhanced financial tracking for visualization
 
@@ -186,7 +186,7 @@ def main(config_file_path):
     print(f"  {final_goods_firms.num_agents} final goods firms (fixed output)")
     print(f"  {households.num_agents} households")
     print(f"  Dynamic pricing based on costs + profit margins")
-    print(f"  50-50 climate cost sharing")
+    print(f"  Configurable climate cost sharing per agent type")
     print(f"  Debt mechanism enabled")
     print(f"  Distributed across continents according to configuration")
 
@@ -342,7 +342,7 @@ def main(config_file_path):
     print(f"\n📊 Summary: Successfully completed {len(climate_framework.climate_events_history)} rounds")
     print(f"🌪️ Total climate events occurred: {total_climate_events}")
     print(f"🌍 Geographical assignments: {len(climate_framework.geographical_assignments)} agent types")
-    print(f"💰 Model features: Fixed output, dynamic pricing, debt mechanism, 50-50 cost sharing")
+    print(f"💰 Model features: Fixed output, dynamic pricing, debt mechanism, configurable cost sharing")
     
     return climate_framework
 

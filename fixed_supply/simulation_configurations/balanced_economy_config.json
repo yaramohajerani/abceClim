@@ -23,7 +23,6 @@
   },
   "climate": {
     "stress_enabled": false,
-    "acute_stress_probability": 0.0,
     "geographical_effects": false,
     "chronic_rules": [],
     "shock_rules": []
@@ -43,7 +42,10 @@
       },
       "climate": {
         "base_vulnerability": 0.0,
-        "vulnerability_variance": 0.0
+        "vulnerability_variance": 0.0,
+        "cost_sharing": {
+          "customer_share": 0.5
+        }
       },
       "geographical_distribution": ["Europe", "Asia", "Africa"]
     },
@@ -62,7 +64,10 @@
       },
       "climate": {
         "base_vulnerability": 0.0,
-        "vulnerability_variance": 0.0
+        "vulnerability_variance": 0.0,
+        "cost_sharing": {
+          "customer_share": 0.6
+        }
       },
       "geographical_distribution": ["North America", "Europe"]
     },
@@ -81,7 +86,10 @@
       },
       "climate": {
         "base_vulnerability": 0.0,
-        "vulnerability_variance": 0.0
+        "vulnerability_variance": 0.0,
+        "cost_sharing": {
+          "customer_share": 0.7
+        }
       },
       "geographical_distribution": ["North America", "South America"]
     },

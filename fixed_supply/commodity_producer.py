@@ -52,6 +52,11 @@ class CommodityProducer(abce.Agent, abce.Firm):
         self.chronic_stress_accumulated = 1.0  # Multiplicative factor
         self.climate_stressed = False  # Track if currently stressed
         
+        # Climate cost sharing parameters
+        cost_sharing_config = climate_config.get('cost_sharing', {'customer_share': 0.5})
+        self.customer_share = cost_sharing_config['customer_share']
+        self.producer_share = 1.0 - self.customer_share
+        
         # Calculate initial price from expected costs using actual wage from config
         wage = config['wage']
         expected_labor_cost = self.inputs.get('labor', 0) * wage
@@ -222,7 +227,7 @@ class CommodityProducer(abce.Agent, abce.Firm):
 
     def calculate_dynamic_price(self):
         """Calculate price based on input costs and desired profit margin,
-        with 50-50 cost sharing for climate impacts"""
+        with configurable cost sharing for climate impacts"""
         if self.production_this_round > 0:
             # Base cost per unit
             base_cost_per_unit = self.total_input_costs / self.production_this_round
@@ -233,9 +238,9 @@ class CommodityProducer(abce.Agent, abce.Firm):
             # Extra cost due to climate
             climate_extra_cost = base_cost_per_unit - normal_cost_per_unit
             
-            # Split climate cost 50-50
-            customer_burden = climate_extra_cost * 0.5
-            producer_burden = climate_extra_cost * 0.5
+            # Split climate cost according to configuration
+            customer_burden = climate_extra_cost * self.customer_share
+            producer_burden = climate_extra_cost * self.producer_share
             
             # Price = normal cost + margin + customer's share of climate cost
             target_price = normal_cost_per_unit * (1 + self.profit_margin) + customer_burden
@@ -249,8 +254,8 @@ class CommodityProducer(abce.Agent, abce.Firm):
             print(f"    Dynamic pricing for Commodity Producer {self.id}:")
             print(f"      Base cost/unit: ${base_cost_per_unit:.2f}")
             print(f"      Climate impact: ${climate_extra_cost:.2f}/unit")
-            print(f"      Customer bears: ${customer_burden:.2f}/unit")
-            print(f"      Producer bears: ${producer_burden:.2f}/unit")
+            print(f"      Customer bears: ${customer_burden:.2f}/unit ({self.customer_share:.1%})")
+            print(f"      Producer bears: ${producer_burden:.2f}/unit ({self.producer_share:.1%})")
             print(f"      New price: ${target_price:.2f} (was ${self.price[self.output]:.2f})")
 
     def sell_commodities(self):

@@ -25,7 +25,6 @@
   },
   "climate": {
     "stress_enabled": true,
-    "acute_stress_probability": 0.20,
     "geographical_effects": true,
     "chronic_rules": [
       {
@@ -33,7 +32,7 @@
         "description": "Chronic climate stress affecting only commodity production (agriculture/mining)",
         "agent_types": ["commodity_producer"],
         "continents": ["all"],
-        "stress_factor": 0.98
+        "stress_factor": 0.96
       }
     ],
     "shock_rules": [
@@ -71,7 +70,10 @@
       },
       "climate": {
         "base_vulnerability": 0.4,
-        "vulnerability_variance": 0.1
+        "vulnerability_variance": 0.1,
+        "cost_sharing": {
+          "customer_share": 0.95
+        }
       },
       "geographical_distribution": ["Europe", "Asia", "Africa"]
     },
@@ -90,7 +92,10 @@
       },
       "climate": {
         "base_vulnerability": 0.2,
-        "vulnerability_variance": 0.05
+        "vulnerability_variance": 0.05,
+        "cost_sharing": {
+          "customer_share": 0.2
+        }
       },
       "geographical_distribution": ["North America", "Europe"]
     },
@@ -109,7 +114,10 @@
       },
       "climate": {
         "base_vulnerability": 0.1,
-        "vulnerability_variance": 0.02
+        "vulnerability_variance": 0.02,
+        "cost_sharing": {
+          "customer_share": 0.1
+        }
       },
       "geographical_distribution": ["North America", "South America"]
     },

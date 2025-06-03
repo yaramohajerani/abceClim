@@ -25,21 +25,21 @@
         "description": "Long-term soil degradation affecting commodity production globally",
         "agent_types": ["commodity_producer"],
         "continents": ["all"],
-        "stress_factor": 0.992
+        "stress_factor": 0.98
       },
       {
         "name": "tropical_heat_stress",
         "description": "Rising temperatures reducing industrial productivity in tropical regions",
         "agent_types": ["intermediary_firm"],
         "continents": ["Africa", "South America"],
-        "stress_factor": 0.996
+        "stress_factor": 0.97
       },
       {
         "name": "arctic_infrastructure_degradation",
         "description": "Permafrost thaw damaging infrastructure in cold regions",
         "agent_types": ["final_goods_firm"],
         "continents": ["North America"],
-        "stress_factor": 0.999
+        "stress_factor": 0.99
       }
     ],
     "shock_rules": [
@@ -78,7 +78,10 @@
       },
       "climate": {
         "base_vulnerability": 0.4,
-        "vulnerability_variance": 0.1
+        "vulnerability_variance": 0.1,
+        "cost_sharing": {
+          "customer_share": 0.95
+        }
       },
       "geographical_distribution": ["Europe", "Asia", "Africa"]
     },
@@ -97,7 +100,10 @@
       },
       "climate": {
         "base_vulnerability": 0.2,
-        "vulnerability_variance": 0.05
+        "vulnerability_variance": 0.05,
+        "cost_sharing": {
+          "customer_share": 0.2
+        }
       },
       "geographical_distribution": ["North America", "Europe"]
     },
@@ -116,7 +122,10 @@
       },
       "climate": {
         "base_vulnerability": 0.1,
-        "vulnerability_variance": 0.02
+        "vulnerability_variance": 0.02,
+        "cost_sharing": {
+          "customer_share": 0.1
+        }
       },
       "geographical_distribution": ["North America", "South America"]
     },
@@ -134,7 +143,7 @@
         "preference": "final_good",
         "budget_fraction": 1.0,
         "consumption_fraction": 1.0,
-        "minimum_survival_consumption": 0.2
+        "minimum_survival_consumption": 0.18
       },
       "geographical_distribution": ["all"]
     }
