@@ -1,58 +1,65 @@
 {
   "simulation": {
-    "name": "fixed_supply_climate_shock_test",
-    "trade_logging": "on",
+    "name": "zero_profit_shock",
+    "trade_logging": "on", 
     "random_seed": 42,
     "rounds": 20,
-    "result_path": "result_fixed_supply_shock"
+    "result_path": "result_zero_profit_shock"
   },
   "logging": {
     "agent_activity_logging": true,
     "console_level": "WARNING",
-    "detailed_agent_actions": true,
-    "log_filename": "simulation_detailed_log.txt",
+    "detailed_agent_actions": false,
+    "log_filename": "zero_profit_shock_log.txt",
     "agent_keywords": [
-      "Household", "Producer", "Firm", "Commodity", "Intermediary", "Final",
-      "buy", "sell", "production", "consumption", "labor", "market",
-      "money", "trade", "offer", "accepted", "spent", "received",
-      "debt", "profit", "margin", "price"
+      "Household", "Producer", "Firm", "labor", "money", "Net worth"
     ],
-    "climate_keywords": [
-      "Climate", "stress", "shock", "CLIMATE", "Weather", "Event",
-      "Disruption", "Impact", "Crisis", "reset", "applied", "cleared",
-      "productivity", "cost"
-    ]
+    "climate_keywords": []
   },
   "climate": {
     "stress_enabled": true,
-    "acute_stress_probability": 0.20,
     "geographical_effects": true,
     "chronic_rules": [
       {
-        "name": "commodity_chronic_degradation",
-        "description": "Chronic climate stress affecting only commodity production (agriculture/mining)",
+        "name": "agricultural_soil_degradation",
+        "description": "Long-term soil degradation affecting commodity production globally",
         "agent_types": ["commodity_producer"],
         "continents": ["all"],
-        "stress_factor": 0.98
+        "stress_factor": 0.992
+      },
+      {
+        "name": "tropical_heat_stress",
+        "description": "Rising temperatures reducing industrial productivity in tropical regions",
+        "agent_types": ["intermediary_firm"],
+        "continents": ["Africa", "South America"],
+        "stress_factor": 0.996
+      },
+      {
+        "name": "arctic_infrastructure_degradation",
+        "description": "Permafrost thaw damaging infrastructure in cold regions",
+        "agent_types": ["final_goods_firm"],
+        "continents": ["North America"],
+        "stress_factor": 0.999
       }
     ],
     "shock_rules": [
       {
-        "name": "commodity_supply_shock",
-        "description": "Climate shock affecting commodity producers",
-        "probability": 0.25,
-        "continents": ["Asia", "Africa"],
+        "name": "global_commodity_shock",
+        "description": "Global shock affecting all commodity producers",
+        "probability": 0.20,
         "agent_types": ["commodity_producer"],
-        "stress_factor": 0.7,
-        "duration": 2
+        "continents": ["all"],
+        "stress_factor": 0.6,
+        "duration": 1
       },
       {
-        "name": "widespread_climate_event", 
-        "description": "Major climate event affecting multiple sectors",
-        "probability": 0.10,
-        "agent_types": ["commodity_producer", "intermediary_firm"],
-        "stress_factor": 0.8,
-        "duration": 1
+        "name": "severe_climate_event", 
+        "description": "Severe weather disrupting commodity production",
+        "probability": 0.15,
+        "agent_types": ["commodity_producer"],
+        "continents": ["all"],
+        "stress_factor": 0.4,
+        "duration": 2
       }
     ]
   },
@@ -63,7 +70,7 @@
       "initial_inventory": {},
       "production": {
         "desired_output_quantity": 0.9,
-        "profit_margin": 0.1,
+        "profit_margin": 0.0,
         "inputs": {
           "labor": 1
         },
@@ -81,10 +88,10 @@
       "initial_inventory": {},
       "production": {
         "desired_output_quantity": 0.4,
-        "profit_margin": 0.12,
+        "profit_margin": 0.0,
         "inputs": {
-          "labor": 0.5,
-          "commodity": 0.5
+          "labor": 0.4,
+          "commodity": 0.6
         },
         "output": "intermediate_good"
       },
@@ -99,9 +106,9 @@
       "initial_money": 20,
       "initial_inventory": {},
       "production": {
-        "desired_output_quantity": 0.9,
-        "profit_margin": 0.15,
-        "inputs": {
+        "desired_output_quantity": 2,
+        "profit_margin": 0.0,
+        "inputs": { 
           "labor": 0.6,
           "intermediate_good": 0.4
         },
@@ -115,19 +122,19 @@
     },
     "household": {
       "count": 20,
-      "initial_money": 20,
+      "initial_money": 10,
       "initial_inventory": {
-        "final_good": 0.1
+        "final_good": 0.0
       },
       "labor": {
         "endowment": 1,
-        "wage": 5
+        "wage": 5.0
       },
       "consumption": {
         "preference": "final_good",
         "budget_fraction": 1.0,
-        "consumption_fraction": 0.9,
-        "minimum_survival_consumption": 0.1
+        "consumption_fraction": 1.0,
+        "minimum_survival_consumption": 0.2
       },
       "geographical_distribution": ["all"]
     }

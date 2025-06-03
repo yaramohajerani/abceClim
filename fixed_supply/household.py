@@ -154,11 +154,15 @@ class Household(abce.Agent, abce.Household):
             print(f"    Labor endowment: {self.labor_endowment}, Labor sold: {labor_sold:.2f}")
 
     def buy_final_goods(self):
-        """ Buy final goods to meet consumption needs, using debt if necessary """
+        """ Buy final goods to meet consumption needs, using budget_fraction to limit spending """
         self.calculate_labor_income()  # First calculate income
         
         final_goods_start = self[self.consumption_preference]
         offers = self.get_offers(self.consumption_preference)
+        
+        # Calculate budget for this round using budget_fraction
+        available_money = self['money']
+        budget_for_round = available_money * self.budget_fraction
         
         # Calculate how much we need
         current_inventory = self[self.consumption_preference]
@@ -166,7 +170,8 @@ class Household(abce.Agent, abce.Household):
         needed_for_survival = max(0, self.minimum_survival_consumption - current_inventory)
         
         print(f"  Fixed Supply Household {self.id}:")
-        print(f"    Income: ${self.income:.2f}, Current money: ${self['money']:.2f}, Debt: ${self.debt:.2f}")
+        print(f"    Income: ${self.income:.2f}, Current money: ${available_money:.2f}, Budget for round: ${budget_for_round:.2f}")
+        print(f"    Budget fraction: {self.budget_fraction:.1%}, Debt: ${self.debt:.2f}")
         print(f"    Current inventory: {current_inventory:.2f}")
         print(f"    Need for survival: {needed_for_survival:.2f}")
         print(f"    Need for desired consumption: {needed_for_desired:.2f}")
@@ -174,19 +179,21 @@ class Household(abce.Agent, abce.Household):
         
         total_purchased = 0
         total_spent = 0
+        remaining_budget = budget_for_round
         
         for offer in offers:
-            # First priority: ensure survival minimum
+            # First priority: ensure survival minimum (can create debt if needed)
             if needed_for_survival > 0:
                 purchase_quantity = min(offer.quantity, needed_for_survival)
                 cost = purchase_quantity * offer.price
                 
-                # Create debt if needed for survival
-                if self['money'] < cost:
-                    debt_needed = cost - self['money']
+                # For survival, we can create debt if budget is insufficient
+                if remaining_budget < cost:
+                    debt_needed = cost - remaining_budget
                     self.create('money', debt_needed)
                     self.debt += debt_needed
                     self.debt_created_this_round += debt_needed
+                    remaining_budget += debt_needed  # Add to budget
                     print(f"    💳 Created ${debt_needed:.2f} debt for survival consumption")
                 
                 if purchase_quantity == offer.quantity:
@@ -196,13 +203,14 @@ class Household(abce.Agent, abce.Household):
                 
                 total_purchased += purchase_quantity
                 total_spent += cost
+                remaining_budget -= cost
                 needed_for_survival -= purchase_quantity
                 needed_for_desired -= purchase_quantity
                 print(f"    SURVIVAL: Bought {purchase_quantity:.2f} for ${cost:.2f}")
                 
-            # Second priority: buy towards desired consumption if we have money
-            elif needed_for_desired > 0 and self['money'] > 0:
-                affordable_quantity = min(offer.quantity, self['money'] / offer.price, needed_for_desired)
+            # Second priority: buy towards desired consumption within remaining budget
+            elif needed_for_desired > 0 and remaining_budget > 0:
+                affordable_quantity = min(offer.quantity, remaining_budget / offer.price, needed_for_desired)
                 if affordable_quantity > 0.01:
                     cost = affordable_quantity * offer.price
                     
@@ -213,10 +221,11 @@ class Household(abce.Agent, abce.Household):
                     
                     total_purchased += affordable_quantity
                     total_spent += cost
+                    remaining_budget -= cost
                     needed_for_desired -= affordable_quantity
                     print(f"    DESIRED: Bought {affordable_quantity:.2f} for ${cost:.2f}")
             else:
-                print(f"    SKIPPED: Offer of {offer.quantity:.2f} at ${offer.price:.2f}/unit")
+                print(f"    SKIPPED: Offer of {offer.quantity:.2f} at ${offer.price:.2f}/unit (budget: ${remaining_budget:.2f})")
         
         # Use the actual total purchased rather than inventory change
         self.final_goods_purchased = total_purchased
@@ -227,6 +236,7 @@ class Household(abce.Agent, abce.Household):
         
         print(f"  Household {self.id}: Purchasing complete")
         print(f"    Total purchased: {self.final_goods_purchased:.2f} for ${total_spent:.2f}")
+        print(f"    Budget used: ${total_spent:.2f} of ${budget_for_round:.2f} ({total_spent/budget_for_round*100 if budget_for_round > 0 else 0:.1f}%)")
         print(f"    Inventory: {final_goods_start:.2f} → {final_goods_end:.2f} (change: {actual_inventory_change:.2f})")
         print(f"    Money remaining: ${self['money']:.2f}")
         print(f"    Total debt: ${self.debt:.2f}")
@@ -236,17 +246,23 @@ class Household(abce.Agent, abce.Household):
             print(f"    ⚠️ WARNING: Purchase calculation mismatch! Calculated {total_purchased:.3f}, actual change {actual_inventory_change:.3f}")
 
     def consumption(self):
-        """ Consume final goods """
+        """ Consume final goods using consumption_fraction to limit consumption """
         available = self[self.consumption_preference]
         
-        # Try to consume desired amount, but at least minimum
-        consumption_target = min(available, self.desired_consumption)
-        consumption_target = max(consumption_target, min(available, self.minimum_survival_consumption))
+        # Apply consumption_fraction to available goods (but ensure survival minimum)
+        normal_consumption = available * self.consumption_fraction
+        
+        # Try to consume the fraction amount, but ensure at least minimum survival
+        consumption_target = max(normal_consumption, min(available, self.minimum_survival_consumption))
+        # But don't exceed what we actually have or our desired consumption
+        consumption_target = min(consumption_target, available, self.desired_consumption)
         
         self.destroy(self.consumption_preference, consumption_target)
         self.consumption_this_round = consumption_target
         
         print(f"  Household {self.id}: Consumed {consumption_target:.2f} {self.consumption_preference}s")
+        print(f"    Available: {available:.2f}, Normal consumption (fraction): {normal_consumption:.2f}")
+        print(f"    Consumption fraction: {self.consumption_fraction:.1%}")
         
         # Check if minimum needs were met
         if consumption_target < self.minimum_survival_consumption:

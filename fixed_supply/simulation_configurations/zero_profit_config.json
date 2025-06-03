@@ -1,0 +1,115 @@
+{
+  "simulation": {
+    "name": "zero_profit_economy",
+    "trade_logging": "on", 
+    "random_seed": 42,
+    "rounds": 20,
+    "result_path": "result_zero_profit"
+  },
+  "logging": {
+    "agent_activity_logging": true,
+    "console_level": "WARNING",
+    "detailed_agent_actions": false,
+    "log_filename": "zero_profit_log.txt",
+    "agent_keywords": [
+      "Household", "Producer", "Firm", "labor", "money", "Net worth"
+    ],
+    "climate_keywords": []
+  },
+  "climate": {
+    "stress_enabled": false,
+    "acute_stress_probability": 0.0,
+    "geographical_effects": false,
+    "chronic_rules": [],
+    "shock_rules": []
+  },
+  "agents": {
+    "commodity_producer": {
+      "count": 4,
+      "initial_money": 200,
+      "initial_inventory": {},
+      "production": {
+        "desired_output_quantity": 0.9,
+        "profit_margin": 0.0,
+        "inputs": {
+          "labor": 1
+        },
+        "output": "commodity"
+      },
+      "climate": {
+        "base_vulnerability": 0.0,
+        "vulnerability_variance": 0.0
+      },
+      "geographical_distribution": ["Europe", "Asia", "Africa"]
+    },
+    "intermediary_firm": {
+      "count": 4,
+      "initial_money": 200,
+      "initial_inventory": {},
+      "production": {
+        "desired_output_quantity": 0.4,
+        "profit_margin": 0.0,
+        "inputs": {
+          "labor": 0.4,
+          "commodity": 0.6
+        },
+        "output": "intermediate_good"
+      },
+      "climate": {
+        "base_vulnerability": 0.0,
+        "vulnerability_variance": 0.0
+      },
+      "geographical_distribution": ["North America", "Europe"]
+    },
+    "final_goods_firm": {
+      "count": 2,
+      "initial_money": 200,
+      "initial_inventory": {},
+      "production": {
+        "desired_output_quantity": 2,
+        "profit_margin": 0.0,
+        "inputs": { 
+          "labor": 0.6,
+          "intermediate_good": 0.4
+        },
+        "output": "final_good"
+      },
+      "climate": {
+        "base_vulnerability": 0.0,
+        "vulnerability_variance": 0.0
+      },
+      "geographical_distribution": ["North America", "South America"]
+    },
+    "household": {
+      "count": 20,
+      "initial_money": 100,
+      "initial_inventory": {
+        "final_good": 0.0
+      },
+      "labor": {
+        "endowment": 1,
+        "wage": 5.0
+      },
+      "consumption": {
+        "preference": "final_good",
+        "budget_fraction": 1.0,
+        "consumption_fraction": 1.0,
+        "minimum_survival_consumption": 0.2
+      },
+      "geographical_distribution": ["all"]
+    }
+  },
+  "data_collection": {
+    "track_goods": {
+      "commodity_producer": ["commodity"],
+      "intermediary_firm": ["intermediate_good"],
+      "final_goods_firm": ["final_good"],
+      "household": ["final_good"]
+    }
+  },
+  "visualization": {
+    "create_visualizations": false,
+    "create_dynamic_visualization": true,
+    "save_climate_summary": true
+  }
+} 
