@@ -6,7 +6,6 @@
     "rounds": 20,
     "result_path": "result_stable_economy"
   },
-  "wage": 4,
   "logging": {
     "agent_activity_logging": true,
     "console_level": "WARNING",

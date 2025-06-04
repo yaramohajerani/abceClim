@@ -1,12 +1,11 @@
 {
   "simulation": {
-    "name": "shock_stable_economy_test",
+    "name": "stable_shock_test",
     "trade_logging": "on",
     "random_seed": 42,
     "rounds": 20,
-    "result_path": "result_shock_stable_economy"
+    "result_path": "result_stable_shock_economy"
   },
-  "wage": 4,
   "logging": {
     "agent_activity_logging": true,
     "console_level": "WARNING",
@@ -24,7 +23,7 @@
   },
   "climate": {
     "stress_enabled": true,
-    "chronic_stress_factor": 0.96,
+    "chronic_stress_factor": 0.5,
     "geographical_effects": true,
     "shock_rules": [
       {
@@ -55,7 +54,7 @@
       "production": {
         "base_output_quantity": 4,
         "profit_margin": 0.0,
-        "base_overhead": 2.0,
+        "base_overhead": 1.0,
         "inputs": {
           "labor": 1
         },
@@ -77,10 +76,10 @@
       "production": {
         "base_output_quantity": 2.0,
         "profit_margin": 0.0,
-        "base_overhead": 1.5,
+        "base_overhead": 0.5,
         "inputs": {
           "labor": 0.5,
-          "commodity": 0.5
+          "commodity": 0.4
         },
         "output": "intermediate_good"
       },
@@ -88,7 +87,7 @@
         "base_vulnerability": 0.1,
         "vulnerability_variance": 0.05,
         "cost_sharing": {
-          "customer_share": 0.5
+          "customer_share": 0.2
         }
       },
       "geographical_distribution": ["North America", "Europe"]
@@ -100,7 +99,7 @@
       "production": {
         "base_output_quantity": 1.0,
         "profit_margin": 0.0,
-        "base_overhead": 1.0,
+        "base_overhead": 0.5,
         "inputs": {
           "labor": 0.5,
           "intermediate_good": 0.5
@@ -111,7 +110,7 @@
         "base_vulnerability": 0.05,
         "vulnerability_variance": 0.02,
         "cost_sharing": {
-          "customer_share": 0.5
+          "customer_share": 0.2
         }
       },
       "geographical_distribution": ["North America", "South America"]
