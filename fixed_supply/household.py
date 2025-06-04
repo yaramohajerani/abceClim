@@ -154,47 +154,45 @@ class Household(abce.Agent, abce.Household):
             print(f"    Labor endowment: {self.labor_endowment}, Labor sold: {labor_sold:.2f}")
 
     def buy_final_goods(self):
-        """ Buy final goods to meet consumption needs, using budget_fraction to limit spending """
+        """ Buy final goods based on total available resources - simple and market-responsive """
         self.calculate_labor_income()  # First calculate income
         
         final_goods_start = self[self.consumption_preference]
         offers = self.get_offers(self.consumption_preference)
         
-        # Calculate budget for this round using budget_fraction
+        # Simple rule: spend a fraction of total available resources on consumption
         available_money = self['money']
-        budget_for_round = available_money * self.budget_fraction
+        total_resources = self.income + available_money  # Income this round + accumulated wealth
         
-        # Calculate how much we need
-        current_inventory = self[self.consumption_preference]
-        needed_for_desired = max(0, self.desired_consumption - current_inventory)
-        needed_for_survival = max(0, self.minimum_survival_consumption - current_inventory)
+        # Spend 60% of total resources on consumption (this makes households responsive to wealth changes)
+        consumption_spending_budget = total_resources * 0.6
+        
+        # Don't spend more money than we have (unless survival emergency)
+        actual_spending_budget = min(consumption_spending_budget, available_money)
         
         print(f"  Fixed Supply Household {self.id}:")
-        print(f"    Income: ${self.income:.2f}, Current money: ${available_money:.2f}, Budget for round: ${budget_for_round:.2f}")
-        print(f"    Budget fraction: {self.budget_fraction:.1%}, Debt: ${self.debt:.2f}")
-        print(f"    Current inventory: {current_inventory:.2f}")
-        print(f"    Need for survival: {needed_for_survival:.2f}")
-        print(f"    Need for desired consumption: {needed_for_desired:.2f}")
+        print(f"    Income: ${self.income:.2f}, Money: ${available_money:.2f}, Total resources: ${total_resources:.2f}")
+        print(f"    Consumption budget (60% of resources): ${consumption_spending_budget:.2f}")
+        print(f"    Actual spending budget: ${actual_spending_budget:.2f}")
+        print(f"    Current inventory: {final_goods_start:.2f}")
         print(f"    Received {len(offers)} final good offers")
         
         total_purchased = 0
         total_spent = 0
-        remaining_budget = budget_for_round
+        remaining_budget = actual_spending_budget
         
+        # Buy as much as we can afford with our budget
         for offer in offers:
-            # First priority: ensure survival minimum (can create debt if needed)
-            if needed_for_survival > 0:
-                purchase_quantity = min(offer.quantity, needed_for_survival)
-                cost = purchase_quantity * offer.price
+            if remaining_budget <= 0:
+                print(f"    BUDGET EXHAUSTED")
+                break
                 
-                # For survival, we can create debt if budget is insufficient
-                if remaining_budget < cost:
-                    debt_needed = cost - remaining_budget
-                    self.create('money', debt_needed)
-                    self.debt += debt_needed
-                    self.debt_created_this_round += debt_needed
-                    remaining_budget += debt_needed  # Add to budget
-                    print(f"    💳 Created ${debt_needed:.2f} debt for survival consumption")
+            # How much can we afford from this offer?
+            affordable_quantity = remaining_budget / offer.price
+            purchase_quantity = min(offer.quantity, affordable_quantity)
+            
+            if purchase_quantity > 0.01:  # Worth buying
+                cost = purchase_quantity * offer.price
                 
                 if purchase_quantity == offer.quantity:
                     self.accept(offer)
@@ -204,46 +202,43 @@ class Household(abce.Agent, abce.Household):
                 total_purchased += purchase_quantity
                 total_spent += cost
                 remaining_budget -= cost
-                needed_for_survival -= purchase_quantity
-                needed_for_desired -= purchase_quantity
-                print(f"    SURVIVAL: Bought {purchase_quantity:.2f} for ${cost:.2f}")
-                
-            # Second priority: buy towards desired consumption within remaining budget
-            elif needed_for_desired > 0 and remaining_budget > 0:
-                affordable_quantity = min(offer.quantity, remaining_budget / offer.price, needed_for_desired)
-                if affordable_quantity > 0.01:
-                    cost = affordable_quantity * offer.price
-                    
-                    if affordable_quantity == offer.quantity:
-                        self.accept(offer)
-                    else:
-                        self.accept(offer, quantity=affordable_quantity)
-                    
-                    total_purchased += affordable_quantity
-                    total_spent += cost
-                    remaining_budget -= cost
-                    needed_for_desired -= affordable_quantity
-                    print(f"    DESIRED: Bought {affordable_quantity:.2f} for ${cost:.2f}")
+                print(f"    BOUGHT: {purchase_quantity:.3f} units for ${cost:.2f} (price: ${offer.price:.2f}/unit)")
             else:
-                print(f"    SKIPPED: Offer of {offer.quantity:.2f} at ${offer.price:.2f}/unit (budget: ${remaining_budget:.2f})")
+                print(f"    SKIPPED: Can't afford offer of {offer.quantity:.2f} at ${offer.price:.2f}/unit")
         
-        # Use the actual total purchased rather than inventory change
+        # Emergency debt creation ONLY if we bought nothing and have no inventory
+        current_inventory_after_purchase = final_goods_start + total_purchased
+        if current_inventory_after_purchase < 0.01:  # Essentially no food
+            print(f"    🆘 SURVIVAL EMERGENCY: No inventory, creating emergency debt")
+            emergency_debt = self.minimum_survival_consumption * 50  # Emergency money for survival
+            self.create('money', emergency_debt)
+            self.debt += emergency_debt
+            self.debt_created_this_round += emergency_debt
+            print(f"    💳 Created ${emergency_debt:.2f} emergency debt")
+            
+            # Try to buy something with emergency money
+            if offers and len(offers) > 0:
+                offer = offers[0]  # Take first available offer
+                emergency_quantity = min(offer.quantity, emergency_debt / offer.price)
+                if emergency_quantity > 0.01:
+                    emergency_cost = emergency_quantity * offer.price
+                    self.accept(offer, quantity=emergency_quantity)
+                    total_purchased += emergency_quantity
+                    total_spent += emergency_cost
+                    print(f"    🆘 EMERGENCY BUY: {emergency_quantity:.3f} units for ${emergency_cost:.2f}")
+        
+        # Record results
         self.final_goods_purchased = total_purchased
         self.spending = total_spent
         
         final_goods_end = self[self.consumption_preference]
-        actual_inventory_change = final_goods_end - final_goods_start
         
         print(f"  Household {self.id}: Purchasing complete")
-        print(f"    Total purchased: {self.final_goods_purchased:.2f} for ${total_spent:.2f}")
-        print(f"    Budget used: ${total_spent:.2f} of ${budget_for_round:.2f} ({total_spent/budget_for_round*100 if budget_for_round > 0 else 0:.1f}%)")
-        print(f"    Inventory: {final_goods_start:.2f} → {final_goods_end:.2f} (change: {actual_inventory_change:.2f})")
-        print(f"    Money remaining: ${self['money']:.2f}")
-        print(f"    Total debt: ${self.debt:.2f}")
-        
-        # Verify our calculation matches actual inventory change
-        if abs(actual_inventory_change - total_purchased) > 0.001:
-            print(f"    ⚠️ WARNING: Purchase calculation mismatch! Calculated {total_purchased:.3f}, actual change {actual_inventory_change:.3f}")
+        print(f"    Total purchased: {self.final_goods_purchased:.3f} for ${total_spent:.2f}")
+        print(f"    Average price paid: ${total_spent/total_purchased if total_purchased > 0 else 0:.2f}/unit")
+        print(f"    Inventory: {final_goods_start:.3f} → {final_goods_end:.3f}")
+        print(f"    Money: ${available_money:.2f} → ${self['money']:.2f}")
+        print(f"    Debt: ${self.debt:.2f}")
 
     def consumption(self):
         """ Consume final goods using consumption_fraction to limit consumption """

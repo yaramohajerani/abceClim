@@ -1,16 +1,16 @@
 {
   "simulation": {
-    "name": "zero_profit_shock",
+    "name": "severity_recovery_test",
     "trade_logging": "on", 
     "random_seed": 42,
-    "rounds": 30,
-    "result_path": "result_zero_profit_shock"
+    "rounds": 15,
+    "result_path": "result_severity_recovery_test"
   },
   "logging": {
     "agent_activity_logging": true,
     "console_level": "WARNING",
     "detailed_agent_actions": false,
-    "log_filename": "zero_profit_shock_log.txt",
+    "log_filename": "severity_recovery_test_log.txt",
     "agent_keywords": [
       "Household", "Producer", "Firm", "labor", "money", "Net worth"
     ],
@@ -19,40 +19,32 @@
   "climate": {
     "stress_enabled": true,
     "geographical_effects": true,
-    "chronic_rules": [
-      {
-        "name": "agricultural_soil_degradation",
-        "description": "Long-term soil degradation affecting commodity production globally",
-        "agent_types": ["commodity_producer"],
-        "continents": ["all"],
-        "stress_factor": 0.96
-      },
-      {
-        "name": "tropical_heat_stress",
-        "description": "Rising temperatures reducing industrial productivity in tropical regions",
-        "agent_types": ["intermediary_firm"],
-        "continents": ["Africa", "South America"],
-        "stress_factor": 0.97
-      }
-    ],
+    "shock_recovery_rate": 0.25,
+    "chronic_rules": [],
     "shock_rules": [
       {
-        "name": "global_commodity_shock",
-        "description": "Global shock affecting all commodity producers",
-        "probability": 0.20,
+        "name": "mild_weather_disruption",
+        "description": "Mild weather event with quick recovery",
+        "probability": 0.25,
         "agent_types": ["commodity_producer"],
-        "continents": ["Africa", "Europe", "Asia"],
-        "stress_factor": 0.6,
-        "duration": 3
+        "continents": ["all"],
+        "stress_factor": 0.9
       },
       {
-        "name": "severe_climate_event", 
-        "description": "Severe weather disrupting commodity production",
+        "name": "moderate_climate_shock",
+        "description": "Moderate climate shock with medium recovery time",
+        "probability": 0.20,
+        "agent_types": ["commodity_producer"],
+        "continents": ["all"],
+        "stress_factor": 0.7
+      },
+      {
+        "name": "severe_climate_disaster", 
+        "description": "Severe climate disaster with long recovery time",
         "probability": 0.15,
         "agent_types": ["commodity_producer"],
         "continents": ["all"],
-        "stress_factor": 0.4,
-        "duration": 5
+        "stress_factor": 0.3
       }
     ]
   },
@@ -62,7 +54,7 @@
       "initial_money": 20,
       "initial_inventory": {},
       "production": {
-        "desired_output_quantity": 2.5,
+        "desired_output_quantity": 0.9,
         "profit_margin": 0.0,
         "inputs": {
           "labor": 1
@@ -83,11 +75,11 @@
       "initial_money": 20,
       "initial_inventory": {},
       "production": {
-        "desired_output_quantity": 1.5,
+        "desired_output_quantity": 0.4,
         "profit_margin": 0.0,
         "inputs": {
-          "labor": 0.5,
-          "commodity": 0.5
+          "labor": 0.4,
+          "commodity": 0.6
         },
         "output": "intermediate_good"
       },
@@ -95,21 +87,21 @@
         "base_vulnerability": 0.2,
         "vulnerability_variance": 0.05,
         "cost_sharing": {
-          "customer_share": 0.5
+          "customer_share": 0.2
         }
       },
       "geographical_distribution": ["North America", "Europe"]
     },
     "final_goods_firm": {
-      "count": 3,
+      "count": 2,
       "initial_money": 20,
       "initial_inventory": {},
       "production": {
-        "desired_output_quantity": 2.5,
+        "desired_output_quantity": 2,
         "profit_margin": 0.0,
         "inputs": { 
-          "labor": 0.5,
-          "intermediate_good": 0.5
+          "labor": 0.6,
+          "intermediate_good": 0.4
         },
         "output": "final_good"
       },
@@ -117,7 +109,7 @@
         "base_vulnerability": 0.1,
         "vulnerability_variance": 0.02,
         "cost_sharing": {
-          "customer_share": 0.5
+          "customer_share": 0.1
         }
       },
       "geographical_distribution": ["North America", "South America"]
@@ -130,7 +122,7 @@
       },
       "labor": {
         "endowment": 1,
-        "wage": 6.0
+        "wage": 5.0
       },
       "consumption": {
         "preference": "final_good",

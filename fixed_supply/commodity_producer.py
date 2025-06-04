@@ -229,34 +229,49 @@ class CommodityProducer(abce.Agent, abce.Firm):
         """Calculate price based on input costs and desired profit margin,
         with configurable cost sharing for climate impacts"""
         if self.production_this_round > 0:
-            # Base cost per unit
-            base_cost_per_unit = self.total_input_costs / self.production_this_round
+            # Simple cost-plus pricing
+            cost_per_unit = self.total_input_costs / self.production_this_round
             
-            # Calculate what the cost would have been without climate impact
-            normal_cost_per_unit = base_cost_per_unit * self.climate_productivity
+            # For own climate effects: calculate what cost would be without climate impact
+            if self.climate_productivity < 1.0:
+                # If we have reduced productivity, we needed more inputs to produce the same amount
+                # Normal cost would be: cost_per_unit * climate_productivity 
+                normal_cost_per_unit = cost_per_unit * self.climate_productivity
+                
+                # Extra cost due to our own climate productivity loss
+                own_climate_extra_cost = cost_per_unit - normal_cost_per_unit
+                
+                # Split climate cost burden according to configuration
+                customer_climate_burden = own_climate_extra_cost * self.customer_share
+                producer_climate_burden = own_climate_extra_cost * self.producer_share
+                
+                # Price = normal cost + margin + customer's share of climate cost
+                target_price = normal_cost_per_unit * (1 + self.profit_margin) + customer_climate_burden
+                
+                # Firm absorbs its share of climate costs
+                self.climate_cost_burden = producer_climate_burden * self.production_this_round
+                
+                print(f"    Dynamic pricing for Commodity Producer {self.id}:")
+                print(f"      Cost per unit: ${cost_per_unit:.2f}")
+                print(f"      Normal cost (no climate): ${normal_cost_per_unit:.2f}")
+                print(f"      Climate impact: ${own_climate_extra_cost:.2f}/unit")
+                print(f"      Climate productivity: {self.climate_productivity:.3f}")
+                print(f"      Customer bears: ${customer_climate_burden:.2f}/unit ({self.customer_share:.1%})")
+                print(f"      Producer bears: ${producer_climate_burden:.2f}/unit ({self.producer_share:.1%})")
+                print(f"      Climate cost absorbed this round: ${self.climate_cost_burden:.2f}")
+            else:
+                # No climate impact - simple cost plus margin
+                target_price = cost_per_unit * (1 + self.profit_margin)
+                self.climate_cost_burden = 0
+                
+                print(f"    Dynamic pricing for Commodity Producer {self.id}:")
+                print(f"      Cost per unit: ${cost_per_unit:.2f}")
+                print(f"      No climate impact")
             
-            # Extra cost due to climate
-            climate_extra_cost = base_cost_per_unit - normal_cost_per_unit
-            
-            # Split climate cost according to configuration
-            customer_burden = climate_extra_cost * self.customer_share
-            producer_burden = climate_extra_cost * self.producer_share
-            
-            # Price = normal cost + margin + customer's share of climate cost
-            target_price = normal_cost_per_unit * (1 + self.profit_margin) + customer_burden
-            
-            # Track how much climate cost we absorbed
-            self.climate_cost_burden = producer_burden * self.production_this_round
-            
-            # Update price
             self.price[self.output] = target_price
-            
-            print(f"    Dynamic pricing for Commodity Producer {self.id}:")
-            print(f"      Base cost/unit: ${base_cost_per_unit:.2f}")
-            print(f"      Climate impact: ${climate_extra_cost:.2f}/unit")
-            print(f"      Customer bears: ${customer_burden:.2f}/unit ({self.customer_share:.1%})")
-            print(f"      Producer bears: ${producer_burden:.2f}/unit ({self.producer_share:.1%})")
-            print(f"      New price: ${target_price:.2f} (was ${self.price[self.output]:.2f})")
+            print(f"      New price: ${target_price:.2f}")
+        else:
+            print(f"    Commodity Producer {self.id}: No production, keeping previous price")
 
     def sell_commodities(self):
         """ Sell commodities to intermediary firms at dynamically calculated price """

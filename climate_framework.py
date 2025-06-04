@@ -33,6 +33,9 @@ class ClimateFramework:
         self.params = simulation_parameters
         self.climate_events_history = []
         self.geographical_assignments = {}
+        # Track ongoing shock effects for severity-based recovery
+        self.ongoing_shocks = {}  # {agent_type: {agent_continent: {'severity': float, 'rounds_remaining': int}}}
+        self.shock_recovery_rate = simulation_parameters.get('shock_recovery_rate', 0.2)  # 20% recovery per round by default
     
     def assign_geographical_locations(self, agent_groups: Dict[str, List], 
                                     distribution_rules: Optional[Dict] = None):
@@ -91,19 +94,29 @@ class ClimateFramework:
         shock_rules = self.params.get('shock_rules', [])
         
         if shock_rules:
-            # Use configurable shock system
+            # Use configurable shock system with severity-based recovery
             climate_events = self._apply_configurable_shocks(agent_groups, shock_rules)
         else:
-            # No acute events if shock_rules is empty
-            print(f"\n  No shock rules configured - no acute climate events this round")
-            # Reset all agents to normal production
-            print(f"\n  Resetting all agents to normal production...")
-            for agent_type, agent_group in agent_groups.items():
-                try:
-                    agent_group.reset_climate_stress()
-                    print(f"    Reset climate stress for {agent_type} group")
-                except Exception as e:
-                    print(f"    Could not reset {agent_type}: {e}")
+            # Even if no shock rules, still process ongoing shock recovery
+            print(f"\n  No shock rules configured, but checking for ongoing shock recovery...")
+            
+            # Process any ongoing shock recovery
+            self._process_shock_recovery(agent_groups)
+            
+            # Apply any ongoing shock effects that haven't fully recovered
+            self._apply_ongoing_shocks(agent_groups)
+            
+            # Reset all agents to normal production if no ongoing shocks
+            if not self.ongoing_shocks:
+                print(f"\n  No ongoing shocks - resetting all agents to normal production...")
+                for agent_type, agent_group in agent_groups.items():
+                    try:
+                        agent_group.reset_climate_stress()
+                        print(f"    Reset climate stress for {agent_type} group")
+                    except Exception as e:
+                        print(f"    Could not reset {agent_type}: {e}")
+            else:
+                print(f"\n  Ongoing shocks still active - agents remain affected")
         
         # Store climate events
         self.climate_events_history.append(climate_events)
@@ -195,34 +208,33 @@ class ClimateFramework:
 
     def _apply_configurable_shocks(self, agent_groups: Dict[str, List], shock_rules: List[Dict]) -> Dict[str, str]:
         """
-        Apply climate shocks based on configurable rules.
+        Apply climate shocks based on configurable rules with severity-based recovery.
+        Recovery time is proportional to shock severity - more severe shocks take longer to recover from.
         
         Args:
             agent_groups: Dictionary mapping agent type names to abcEconomics agent groups
-            shock_rules: List of shock rule configurations
+            shock_rules: List of shock rule configurations (duration parameter is ignored)
             
         Returns:
             Dictionary of climate events that occurred this round
         """
         climate_events = {}
         
-        # Reset all agents to normal production first
-        print(f"\n  Resetting all agents to normal production...")
-        for agent_type, agent_group in agent_groups.items():
-            try:
-                agent_group.reset_climate_stress()
-                print(f"    Reset climate stress for {agent_type} group")
-            except Exception as e:
-                print(f"    Could not reset {agent_type}: {e}")
+        # First, process ongoing shock recovery
+        print(f"\n  Processing shock recovery...")
+        self._process_shock_recovery(agent_groups)
         
-        # Process each shock rule
+        # Apply any ongoing shock effects that haven't fully recovered
+        print(f"\n  Applying ongoing shock effects...")
+        self._apply_ongoing_shocks(agent_groups)
+        
+        # Process each shock rule for new shocks
         for rule in shock_rules:
             rule_name = rule.get('name', 'unnamed_shock')
             probability = rule.get('probability', 0.1)
             agent_types = rule.get('agent_types', [])
             continents = rule.get('continents', ['all'])
             stress_factor = rule.get('stress_factor', 0.7)
-            duration = rule.get('duration', 1)
             description = rule.get('description', '')
             
             # Check if this shock occurs this round
@@ -231,14 +243,20 @@ class ClimateFramework:
                 if description:
                     print(f"    Description: {description}")
                 print(f"    Affects: {agent_types} in {continents}")
-                print(f"    Stress factor: {stress_factor} (duration: {duration} rounds)")
+                print(f"    Stress factor: {stress_factor}")
                 
-                # Apply shock to specified agent types and continents
-                affected_agents = self._apply_targeted_shock(
-                    agent_groups, agent_types, continents, stress_factor, rule_name
+                # Calculate recovery time based on severity
+                # More severe shocks (lower stress_factor) take longer to recover
+                shock_severity = 1.0 - stress_factor  # 0.3 severity for 0.7 stress_factor
+                recovery_rounds = max(1, int(shock_severity / self.shock_recovery_rate))
+                print(f"    Estimated recovery time: {recovery_rounds} rounds")
+                
+                # Apply shock and track it for ongoing effects
+                affected_agents = self._apply_and_track_shock(
+                    agent_groups, agent_types, continents, stress_factor, rule_name, recovery_rounds
                 )
                 
-                # Record this event
+                # Record this event (without duration parameter)
                 event_key = f"{rule_name}_{len(climate_events)}"
                 climate_events[event_key] = {
                     'type': 'configurable_shock',
@@ -246,11 +264,130 @@ class ClimateFramework:
                     'agent_types': agent_types,
                     'continents': continents,
                     'stress_factor': stress_factor,
-                    'duration': duration,
+                    'estimated_recovery_rounds': recovery_rounds,
                     'affected_agents': affected_agents
                 }
         
         return climate_events
+    
+    def _process_shock_recovery(self, agent_groups: Dict[str, List]):
+        """
+        Process recovery from ongoing shocks. Recovery rate is proportional to shock recovery rate.
+        """
+        agents_recovering = 0
+        
+        for agent_type in list(self.ongoing_shocks.keys()):
+            if agent_type not in self.ongoing_shocks:
+                continue
+                
+            for continent in list(self.ongoing_shocks[agent_type].keys()):
+                shock_info = self.ongoing_shocks[agent_type][continent]
+                
+                # Reduce shock severity over time
+                current_severity = shock_info['severity']
+                recovery_amount = current_severity * self.shock_recovery_rate
+                new_severity = max(0.0, current_severity - recovery_amount)
+                
+                shock_info['severity'] = new_severity
+                shock_info['rounds_remaining'] -= 1
+                
+                agents_recovering += 1
+                
+                print(f"    {agent_type} in {continent}: severity {current_severity:.3f} -> {new_severity:.3f}")
+                
+                # Remove shock if fully recovered or rounds expired
+                if new_severity <= 0.01 or shock_info['rounds_remaining'] <= 0:
+                    print(f"    {agent_type} in {continent}: FULLY RECOVERED")
+                    del self.ongoing_shocks[agent_type][continent]
+                    
+            # Clean up empty agent types
+            if not self.ongoing_shocks[agent_type]:
+                del self.ongoing_shocks[agent_type]
+        
+        if agents_recovering > 0:
+            print(f"    {agents_recovering} agent groups are recovering from shocks")
+        else:
+            print(f"    No ongoing shocks to recover from")
+    
+    def _apply_ongoing_shocks(self, agent_groups: Dict[str, List]):
+        """
+        Apply the current severity level of ongoing shocks to affected agents.
+        """
+        for agent_type, continents_dict in self.ongoing_shocks.items():
+            if agent_type not in agent_groups:
+                continue
+                
+            for continent, shock_info in continents_dict.items():
+                severity = shock_info['severity']
+                if severity > 0.01:  # Only apply meaningful shocks
+                    # Calculate current stress factor from severity
+                    current_stress_factor = 1.0 - severity
+                    
+                    print(f"    Applying ongoing shock to {agent_type} in {continent}: stress_factor = {current_stress_factor:.3f}")
+                    
+                    # Apply shock to this specific agent type and continent
+                    self._apply_targeted_shock(
+                        agent_groups, [agent_type], [continent], current_stress_factor, f"ongoing_shock_{continent}"
+                    )
+    
+    def _apply_and_track_shock(self, agent_groups: Dict[str, List], 
+                             target_agent_types: List[str], 
+                             target_continents: List[str], 
+                             stress_factor: float,
+                             shock_name: str,
+                             recovery_rounds: int) -> Dict[str, int]:
+        """
+        Apply a shock and track it for ongoing severity-based recovery.
+        """
+        # Expand 'all' continents to actual continent list
+        if 'all' in target_continents:
+            target_continents = list(CONTINENTS.keys())
+        
+        affected_agents = {}
+        shock_severity = 1.0 - stress_factor
+        
+        for agent_type in target_agent_types:
+            if agent_type not in agent_groups:
+                print(f"    Warning: Agent type '{agent_type}' not found in simulation")
+                continue
+            
+            # Initialize tracking for this agent type if needed
+            if agent_type not in self.ongoing_shocks:
+                self.ongoing_shocks[agent_type] = {}
+            
+            # Track shock for each continent
+            for continent in target_continents:
+                # Add or update ongoing shock tracking
+                if continent in self.ongoing_shocks[agent_type]:
+                    # If there's already a shock, take the more severe one
+                    existing_severity = self.ongoing_shocks[agent_type][continent]['severity']
+                    if shock_severity > existing_severity:
+                        self.ongoing_shocks[agent_type][continent] = {
+                            'severity': shock_severity,
+                            'rounds_remaining': recovery_rounds
+                        }
+                        print(f"    Updated more severe shock for {agent_type} in {continent}")
+                else:
+                    # New shock
+                    self.ongoing_shocks[agent_type][continent] = {
+                        'severity': shock_severity,
+                        'rounds_remaining': recovery_rounds
+                    }
+                    print(f"    Tracking new shock for {agent_type} in {continent}")
+            
+            # Apply the immediate shock effect
+            self._apply_targeted_shock(
+                agent_groups, [agent_type], target_continents, stress_factor, shock_name
+            )
+            
+            # Count affected agents for reporting
+            if agent_type in self.geographical_assignments:
+                assignments = self.geographical_assignments[agent_type]
+                affected_count = sum(1 for agent_id, agent_info in assignments.items() 
+                                   if agent_info['continent'] in target_continents)
+                affected_agents[agent_type] = affected_count
+        
+        return affected_agents
     
     def _apply_targeted_shock(self, agent_groups: Dict[str, List], 
                             target_agent_types: List[str], 
@@ -1098,7 +1235,7 @@ class ClimateFramework:
                                     'data_type': event_data.get('rule_name', 'configurable_shock'),
                                     'event_name': event_key,
                                     'stress_factor': event_data.get('stress_factor', 1.0),
-                                    'duration': event_data.get('duration', 1),
+                                    'estimated_recovery_rounds': event_data.get('estimated_recovery_rounds', 1),
                                     'affected_agent_types': ','.join(event_data.get('agent_types', []))
                                 })
                     elif event_key in CONTINENTS:
@@ -1112,7 +1249,7 @@ class ClimateFramework:
                             'data_type': event_data if isinstance(event_data, str) else 'climate_stress',
                             'event_name': event_key,
                             'stress_factor': 1.0,
-                            'duration': 1,
+                            'estimated_recovery_rounds': 1,
                             'affected_agent_types': 'all'
                         })
         

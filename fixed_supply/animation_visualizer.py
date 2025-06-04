@@ -167,7 +167,7 @@ def load_climate_events(simulation_path):
                             'agent_types': first_row['affected_agent_types'].split(',') if pd.notna(first_row['affected_agent_types']) else [],
                             'continents': list(event_rows['continent'].unique()),
                             'stress_factor': first_row['stress_factor'] if pd.notna(first_row['stress_factor']) else 1.0,
-                            'duration': first_row['duration'] if pd.notna(first_row['duration']) else 1,
+                            'estimated_recovery_rounds': first_row['estimated_recovery_rounds'] if pd.notna(first_row['estimated_recovery_rounds']) else 1,
                             'affected_agents': {}
                         }
                 

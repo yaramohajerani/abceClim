@@ -1,0 +1,117 @@
+{
+  "simulation": {
+    "name": "test_cost_sharing",
+    "trade_logging": "on", 
+    "random_seed": 42,
+    "rounds": 10,
+    "result_path": "result_test_cost_sharing"
+  },
+  "logging": {
+    "agent_activity_logging": true,
+    "console_level": "WARNING",
+    "detailed_agent_actions": false,
+    "log_filename": "test_cost_sharing_log.txt",
+    "agent_keywords": [
+      "Household", "Producer", "Firm", "labor", "money", "Net worth"
+    ],
+    "climate_keywords": []
+  },
+  "climate": {
+    "stress_enabled": true,
+    "geographical_effects": true,
+    "shock_recovery_rate": 0.25,
+    "chronic_rules": [
+      {
+        "name": "global_productivity_decline",
+        "agent_types": ["commodity_producer", "intermediary_firm", "final_goods_firm"],
+        "stress_factor": 0.95
+      }
+    ],
+    "shock_rules": [],
+    "cost_sharing": {
+      "commodity_producer": {
+        "customer_share": 0.90
+      },
+      "intermediary_firm": {
+        "customer_share": 0.70
+      },
+      "final_goods_firm": {
+        "customer_share": 0.50
+      }
+    }
+  },
+  "agents": {
+    "commodity_producer": {
+      "count": 2,
+      "initial_money": 20,
+      "production": {
+        "inputs": {"labor": 0.5},
+        "output": "commodity",
+        "desired_output_quantity": 2.0,
+        "profit_margin": 0.0
+      },
+      "climate": {
+        "base_vulnerability": 0.1,
+        "vulnerability_variance": 0.02
+      }
+    },
+    "intermediary_firm": {
+      "count": 2,
+      "initial_money": 20,
+      "production": {
+        "inputs": {"labor": 0.5, "commodity": 0.5},
+        "output": "intermediate_good",
+        "desired_output_quantity": 0.4,
+        "profit_margin": 0.0
+      },
+      "climate": {
+        "base_vulnerability": 0.08,
+        "vulnerability_variance": 0.02
+      }
+    },
+    "final_goods_firm": {
+      "count": 2,
+      "initial_money": 20,
+      "production": {
+        "inputs": {"labor": 0.5, "intermediate_good": 0.5},
+        "output": "final_good",
+        "desired_output_quantity": 2,
+        "profit_margin": 0.0
+      },
+      "climate": {
+        "base_vulnerability": 0.06,
+        "vulnerability_variance": 0.02
+      }
+    },
+    "household": {
+      "count": 10,
+      "initial_money": 10,
+      "desired_consumption": 0.36,
+      "minimum_survival_consumption": 0.18,
+      "budget_fraction": 1.0,
+      "consumption_fraction": 1.0,
+      "labor": {
+        "wage": 6.0,
+        "endowment": 1.0
+      },
+      "climate": {
+        "base_vulnerability": 0.05,
+        "vulnerability_variance": 0.02
+      }
+    }
+  },
+  "markets": {
+    "commodity_price": 5.0,
+    "intermediate_good_price": 10.0
+  },
+  "visualization": {
+    "create_dynamic_visualization": true,
+    "save_climate_summary": true
+  },
+  "data_collection": {
+    "rounds_to_collect": "all",
+    "financial_metrics": true,
+    "climate_metrics": true,
+    "production_metrics": true
+  }
+} 
