@@ -72,15 +72,8 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         self.profit_margin = production_config.get('profit_margin', 0.0)
         self.actual_margin = 0
         
-        # Calculate initial price from expected costs using actual wage from config
-        wage = config['wage']
-        expected_labor_cost = self.inputs.get('labor', 0) * wage
-        
-        # For initial price, use a simple multiplier of labor cost since dynamic pricing will adjust quickly
-        # No need for hardcoded expected intermediate price
-        expected_cost_per_unit = expected_labor_cost / self.base_output_quantity
-        initial_price = expected_cost_per_unit * (1 + self.profit_margin + 2.0)  # +2.0 accounts for intermediate goods roughly
-        self.price = {self.output: initial_price}
+        # No initial price calculation - price will be calculated dynamically after purchasing inputs
+        self.price = {self.output: 0.0}  # Placeholder, will be set by calculate_dynamic_price()
         
         # Create production function
         self.pf = self.create_cobb_douglas(self.output, self.current_output_quantity, self.inputs)
@@ -99,7 +92,6 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         print(f"  Initial money: ${initial_money}")
         print(f"  Production capacity: {self.base_output_quantity}")
         print(f"  Climate vulnerability: {self.climate_vulnerability:.3f}")
-        print(f"  Price: ${self.price[self.output]}")
         print(f"  Will distribute to {self.num_households} households")
 
     def start_round(self):
@@ -214,11 +206,12 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         
         total_spent = intermediate_spent + labor_spent
         
-        # Track purchases
+        # Track purchases and input costs for dynamic pricing
         labor_end = self['labor']
         intermediate_goods_end = self['intermediate_good']
         self.labor_purchased = labor_end - labor_start
         self.intermediate_goods_purchased = intermediate_goods_end - intermediate_goods_start
+        self.total_input_costs = total_spent  # Track total costs for dynamic pricing
         
         print(f"    Final Goods Firm {self.id}: Input purchasing complete:")
         print(f"      Total spent: ${total_spent:.2f}")
@@ -295,12 +288,18 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
             
             self.price[self.output] = target_price
             
+            # Deduct absorbed overhead costs from firm's money
+            money_before = self['money']
+            self.destroy('money', self.overhead_absorbed)
+            money_after = self['money']
+            
             print(f"    Dynamic pricing for Final Goods Firm {self.id}:")
             print(f"      Input cost per unit: ${input_cost_per_unit:.2f}")
             print(f"      Overhead per unit: ${overhead_cost_per_unit:.2f} (total overhead: ${self.current_overhead:.2f})")
             print(f"      Customer bears: ${overhead_to_customers:.2f}/unit ({self.customer_share:.1%})")
             print(f"      Firm absorbs: ${overhead_absorbed_by_firm:.2f}/unit ({self.producer_share:.1%})")
             print(f"      New price: ${target_price:.2f}")
+            print(f"      💰 Overhead cost deducted: ${self.overhead_absorbed:.2f} (Money: ${money_before:.2f} → ${money_after:.2f})")
         else:
             print(f"    Final Goods Firm {self.id}: No production, keeping previous price")
 

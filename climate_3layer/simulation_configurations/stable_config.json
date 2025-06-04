@@ -61,12 +61,11 @@
       "production": {
         "base_output_quantity": 4,
         "profit_margin": 0.0,
-        "base_overhead": 2.0,
+        "base_overhead": 1.0,
         "inputs": {
           "labor": 1
         },
-        "output": "commodity",
-        "minimum_production_for_supply_chain": 0.15
+        "output": "commodity"
       },
       "climate": {
         "base_vulnerability": 0.3,
@@ -84,19 +83,18 @@
       "production": {
         "base_output_quantity": 2.0,
         "profit_margin": 0.0,
-        "base_overhead": 1.5,
+        "base_overhead": 0.5,
         "inputs": {
           "labor": 0.5,
-          "commodity": 0.5
+          "commodity": 0.4
         },
-        "output": "intermediate_good",
-        "minimum_production_for_supply_chain": 0.2
+        "output": "intermediate_good"
       },
       "climate": {
         "base_vulnerability": 0.1,
         "vulnerability_variance": 0.05,
         "cost_sharing": {
-          "customer_share": 0.5
+          "customer_share": 0.2
         }
       },
       "geographical_distribution": ["North America", "Europe"]
@@ -108,7 +106,7 @@
       "production": {
         "base_output_quantity": 1.0,
         "profit_margin": 0.0,
-        "base_overhead": 1.0,
+        "base_overhead": 0.5,
         "inputs": {
           "labor": 0.5,
           "intermediate_good": 0.5
@@ -119,7 +117,7 @@
         "base_vulnerability": 0.05,
         "vulnerability_variance": 0.02,
         "cost_sharing": {
-          "customer_share": 0.5
+          "customer_share": 0.2
         }
       },
       "geographical_distribution": ["North America", "South America"]
