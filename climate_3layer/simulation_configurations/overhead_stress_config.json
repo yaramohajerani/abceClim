@@ -1,11 +1,11 @@
 {
-  "_description": "High-stress scenario with frequent and severe climate shocks to test system resilience",
+  "_description": "Demonstration of overhead stress modes for all agents in the 3layer model with different stress factors per agent type",
   "simulation": {
-    "name": "climate_3_layer_stress_test",
+    "name": "climate_3_layer_overhead_stress",
     "trade_logging": "off",
     "random_seed": 12345,
-    "rounds": 30,
-    "result_path": "result_stress_test"
+    "rounds": 25,
+    "result_path": "result_overhead_stress"
   },
   "climate": {
     "stress_enabled": true,
@@ -18,35 +18,47 @@
     },
     "chronic_rules": [
       {
-        "name": "agricultural_soil_degradation",
-        "description": "Long-term soil degradation reducing agricultural productivity",
+        "name": "global_degradation",
+        "description": "Long-term climate degradation affecting all production",
+        "agent_types": ["commodity_producer", "intermediary_firm", "final_goods_firm"],
+        "continents": ["all"],
+        "stress_factor": 0.995
+      },
+      {
+        "name": "commodity_overhead_pressure",
+        "description": "Increasing overhead pressures on commodity producers due to climate regulations",
         "agent_types": ["commodity_producer"],
         "continents": ["all"],
-        "stress_factor": 0.94
-      },
-      {
-        "name": "industrial_heat_stress",
-        "description": "Rising temperatures reducing industrial efficiency",
-        "agent_types": ["intermediary_firm"],
-        "continents": ["Africa", "Asia"],
-        "stress_factor": 0.97
-      },
-      {
-        "name": "infrastructure_degradation",
-        "description": "Climate-induced infrastructure damage affecting final goods production",
-        "agent_types": ["final_goods_firm"],
-        "continents": ["North America"],
-        "stress_factor": 0.995
+        "stress_factor": 0.98,
+        "stress_mode": "overhead"
       }
     ],
     "shock_rules": [
       {
-        "name": "extreme_weather_event",
-        "description": "Severe weather disrupting all production",
-        "probability": 0.3,
+        "name": "extreme_weather_overhead_impact",
+        "description": "Extreme weather increasing overhead costs across supply chain",
+        "probability": 0.15,
         "agent_types": ["commodity_producer", "intermediary_firm"],
         "continents": ["all"],
-        "stress_factor": 0.5,
+        "stress_factor": 0.7,
+        "stress_mode": "overhead"
+      },
+      {
+        "name": "commodity_specific_overhead_shock",
+        "description": "Regulatory shock increasing commodity producer overhead costs",
+        "probability": 0.1,
+        "agent_types": ["commodity_producer"],
+        "continents": ["Asia", "Africa"],
+        "stress_factor": 0.6,
+        "stress_mode": "overhead"
+      },
+      {
+        "name": "industrial_overhead_disruption",
+        "description": "Supply chain disruption increasing manufacturing overhead costs",
+        "probability": 0.08,
+        "agent_types": ["intermediary_firm", "final_goods_firm"],
+        "continents": ["Asia", "Europe"],
+        "stress_factor": 0.8,
         "stress_mode": "overhead"
       }
     ]
@@ -66,8 +78,11 @@
         "price": 1.5
       },
       "climate": {
-        "base_vulnerability": 0.6,
-        "vulnerability_variance": 0.2
+        "base_vulnerability": 0.4,
+        "vulnerability_variance": 0.1,
+        "cost_sharing": {
+          "customer_share": 0.6
+        }
       },
       "geographical_distribution": ["Asia", "Africa", "South America", "Europe", "North America", "Asia"]
     },
@@ -88,8 +103,11 @@
         "price": 3.0
       },
       "climate": {
-        "base_vulnerability": 0.3,
-        "vulnerability_variance": 0.12
+        "base_vulnerability": 0.2,
+        "vulnerability_variance": 0.08,
+        "cost_sharing": {
+          "customer_share": 0.5
+        }
       },
       "geographical_distribution": ["Asia", "Europe", "North America", "South America"]
     },
@@ -109,7 +127,10 @@
       },
       "climate": {
         "base_vulnerability": 0.1,
-        "vulnerability_variance": 0.05
+        "vulnerability_variance": 0.05,
+        "cost_sharing": {
+          "customer_share": 0.4
+        }
       },
       "geographical_distribution": ["North America", "Europe", "Asia"]
     },
@@ -132,15 +153,14 @@
   },
   "data_collection": {
     "track_goods": {
-      "commodity_producer": ["commodity"],
-      "intermediary_firm": ["intermediate_good"],
-      "final_goods_firm": ["final_good"],
-      "household": ["final_good"]
+      "commodity_producer": ["money", "commodity"],
+      "intermediary_firm": ["money", "intermediate_good"],
+      "final_goods_firm": ["money", "final_good"],
+      "household": ["money", "final_good"]
     }
   },
   "visualization": {
     "create_visualizations": true,
-    "create_dynamic_visualization": true,
-    "save_climate_summary": true
+    "create_dynamic_visualization": true
   }
 } 

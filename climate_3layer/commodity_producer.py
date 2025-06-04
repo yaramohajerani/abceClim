@@ -302,35 +302,7 @@ class CommodityProducer(abce.Agent, abce.Firm):
         
         print(f"    Commodity Producer {self.id}: Logged - Production: {self.production_this_round:.2f}, Sales: {self.sales_this_round:.2f}, Labor purchased: {self.labor_purchased:.2f}, Inventory: {cumulative_inventory:.2f}, Money: ${current_money:.2f}, Price: ${self.price[self.output]:.2f}, Overhead: ${self.current_overhead:.2f}, Profit: ${self.profit:.2f}, Min. production met: {minimum_production_met}, Debt created this round: ${self.debt_created_this_round:.2f}")
 
-    def apply_climate_stress(self, stress_factor):
-        """ Apply climate stress by increasing overhead costs (damages, disruptions, etc.) """
-        self.climate_stressed = True
-        # Stress reduces the stress_factor (0.6 means 40% increase in costs)
-        # So overhead increases by: base_overhead / stress_factor
-        stress_multiplier = 1.0 / stress_factor if stress_factor > 0 else 2.0
-        self.current_overhead = self.base_overhead * stress_multiplier * self.chronic_stress_accumulated
-        print(f"  Commodity Producer {self.id}: CLIMATE STRESS! Overhead: ${self.base_overhead:.2f} -> ${self.current_overhead:.2f}")
 
-    def reset_climate_stress(self):
-        """ Reset overhead to chronic level """
-        if self.climate_stressed:
-            self.climate_stressed = False
-            self.current_overhead = self.base_overhead * self.chronic_stress_accumulated
-            print(f"  Commodity Producer {self.id}: Climate stress cleared, overhead: ${self.current_overhead:.2f}")
-
-    def apply_acute_stress(self):
-        """ Apply acute climate stress (temporary overhead increase) """
-        # Use configured stress range instead of hardcoded values
-        stress_factor = 1.0 - (self.climate_vulnerability * random.uniform(0.2, 0.8))
-        stress_multiplier = 1.0 / stress_factor if stress_factor > 0 else 2.0
-        self.current_overhead = self.base_overhead * stress_multiplier * self.chronic_stress_accumulated
-        print(f"  Commodity Producer {self.id}: Acute stress! Overhead: ${self.current_overhead:.2f}")
-
-    def apply_chronic_stress(self, stress_factor):
-        """ Apply chronic climate stress (permanent overhead increase) """
-        stress_multiplier = 1.0 / stress_factor if stress_factor > 0 else 2.0
-        self.chronic_stress_accumulated *= stress_multiplier
-        self.current_overhead = self.base_overhead * self.chronic_stress_accumulated
 
     def _collect_agent_data(self, round_num, agent_type):
         """ Collect agent data for visualization (called by abcEconomics group system) """

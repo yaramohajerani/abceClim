@@ -20,15 +20,24 @@ This model uses an **overhead-based climate impact system** where climate stress
 
 ### Climate Impact Mechanism
 
-Climate stress affects firms through **overhead cost increases**:
+The model supports **two climate stress modes** that can be configured per agent type:
 
+**Overhead Cost Mode (Recommended for Commodity Producers):**
 - **Base Overhead**: Fixed operational costs per round (configured per agent type)
 - **Current Overhead**: Base overhead multiplied by stress factors from climate events
 - **Cost Sharing**: Configurable split between firm absorption vs. customer price pass-through
 
-**Stress Types:**
-- **Acute Stress**: Temporary overhead spikes from discrete climate events
-- **Chronic Stress**: Permanent overhead increases from long-term climate degradation
+**Productivity Mode (Recommended for Manufacturing):**
+- **Base Production**: Baseline production capacity
+- **Current Production**: Base production multiplied by stress factors from climate events
+- Climate stress directly reduces output quantity
+
+**Stress Types (Both Modes):**
+- **Acute Stress**: Temporary impacts from discrete climate events
+- **Chronic Stress**: Permanent degradation from long-term climate change
+
+**3Layer Model Configuration:**
+All agents in the 3layer model use **overhead mode** by default, as the core design principle is that climate stress manifests as increased operational costs (CapEx, legal fees, damages, disruptions) rather than direct productivity losses. This reflects the reality that firms rarely lose productive capacity directly, but instead face higher costs when dealing with climate challenges.
 
 ### Dynamic Pricing System
 
@@ -62,14 +71,33 @@ This creates automatic supply chain coordination without central planning.
     "rounds": 20,
     "result_path": "result_directory"
   },
-  "wage": 4.0,
   "climate": {
     "stress_enabled": true/false,
-    "acute_stress_ranges": {
-      "commodity_producer": [0.2, 0.8],
-      "intermediary_firm": [0.2, 0.6], 
-      "final_goods_firm": [0.1, 0.4]
-    }
+    "stress_mode": "productivity",
+    "agent_stress_modes": {
+      "commodity_producer": "overhead",
+      "intermediary_firm": "overhead", 
+      "final_goods_firm": "overhead"
+    },
+    "chronic_rules": [
+      {
+        "name": "rule_name",
+        "agent_types": ["commodity_producer"],
+        "continents": ["all"],
+        "stress_factor": 0.99,
+        "stress_mode": "overhead"
+      }
+    ],
+    "shock_rules": [
+      {
+        "name": "shock_name", 
+        "probability": 0.1,
+        "agent_types": ["commodity_producer"],
+        "continents": ["Asia"],
+        "stress_factor": 0.7,
+        "stress_mode": "overhead"
+      }
+    ]
   },
   "agents": {
     "agent_type": {

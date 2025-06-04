@@ -207,12 +207,20 @@ class ConfigLoader:
             'random_seed': sim_config.get('random_seed', 42),
             'rounds': sim_config['rounds'],
             'climate_stress_enabled': climate_config['stress_enabled'],
-            'chronic_rules': climate_config.get('chronic_rules', []),  # not actually currently used for 3layer
+            'chronic_rules': climate_config.get('chronic_rules', []),
             'geographical_effects': climate_config.get('geographical_effects', True),
             'create_visualizations': viz_config.get('create_visualizations', True),
             'create_dynamic_visualization': viz_config.get('create_dynamic_visualization', True),
             'shock_rules': climate_config.get('shock_rules', []),
-            'result_path': sim_config.get('result_path', 'result_climate_3_layer')
+            'result_path': sim_config.get('result_path', 'result_climate_3_layer'),
+            # Climate stress mode configuration
+            # In 3layer model, ALL agents use overhead mode since climate affects costs, not productivity
+            'stress_mode': climate_config.get('stress_mode', 'overhead'),
+            'agent_stress_modes': climate_config.get('agent_stress_modes', {
+                'commodity_producer': 'overhead',
+                'intermediary_firm': 'overhead', 
+                'final_goods_firm': 'overhead'
+            })
         }
     
     def get_agent_config(self, agent_type: str) -> Dict[str, Any]:

@@ -27,6 +27,7 @@ CONTINENTS = {
 class ClimateFramework:
     """
     Simplified framework for climate economics modeling with geographical distribution.
+    Supports both productivity-based and overhead cost-based climate stress modes.
     """
     
     def __init__(self, simulation_parameters: Dict[str, Any]):
@@ -36,6 +37,19 @@ class ClimateFramework:
         # Track ongoing shock effects for severity-based recovery
         self.ongoing_shocks = {}  # {agent_type: {agent_continent: {'severity': float, 'rounds_remaining': int}}}
         self.shock_recovery_rate = simulation_parameters.get('shock_recovery_rate', 0.2)  # 20% recovery per round by default
+        
+        # Climate stress mode configuration - determines how stress is applied
+        # 'productivity': affects production capacity (traditional approach)
+        # 'overhead': affects overhead costs (climate_3layer approach)
+        self.stress_mode = simulation_parameters.get('stress_mode', 'productivity')
+        
+        # Stress mode configuration per agent type
+        # Allows different agent types to use different stress modes
+        self.agent_stress_modes = simulation_parameters.get('agent_stress_modes', {})
+        
+        print(f"Climate Framework initialized with default stress mode: {self.stress_mode}")
+        if self.agent_stress_modes:
+            print(f"Agent-specific stress modes: {self.agent_stress_modes}")
     
     def assign_geographical_locations(self, agent_groups: Dict[str, List], 
                                     distribution_rules: Optional[Dict] = None):
@@ -79,6 +93,7 @@ class ClimateFramework:
         """
         Apply climate stress events by continent using group-level method calls.
         Uses configurable rules for both acute and chronic events.
+        Supports both productivity and overhead cost stress modes.
         """
         climate_events = {}
         
@@ -108,7 +123,7 @@ class ClimateFramework:
             
             # Reset all agents to normal production if no ongoing shocks
             if not self.ongoing_shocks:
-                print(f"\n  No ongoing shocks - resetting all agents to normal production...")
+                print(f"\n  No ongoing shocks - resetting all agents to normal...")
                 for agent_type, agent_group in agent_groups.items():
                     try:
                         agent_group.reset_climate_stress()
@@ -124,9 +139,17 @@ class ClimateFramework:
         print(f"Climate events recorded: {climate_events}")
         return climate_events
     
+    def _get_stress_mode_for_agent_type(self, agent_type: str) -> str:
+        """
+        Get the stress mode for a specific agent type.
+        Uses agent-specific mode if configured, otherwise falls back to default.
+        """
+        return self.agent_stress_modes.get(agent_type, self.stress_mode)
+    
     def _apply_chronic_stress_selective(self, agent_groups: Dict[str, List], chronic_rules: List[Dict]):
         """
         Apply chronic climate stress selectively based on configurable rules.
+        Supports both productivity and overhead cost modes.
         
         Args:
             agent_groups: Dictionary mapping agent type names to abcEconomics agent groups
@@ -137,6 +160,7 @@ class ClimateFramework:
         - continents: List of continents to affect (optional, defaults to 'all')
         - stress_factor: Multiplier for permanent productivity reduction (e.g., 0.99 = 1% permanent loss per round)
         - description: Optional description of the chronic stress
+        - stress_mode: Optional override for stress mode ('productivity' or 'overhead')
         """
         for rule in chronic_rules:
             rule_name = rule.get('name', 'chronic_stress')
@@ -144,25 +168,30 @@ class ClimateFramework:
             continents = rule.get('continents', ['all'])
             stress_factor = rule.get('stress_factor', 0.99)
             description = rule.get('description', '')
+            rule_stress_mode = rule.get('stress_mode', None)  # Optional per-rule stress mode override
             
             print(f"  Applying chronic stress rule: {rule_name}")
             if description:
                 print(f"    Description: {description}")
             print(f"    Affects: {agent_types} in {continents}")
             print(f"    Stress factor: {stress_factor} (permanent)")
+            if rule_stress_mode:
+                print(f"    Stress mode override: {rule_stress_mode}")
             
             # Apply chronic stress to specified agent types and continents
             self._apply_targeted_chronic_stress(
-                agent_groups, agent_types, continents, stress_factor, rule_name
+                agent_groups, agent_types, continents, stress_factor, rule_name, rule_stress_mode
             )
 
     def _apply_targeted_chronic_stress(self, agent_groups: Dict[str, List], 
                                      target_agent_types: List[str], 
                                      target_continents: List[str], 
                                      stress_factor: float,
-                                     rule_name: str):
+                                     rule_name: str,
+                                     rule_stress_mode: Optional[str] = None):
         """
         Apply chronic stress to specific agent types in specific continents.
+        Supports both productivity and overhead cost modes.
         
         Args:
             agent_groups: Dictionary mapping agent type names to abcEconomics agent groups
@@ -170,6 +199,7 @@ class ClimateFramework:
             target_continents: List of continents to affect (or ['all'] for all continents)
             stress_factor: Multiplier for permanent productivity reduction (e.g., 0.99 = 1% permanent loss)
             rule_name: Name of the chronic stress rule for logging
+            rule_stress_mode: Optional override for stress mode ('productivity' or 'overhead')
         """
         # Expand 'all' continents to actual continent list
         if 'all' in target_continents:
@@ -196,11 +226,25 @@ class ClimateFramework:
                 if agent_continent in target_continents:
                     affected_agent_ids.append(agent_id)
             
-            if affected_agent_ids and hasattr(agent_group, 'apply_chronic_stress'):
+            if affected_agent_ids:
+                # Determine stress mode for this agent type
+                agent_stress_mode = rule_stress_mode or self._get_stress_mode_for_agent_type(agent_type)
+                
                 try:
-                    # Apply chronic stress to the entire group - abcEconomics will handle distribution
-                    agent_group.apply_chronic_stress(stress_factor)
-                    print(f"    Applied {rule_name} to {len(affected_agent_ids)} {agent_type}s in {target_continents}")
+                    # Apply chronic stress based on stress mode
+                    if agent_stress_mode == 'overhead':
+                        if hasattr(agent_group, 'apply_chronic_overhead_stress'):
+                            agent_group.apply_chronic_overhead_stress(stress_factor)
+                            print(f"    Applied {rule_name} (overhead mode) to {len(affected_agent_ids)} {agent_type}s in {target_continents}")
+                        else:
+                            print(f"    Warning: {agent_type} does not support overhead chronic stress")
+                    else:  # Default to productivity mode
+                        if hasattr(agent_group, 'apply_chronic_stress'):
+                            agent_group.apply_chronic_stress(stress_factor)
+                            print(f"    Applied {rule_name} (productivity mode) to {len(affected_agent_ids)} {agent_type}s in {target_continents}")
+                        else:
+                            print(f"    Warning: {agent_type} does not support productivity chronic stress")
+                            
                 except Exception as e:
                     print(f"    Could not apply {rule_name} to {agent_type} group: {e}")
             else:
@@ -210,6 +254,7 @@ class ClimateFramework:
         """
         Apply climate shocks based on configurable rules with severity-based recovery.
         Recovery time is proportional to shock severity - more severe shocks take longer to recover from.
+        Supports both productivity and overhead cost modes.
         
         Args:
             agent_groups: Dictionary mapping agent type names to abcEconomics agent groups
@@ -236,6 +281,7 @@ class ClimateFramework:
             continents = rule.get('continents', ['all'])
             stress_factor = rule.get('stress_factor', 0.7)
             description = rule.get('description', '')
+            rule_stress_mode = rule.get('stress_mode', None)  # Optional per-rule stress mode override
             
             # Check if this shock occurs this round
             if random.random() < probability:
@@ -244,6 +290,8 @@ class ClimateFramework:
                     print(f"    Description: {description}")
                 print(f"    Affects: {agent_types} in {continents}")
                 print(f"    Stress factor: {stress_factor}")
+                if rule_stress_mode:
+                    print(f"    Stress mode override: {rule_stress_mode}")
                 
                 # Calculate recovery time based on severity
                 # More severe shocks (lower stress_factor) take longer to recover
@@ -253,7 +301,7 @@ class ClimateFramework:
                 
                 # Apply shock and track it for ongoing effects
                 affected_agents = self._apply_and_track_shock(
-                    agent_groups, agent_types, continents, stress_factor, rule_name, recovery_rounds
+                    agent_groups, agent_types, continents, stress_factor, rule_name, recovery_rounds, rule_stress_mode
                 )
                 
                 # Record this event (without duration parameter)
@@ -265,7 +313,8 @@ class ClimateFramework:
                     'continents': continents,
                     'stress_factor': stress_factor,
                     'estimated_recovery_rounds': recovery_rounds,
-                    'affected_agents': affected_agents
+                    'affected_agents': affected_agents,
+                    'stress_mode': rule_stress_mode
                 }
         
         return climate_events
@@ -312,6 +361,7 @@ class ClimateFramework:
     def _apply_ongoing_shocks(self, agent_groups: Dict[str, List]):
         """
         Apply the current severity level of ongoing shocks to affected agents.
+        Supports both productivity and overhead cost modes.
         """
         for agent_type, continents_dict in self.ongoing_shocks.items():
             if agent_type not in agent_groups:
@@ -335,9 +385,11 @@ class ClimateFramework:
                              target_continents: List[str], 
                              stress_factor: float,
                              shock_name: str,
-                             recovery_rounds: int) -> Dict[str, int]:
+                             recovery_rounds: int,
+                             rule_stress_mode: Optional[str] = None) -> Dict[str, int]:
         """
         Apply a shock and track it for ongoing severity-based recovery.
+        Supports both productivity and overhead cost modes.
         """
         # Expand 'all' continents to actual continent list
         if 'all' in target_continents:
@@ -364,20 +416,22 @@ class ClimateFramework:
                     if shock_severity > existing_severity:
                         self.ongoing_shocks[agent_type][continent] = {
                             'severity': shock_severity,
-                            'rounds_remaining': recovery_rounds
+                            'rounds_remaining': recovery_rounds,
+                            'stress_mode': rule_stress_mode or self._get_stress_mode_for_agent_type(agent_type)
                         }
                         print(f"    Updated more severe shock for {agent_type} in {continent}")
                 else:
                     # New shock
                     self.ongoing_shocks[agent_type][continent] = {
                         'severity': shock_severity,
-                        'rounds_remaining': recovery_rounds
+                        'rounds_remaining': recovery_rounds,
+                        'stress_mode': rule_stress_mode or self._get_stress_mode_for_agent_type(agent_type)
                     }
                     print(f"    Tracking new shock for {agent_type} in {continent}")
             
             # Apply the immediate shock effect
             self._apply_targeted_shock(
-                agent_groups, [agent_type], target_continents, stress_factor, shock_name
+                agent_groups, [agent_type], target_continents, stress_factor, shock_name, rule_stress_mode
             )
             
             # Count affected agents for reporting
@@ -393,9 +447,11 @@ class ClimateFramework:
                             target_agent_types: List[str], 
                             target_continents: List[str], 
                             stress_factor: float,
-                            shock_name: str) -> Dict[str, int]:
+                            shock_name: str,
+                            rule_stress_mode: Optional[str] = None) -> Dict[str, int]:
         """
         Apply a targeted climate shock to specific agent types in specific continents.
+        Supports both productivity and overhead cost modes.
         
         Args:
             agent_groups: Dictionary mapping agent type names to abcEconomics agent groups
@@ -403,6 +459,7 @@ class ClimateFramework:
             target_continents: List of continents to affect (or ['all'] for all continents)
             stress_factor: Multiplier for production capacity (e.g., 0.7 = 30% reduction)
             shock_name: Name of the shock for logging
+            rule_stress_mode: Optional override for stress mode ('productivity' or 'overhead')
             
         Returns:
             Dictionary with count of affected agents per type
@@ -434,12 +491,27 @@ class ClimateFramework:
                 if agent_continent in target_continents:
                     affected_agent_ids.append(agent_id)
             
-            if affected_agent_ids and hasattr(agent_group, 'apply_climate_stress'):
+            if affected_agent_ids:
+                # Determine stress mode for this agent type
+                agent_stress_mode = rule_stress_mode or self._get_stress_mode_for_agent_type(agent_type)
+                
                 try:
-                    # Apply stress to the entire group - abcEconomics will handle distribution
-                    agent_group.apply_climate_stress(stress_factor)
-                    affected_agents[agent_type] = len(affected_agent_ids)
-                    print(f"    Applied {shock_name} to {len(affected_agent_ids)} {agent_type}s in {target_continents}")
+                    # Apply stress based on stress mode
+                    if agent_stress_mode == 'overhead':
+                        if hasattr(agent_group, 'apply_climate_overhead_stress'):
+                            agent_group.apply_climate_overhead_stress(stress_factor)
+                            affected_agents[agent_type] = len(affected_agent_ids)
+                            print(f"    Applied {shock_name} (overhead mode) to {len(affected_agent_ids)} {agent_type}s in {target_continents}")
+                        else:
+                            print(f"    Warning: {agent_type} does not support overhead climate stress")
+                    else:  # Default to productivity mode
+                        if hasattr(agent_group, 'apply_climate_stress'):
+                            agent_group.apply_climate_stress(stress_factor)
+                            affected_agents[agent_type] = len(affected_agent_ids)
+                            print(f"    Applied {shock_name} (productivity mode) to {len(affected_agent_ids)} {agent_type}s in {target_continents}")
+                        else:
+                            print(f"    Warning: {agent_type} does not support productivity climate stress")
+                            
                 except Exception as e:
                     print(f"    Could not apply {shock_name} to {agent_type} group: {e}")
             else:
@@ -1282,6 +1354,7 @@ def create_climate_framework(simulation_parameters: Dict[str, Any]) -> ClimateFr
 def add_climate_capabilities(agent_class):
     """
     Simplified decorator to add basic climate stress capabilities to agent classes.
+    Supports both productivity and overhead cost stress modes.
     """
     def init_wrapper(original_init):
         def new_init(self, *args, **kwargs):
@@ -1292,20 +1365,76 @@ def add_climate_capabilities(agent_class):
             if not hasattr(self, 'base_output_quantity'):
                 current_output = getattr(self, 'current_output_quantity', 1.0)
                 self.base_output_quantity = current_output
+            if not hasattr(self, 'base_overhead'):
+                self.base_overhead = getattr(self, 'current_overhead', 1.0)
+            if not hasattr(self, 'chronic_stress_accumulated'):
+                self.chronic_stress_accumulated = 1.0
+            if not hasattr(self, 'climate_stressed'):
+                self.climate_stressed = False
         return new_init
     
-    def apply_acute_stress(self):
-        """Apply acute climate stress (temporary productivity shock)."""
+    def apply_acute_stress(self, stress_mode='productivity'):
+        """Apply acute climate stress (temporary shock) - supports both productivity and overhead modes."""
         import random
         
         vulnerability = getattr(self, 'climate_vulnerability', 0.1)
         stress_factor = 1.0 - (vulnerability * random.uniform(0.2, 0.8))
         
+        if stress_mode == 'overhead':
+            if hasattr(self, 'current_overhead'):
+                # For overhead mode, stress_factor reduction means cost increase
+                stress_multiplier = 1.0 / stress_factor if stress_factor > 0 else 2.0
+                self.current_overhead = self.base_overhead * stress_multiplier * self.chronic_stress_accumulated
+                print(f"  {self.__class__.__name__} {self.id}: Acute stress! Overhead increased to ${self.current_overhead:.2f}")
+        else:  # productivity mode
+            if hasattr(self, 'current_output_quantity'):
+                base_quantity = getattr(self, 'base_output_quantity', self.current_output_quantity)
+                new_quantity = base_quantity * stress_factor * self.chronic_stress_accumulated
+                self.current_output_quantity = new_quantity
+                print(f"  {self.__class__.__name__} {self.id}: Acute stress! Production reduced to {new_quantity:.2f}")
+    
+    def apply_climate_stress(self, stress_factor):
+        """Apply climate stress to productivity (traditional mode)."""
+        self.climate_stressed = True
         if hasattr(self, 'current_output_quantity'):
-            base_quantity = getattr(self, 'base_output_quantity', self.current_output_quantity)
-            new_quantity = base_quantity * stress_factor
-            self.current_output_quantity = new_quantity
-            print(f"  {self.__class__.__name__} {self.id}: Acute stress! Production reduced to {new_quantity:.2f}")
+            self.current_output_quantity = self.base_output_quantity * stress_factor * self.chronic_stress_accumulated
+            print(f"  {self.__class__.__name__} {self.id}: CLIMATE STRESS! Production: {self.base_output_quantity:.2f} -> {self.current_output_quantity:.2f}")
+    
+    def apply_climate_overhead_stress(self, stress_factor):
+        """Apply climate stress to overhead costs (climate_3layer mode)."""
+        self.climate_stressed = True
+        if hasattr(self, 'current_overhead'):
+            # Stress reduces the stress_factor (0.6 means 40% increase in costs)
+            # So overhead increases by: base_overhead / stress_factor
+            stress_multiplier = 1.0 / stress_factor if stress_factor > 0 else 2.0
+            self.current_overhead = self.base_overhead * stress_multiplier * self.chronic_stress_accumulated
+            print(f"  {self.__class__.__name__} {self.id}: CLIMATE STRESS! Overhead: ${self.base_overhead:.2f} -> ${self.current_overhead:.2f}")
+    
+    def reset_climate_stress(self):
+        """Reset climate stress to chronic level."""
+        if self.climate_stressed:
+            self.climate_stressed = False
+            # Reset both productivity and overhead to chronic levels
+            if hasattr(self, 'current_output_quantity'):
+                self.current_output_quantity = self.base_output_quantity * self.chronic_stress_accumulated
+            if hasattr(self, 'current_overhead'):
+                self.current_overhead = self.base_overhead * self.chronic_stress_accumulated
+            print(f"  {self.__class__.__name__} {self.id}: Climate stress cleared")
+    
+    def apply_chronic_stress(self, stress_factor):
+        """Apply chronic climate stress to productivity (permanent degradation)."""
+        self.chronic_stress_accumulated *= stress_factor
+        if hasattr(self, 'current_output_quantity'):
+            self.current_output_quantity = self.base_output_quantity * self.chronic_stress_accumulated
+            print(f"  {self.__class__.__name__} {self.id}: Chronic productivity stress applied")
+    
+    def apply_chronic_overhead_stress(self, stress_factor):
+        """Apply chronic climate stress to overhead costs (permanent increase)."""
+        stress_multiplier = 1.0 / stress_factor if stress_factor > 0 else 2.0
+        self.chronic_stress_accumulated *= stress_multiplier
+        if hasattr(self, 'current_overhead'):
+            self.current_overhead = self.base_overhead * self.chronic_stress_accumulated
+            print(f"  {self.__class__.__name__} {self.id}: Chronic overhead stress applied")
     
     # Wrap the original __init__ method
     if hasattr(agent_class, '__init__'):
@@ -1313,5 +1442,10 @@ def add_climate_capabilities(agent_class):
     
     # Add climate methods
     agent_class.apply_acute_stress = apply_acute_stress
+    agent_class.apply_climate_stress = apply_climate_stress
+    agent_class.apply_climate_overhead_stress = apply_climate_overhead_stress
+    agent_class.reset_climate_stress = reset_climate_stress
+    agent_class.apply_chronic_stress = apply_chronic_stress
+    agent_class.apply_chronic_overhead_stress = apply_chronic_overhead_stress
     
     return agent_class 
