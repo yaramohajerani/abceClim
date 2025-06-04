@@ -44,52 +44,53 @@ class SupplyChainVisualizer:
             print("No economic data available for supply chain analysis")
             return
         
-        # Create the comprehensive analysis
-        fig = plt.figure(figsize=(20, 14))
+        # Create the comprehensive analysis with updated layout
+        fig = plt.figure(figsize=(24, 18))
         fig.suptitle(f'{model_name} - Supply Chain Climate Impact Analysis', 
-                    fontsize=18, fontweight='bold')
+                    fontsize=20, fontweight='bold')
         
-        # 1. Supply Chain Flow Analysis (top row, spans 2 columns)
-        ax1 = plt.subplot(3, 4, (1, 2))
+        # Create a 4x4 grid for more detailed analysis
+        # Row 1: Supply chain flow and pricing
+        ax1 = plt.subplot(4, 4, (1, 2))
         self._plot_supply_chain_flow(ax1, economic_data)
         
-        # 2. Climate Impact by Layer (top row, spans 2 columns) 
-        ax2 = plt.subplot(3, 4, (3, 4))
-        self._plot_climate_impact_by_layer(ax2, economic_data)
+        ax2 = plt.subplot(4, 4, (3, 4))
+        self._plot_pricing_analysis(ax2, economic_data)
         
-        # 3. Production Efficiency Over Time (middle left)
-        ax3 = plt.subplot(3, 4, 5)
-        self._plot_production_efficiency(ax3, economic_data)
+        # Row 2: Climate impact and overhead costs
+        ax3 = plt.subplot(4, 4, (5, 6))
+        self._plot_climate_impact_by_layer(ax3, economic_data)
         
-        # 4. Supply Chain Bottlenecks (middle center-left)
-        ax4 = plt.subplot(3, 4, 6)
-        self._plot_supply_chain_bottlenecks(ax4, economic_data)
+        ax4 = plt.subplot(4, 4, (7, 8))
+        self._plot_overhead_costs_analysis(ax4, economic_data)
         
-        # 5. Geographic Impact Analysis (middle center-right)
-        ax5 = plt.subplot(3, 4, 7)
-        self._plot_geographic_supply_chain_impact(ax5, economic_data)
+        # Row 3: Operational metrics
+        ax5 = plt.subplot(4, 4, 9)
+        self._plot_production_efficiency(ax5, economic_data)
         
-        # 6. Consumer Impact (middle right)
-        ax6 = plt.subplot(3, 4, 8)
-        self._plot_consumer_impact(ax6, economic_data)
+        ax6 = plt.subplot(4, 4, 10)
+        self._plot_supply_chain_bottlenecks(ax6, economic_data)
         
-        # 7. Multi-Layer Stress Events (bottom left)
-        ax7 = plt.subplot(3, 4, 9)
-        self._plot_multi_layer_stress_events(ax7, economic_data)
+        ax7 = plt.subplot(4, 4, 11)
+        self._plot_wealth_and_debt_analysis(ax7, economic_data)
         
-        # 8. Supply Chain Resilience (bottom center-left)
-        ax8 = plt.subplot(3, 4, 10)
-        self._plot_supply_chain_resilience(ax8, economic_data)
+        ax8 = plt.subplot(4, 4, 12)
+        self._plot_consumer_impact(ax8, economic_data)
         
-        # 9. Cross-Layer Correlations (bottom center-right)
-        ax9 = plt.subplot(3, 4, 11)
-        self._plot_cross_layer_correlations(ax9, economic_data)
+        # Row 4: Geographic and resilience analysis
+        ax9 = plt.subplot(4, 4, 13)
+        self._plot_geographic_supply_chain_impact(ax9, economic_data)
         
-        # 10. Economic Summary Dashboard (bottom right)
-        ax10 = plt.subplot(3, 4, 12)
-        self._plot_economic_summary_dashboard(ax10, economic_data)
+        ax10 = plt.subplot(4, 4, 14)
+        self._plot_multi_layer_stress_events(ax10, economic_data)
         
-        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+        ax11 = plt.subplot(4, 4, 15)
+        self._plot_supply_chain_resilience(ax11, economic_data)
+        
+        ax12 = plt.subplot(4, 4, 16)
+        self._plot_economic_summary_dashboard(ax12, economic_data)
+        
+        plt.tight_layout(rect=[0, 0.03, 1, 0.97])
         
         # Save the comprehensive analysis
         filename = f'{model_name.lower().replace(" ", "_")}_supply_chain_analysis.png'
@@ -125,6 +126,8 @@ class SupplyChainVisualizer:
                         if 'production' in csv_file:
                             agent_type = csv_file.replace('panel_', '').replace('_production.csv', '')
                             economic_data[f'{agent_type}_production'] = df
+                            # Also store for overhead and pricing analysis
+                            economic_data[f'{agent_type}_financial'] = df
                         elif 'sell' in csv_file:
                             agent_type = csv_file.replace('panel_', '').replace('_sell_commodities.csv', '').replace('_sell_intermediate_goods.csv', '').replace('_sell_final_goods.csv', '')
                             economic_data[f'{agent_type}_sales'] = df
@@ -177,6 +180,156 @@ class SupplyChainVisualizer:
         ax.set_xlabel('Round')
         ax.set_ylabel('Total Production')
         ax.legend(loc='upper right', fontsize=9)
+        ax.grid(True, alpha=0.3)
+    
+    def _plot_pricing_analysis(self, ax, economic_data: Dict[str, pd.DataFrame]):
+        """Plot pricing evolution across supply chain layers over time."""
+        ax.set_title('Price Evolution by Layer', fontweight='bold', fontsize=14)
+        
+        # Track prices from financial data
+        layers = ['commodity_producer', 'intermediary_firm', 'final_goods_firm']
+        colors = ['brown', 'orange', 'green']
+        price_columns = ['commodity_price', 'intermediate_good_price', 'final_good_price']
+        
+        for i, layer in enumerate(layers):
+            financial_key = f'{layer}_financial'
+            if financial_key in economic_data:
+                df = economic_data[financial_key]
+                
+                # Look for price column - could be named differently
+                possible_price_cols = [price_columns[i], 'price', f'{self.production_goods[layer]}_price']
+                price_col = None
+                
+                for col in possible_price_cols:
+                    if col in df.columns:
+                        price_col = col
+                        break
+                
+                if price_col and 'round' in df.columns:
+                    round_summary = df.groupby('round')[price_col].mean().reset_index()
+                    
+                    ax.plot(round_summary['round'], round_summary[price_col], 
+                           color=colors[i], linewidth=3, marker='o', markersize=8,
+                           label=f'{self.layer_mapping[layer]} Price', alpha=0.8)
+        
+        # Highlight climate events and their pricing impact
+        for round_num, events in enumerate(self.climate_framework.climate_events_history):
+            if events:
+                ax.axvline(x=round_num, color='red', linestyle='--', alpha=0.7, linewidth=2)
+                ax.text(round_num, ax.get_ylim()[1] * 0.9, 'Climate\nEvent', 
+                       ha='center', va='top', fontsize=9, color='red', fontweight='bold')
+        
+        ax.set_xlabel('Round')
+        ax.set_ylabel('Price ($)')
+        ax.legend(loc='upper left', fontsize=9)
+        ax.grid(True, alpha=0.3)
+    
+    def _plot_overhead_costs_analysis(self, ax, economic_data: Dict[str, pd.DataFrame]):
+        """Plot overhead costs evolution and climate impact."""
+        ax.set_title('Overhead Costs by Layer', fontweight='bold', fontsize=14)
+        
+        # Track overhead costs from financial data
+        layers = ['commodity_producer', 'intermediary_firm', 'final_goods_firm']
+        colors = ['brown', 'orange', 'green']
+        
+        for i, layer in enumerate(layers):
+            financial_key = f'{layer}_financial'
+            if financial_key in economic_data:
+                df = economic_data[financial_key]
+                
+                # Look for overhead columns
+                overhead_cols = ['current_overhead', 'overhead', 'overhead_cost']
+                base_overhead_cols = ['base_overhead', 'base_overhead_cost']
+                
+                overhead_col = None
+                base_overhead_col = None
+                
+                for col in overhead_cols:
+                    if col in df.columns:
+                        overhead_col = col
+                        break
+                
+                for col in base_overhead_cols:
+                    if col in df.columns:
+                        base_overhead_col = col
+                        break
+                
+                if overhead_col and 'round' in df.columns:
+                    round_summary = df.groupby('round')[overhead_col].mean().reset_index()
+                    
+                    # Plot current overhead
+                    ax.plot(round_summary['round'], round_summary[overhead_col], 
+                           color=colors[i], linewidth=3, marker='o', markersize=6,
+                           label=f'{self.layer_mapping[layer]} Overhead', alpha=0.8)
+                    
+                    # Plot base overhead as dashed line if available
+                    if base_overhead_col:
+                        base_summary = df.groupby('round')[base_overhead_col].mean().reset_index()
+                        ax.plot(base_summary['round'], base_summary[base_overhead_col], 
+                               color=colors[i], linewidth=2, linestyle='--', alpha=0.6,
+                               label=f'{self.layer_mapping[layer]} Base')
+        
+        # Highlight climate events
+        for round_num, events in enumerate(self.climate_framework.climate_events_history):
+            if events:
+                ax.axvline(x=round_num, color='red', linestyle='--', alpha=0.7, linewidth=2)
+                ax.text(round_num, ax.get_ylim()[1] * 0.95, '🌪️', 
+                       ha='center', va='top', fontsize=12, color='red')
+        
+        ax.set_xlabel('Round')
+        ax.set_ylabel('Overhead Cost ($)')
+        ax.legend(loc='upper left', fontsize=8)
+        ax.grid(True, alpha=0.3)
+    
+    def _plot_wealth_and_debt_analysis(self, ax, economic_data: Dict[str, pd.DataFrame]):
+        """Plot wealth and debt analysis across agents."""
+        ax.set_title('Wealth & Debt Analysis', fontweight='bold')
+        
+        # Household wealth and debt
+        if 'household_consumption' in economic_data:
+            df = economic_data['household_consumption']
+            
+            if 'round' in df.columns and 'money' in df.columns:
+                wealth_summary = df.groupby('round')['money'].agg(['mean', 'std']).reset_index()
+                
+                # Plot wealth
+                ax.plot(wealth_summary['round'], wealth_summary['mean'], 
+                       'g-o', linewidth=2, markersize=6, label='Household Wealth', alpha=0.8)
+                
+                # Add error bars for wealth distribution
+                ax.fill_between(wealth_summary['round'], 
+                               wealth_summary['mean'] - wealth_summary['std'],
+                               wealth_summary['mean'] + wealth_summary['std'],
+                               alpha=0.2, color='green')
+                
+                # Plot debt if available
+                if 'debt' in df.columns:
+                    debt_summary = df.groupby('round')['debt'].mean().reset_index()
+                    ax.plot(debt_summary['round'], debt_summary['debt'], 
+                           'r-s', linewidth=2, markersize=6, label='Household Debt', alpha=0.8)
+        
+        # Firm financial health
+        for layer in ['commodity_producer', 'intermediary_firm', 'final_goods_firm']:
+            financial_key = f'{layer}_financial'
+            if financial_key in economic_data:
+                df = economic_data[financial_key]
+                
+                if 'round' in df.columns and 'money' in df.columns:
+                    money_summary = df.groupby('round')['money'].mean().reset_index()
+                    
+                    # Simple line for firm money (avoid overcrowding)
+                    if layer == 'final_goods_firm':  # Only show final goods firms to avoid clutter
+                        ax.plot(money_summary['round'], money_summary['money'], 
+                               'b--', linewidth=1, alpha=0.6, label='Final Firms Wealth')
+        
+        # Highlight climate events
+        for round_num, events in enumerate(self.climate_framework.climate_events_history):
+            if events:
+                ax.axvline(x=round_num, color='red', linestyle='--', alpha=0.5)
+        
+        ax.set_xlabel('Round')
+        ax.set_ylabel('Amount ($)')
+        ax.legend(loc='upper left', fontsize=9)
         ax.grid(True, alpha=0.3)
     
     def _plot_climate_impact_by_layer(self, ax, economic_data: Dict[str, pd.DataFrame]):
@@ -594,29 +747,81 @@ class SupplyChainVisualizer:
                     total_production = df[good_col].sum()
                     metrics[f'{self.layer_mapping[layer]} Total'] = total_production
         
+        # Overhead cost metrics
+        total_overhead = 0
+        for layer in ['commodity_producer', 'intermediary_firm', 'final_goods_firm']:
+            financial_key = f'{layer}_financial'
+            if financial_key in economic_data:
+                df = economic_data[financial_key]
+                
+                # Look for overhead columns
+                overhead_cols = ['current_overhead', 'overhead', 'overhead_cost']
+                for col in overhead_cols:
+                    if col in df.columns:
+                        layer_overhead = df[col].sum()
+                        total_overhead += layer_overhead
+                        metrics[f'{self.layer_mapping[layer]} Overhead'] = layer_overhead
+                        break
+        
+        if total_overhead > 0:
+            metrics['Total Overhead Costs'] = total_overhead
+        
+        # Average pricing by layer
+        for layer in ['commodity_producer', 'intermediary_firm', 'final_goods_firm']:
+            financial_key = f'{layer}_financial'
+            if financial_key in economic_data:
+                df = economic_data[financial_key]
+                
+                # Look for price columns
+                price_cols = ['price', f'{self.production_goods[layer]}_price']
+                for col in price_cols:
+                    if col in df.columns:
+                        avg_price = df[col].mean()
+                        metrics[f'{self.layer_mapping[layer]} Avg Price'] = avg_price
+                        break
+        
+        # Financial health metrics
+        if 'household_consumption' in economic_data:
+            df = economic_data['household_consumption']
+            if 'money' in df.columns:
+                avg_household_wealth = df['money'].mean()
+                metrics['Avg Household Wealth'] = avg_household_wealth
+                
+            if 'debt' in df.columns:
+                total_household_debt = df['debt'].sum()
+                if total_household_debt > 0:
+                    metrics['Total Household Debt'] = total_household_debt
+        
         # Climate impact metrics
         total_events = sum(len(events) for events in self.climate_framework.climate_events_history)
         metrics['Total Climate Events'] = total_events
         metrics['Simulation Rounds'] = len(self.climate_framework.climate_events_history)
         
         # Consumer metrics
-        if 'household_purchases' in economic_data:
-            df = economic_data['household_purchases']
-            if 'final_good' in df.columns:
-                total_consumption = df['final_good'].sum()
+        if 'household_consumption' in economic_data:
+            df = economic_data['household_consumption']
+            if 'consumption' in df.columns:
+                total_consumption = df['consumption'].sum()
                 metrics['Total Consumption'] = total_consumption
         
-        # Display metrics as text
-        y_pos = 0.9
-        for metric, value in metrics.items():
+        # Display metrics as text with better formatting
+        y_pos = 0.95
+        column_break = len(metrics) // 2  # Split into two columns
+        
+        for i, (metric, value) in enumerate(metrics.items()):
+            x_pos = 0.05 if i < column_break else 0.55
+            current_y = y_pos - (i % column_break) * 0.08
+            
             if isinstance(value, float):
-                text = f'{metric}: {value:.2f}'
+                if 'Price' in metric or 'Wealth' in metric or 'Debt' in metric or 'Overhead' in metric:
+                    text = f'{metric}: ${value:.2f}'
+                else:
+                    text = f'{metric}: {value:.2f}'
             else:
                 text = f'{metric}: {value}'
             
-            ax.text(0.05, y_pos, text, transform=ax.transAxes, fontsize=11,
+            ax.text(x_pos, current_y, text, transform=ax.transAxes, fontsize=10,
                    verticalalignment='top', fontfamily='monospace')
-            y_pos -= 0.12
         
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)

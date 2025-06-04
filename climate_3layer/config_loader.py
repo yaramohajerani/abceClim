@@ -102,7 +102,10 @@ class ConfigLoader:
         
         # Level 2: Final goods firms minimum production (with safety buffer applied per-firm)
         final_goods_firm_count = agent_counts.get('final_goods_firm', 1)
-        safety_buffer = 1.1  # 10% safety buffer
+        
+        # Get safety buffer from configuration (optional - defaults to 1.0 for no buffer)
+        safety_buffer = self.config.get('supply_chain', {}).get('safety_buffer', 1.0)
+        
         final_goods_minimum_per_firm = (total_household_survival_needs / final_goods_firm_count) * safety_buffer
         total_final_goods_minimum = final_goods_minimum_per_firm * final_goods_firm_count
         

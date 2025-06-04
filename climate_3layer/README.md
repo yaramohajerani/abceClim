@@ -1,197 +1,170 @@
 # Climate 3-Layer Economic Model
 
-A 3-layer supply-chain economic model built with abcEconomics that examines the macroeconomic effects of climate stress on different layers of production. The model features optimal input allocation for firms based on Cobb-Douglas production functions with purchase optimization to maximize production. Note there are no energy limitations in this simple model.
+A climate-economics simulation model that captures the effects of climate stress on supply chain production through overhead cost increases rather than direct productivity impacts.
 
-## Model Overview
+## Model Architecture
 
-### Supply Chain Layers
+### Core Design Philosophy
 
-1. **Commodity Producers** (Layer 1)
-   - Use labor to produce raw commodities
-   - Supply intermediary firms
+This model uses an **overhead-based climate impact system** where climate stress manifests as increased business costs (CapEx, legal fees, damages, disruptions) rather than direct productivity reductions. This approach is more realistic as firms rarely lose productive capacity directly, but instead face higher operational costs when dealing with climate-related challenges.
 
-2. **Intermediary Firms** (Layer 2)
-   - Use labor and commodities to produce intermediate goods
-   - Supply final goods firms
-   - **Features optimal input allocation** based on market prices
+### Agent Types
 
-3. **Final Goods Firms** (Layer 3)
-   - Use labor and intermediate goods to produce final goods
-   - Supply households
-   - **Features optimal input allocation** based on market prices
+**Supply Chain Layers (Production)**
+- **Commodity Producers**: Transform labor into raw commodities (e.g., agriculture, mining)
+- **Intermediary Firms**: Transform labor + commodities into intermediate goods (e.g., processing, manufacturing)
+- **Final Goods Firms**: Transform labor + intermediate goods into final consumer goods
 
-4. **Households**
-   - Provide labor to all firm layers
-   - Consume final goods and generate utility
-   - Not directly affected by climate stress
+**Economic Actors**
+- **Households**: Supply labor, consume final goods, accumulate wealth
 
-### Key Economic Features
+### Climate Impact Mechanism
 
-- **Cobb-Douglas Production Functions**: Configurable production functions with customizable exponents
-- **Price-Aware Optimization**: Budget allocation considers both production exponents and market prices
-- **Multi-Layer Labor Market**: Households work across different firm layers
-- **Supply Chain Dependencies**: Material flow creates bottlenecks and propagation effects
-- **Configurable Climate Vulnerability**: Each agent type has customizable vulnerability levels
+Climate stress affects firms through **overhead cost increases**:
 
-## Configuration System
+- **Base Overhead**: Fixed operational costs per round (configured per agent type)
+- **Current Overhead**: Base overhead multiplied by stress factors from climate events
+- **Cost Sharing**: Configurable split between firm absorption vs. customer price pass-through
 
-### Quick Start
+**Stress Types:**
+- **Acute Stress**: Temporary overhead spikes from discrete climate events
+- **Chronic Stress**: Permanent overhead increases from long-term climate degradation
 
-**Configuration file is required:**
+### Dynamic Pricing System
 
-```bash
-# Using config files in subdirectories
-python start.py simulation_configurations/model_config.json
-python start.py simulation_configurations/config_asia_focus.json
-python start.py simulation_configurations/config_stress_test.json
-```
+All prices are calculated dynamically based on actual costs:
 
-### Configuration File Structure
+**Pricing Formula**: `(input_costs + overhead_shared_with_customers) × (1 + profit_margin)`
 
-#### Main Sections
+- **Input Costs**: Actual labor and material costs from current round
+- **Overhead Sharing**: `customer_share` parameter determines how much overhead is passed to customers vs. absorbed by firm
+- **No Hardcoded Prices**: Initial prices use simple wage-based estimates; market forces drive all subsequent pricing
 
-1. **simulation**: Basic simulation parameters
-2. **climate**: Climate stress and shock configuration  
-3. **agents**: Agent types, counts, and behaviors
-4. **data_collection**: What data to track
-5. **visualization**: Visualization settings
+### Supply Chain Coordination
 
-## Configuration Parameters
+The model ensures household survival through cascading minimum production responsibilities:
 
-### Agent Configuration
+1. **Household Survival Needs**: Each household requires minimum consumption per round
+2. **Final Goods Responsibility**: Each firm calculates their share of total household needs
+3. **Intermediary Responsibility**: Based on final goods firms' input requirements
+4. **Commodity Responsibility**: Based on intermediary firms' input requirements
 
-Each agent type supports:
+This creates automatic supply chain coordination without central planning.
 
-#### Basic Parameters
-- `count`: Number of agents to create
-- `initial_money`: Starting money amount
-- `production.inputs`: Production function exponents (e.g., `{"labor": 0.5, "commodity": 0.5}`)
-- `production.base_output_quantity`: Production capacity multiplier
-- `production.price`: Selling price for goods
+## Configuration Structure
 
-#### Climate Parameters
-- `climate.base_vulnerability`: Base climate vulnerability
-- `climate.vulnerability_variance`: Variation in vulnerability between agents
+### Required Parameters
 
-#### Geographic Distribution
-- `geographical_distribution`: Array of continents where agents are located
-
-### Climate Shock Rules
-
-- `probability`: Probability of occurrence each round (0.0-1.0)
-- `agent_types`: Array of agent types to affect (`["commodity_producer"]`, `["all"]`, etc.)
-- `continents`: Array of continents to affect (`["Asia"]`, `["all"]`, etc.)
-- `stress_factor`: Production multiplier (0.0-1.0, where 0.7 = 30% reduction)
-
-### Minimum Consumption for Household Survival
-
-The model now includes a **minimum mandatory consumption system** to ensure household survival:
-
-#### Household Survival Mechanism
-- **Configurable minimum consumption**: Set `minimum_survival_consumption` in household configuration
-- **Survival-first purchasing**: Households purchase goods for survival before regular budget-based purchasing
-- **Debt tolerance**: Households can exceed their budget to secure minimum consumption
-- **Consumption protection**: Households never consume below their minimum survival level
-- **Status tracking**: Logging includes whether minimum consumption requirements are met
-
-#### Firm Minimum Production Requirement
-- **Production guarantees**: Firms must produce enough goods to meet household survival needs
-- **Debt-based production**: Firms can go into debt to purchase inputs for minimum production
-- **Supply chain coordination**: All firms (commodity, intermediary, final goods) support minimum production
-- **Crisis response**: System ensures goods availability even during economic or climate crises
-
-#### Configuration Parameters
-
-**Household Configuration:**
-```json
-"consumption": {
-  "preference": "final_good",
-  "budget_fraction": 0.8,
-  "consumption_fraction": 0.9,
-  "minimum_survival_consumption": 0.2  
-}
-```
-
-## File Organization
-
-```
-climate_3layer/
-├── start.py                      # Main simulation runner
-├── simulation_configurations/
-│   ├── model_config.json         # Default configuration
-│   ├── config_asia_focus.json    # Asia-focused scenario
-│   └── config_stress_test.json   # High-stress testing
-└── result_*/                     # Generated output directories
-```
-
-## Climate Stress Features
-
-### Types of Climate Stress
-
-1. **Acute Climate Stress**: Random events with configurable probability per shock rule
-2. **Chronic Climate Stress**: Permanent, cumulative productivity degradation
-3. **Geographical Climate Effects**: Agents distributed across continents with region-specific shocks
-
-## Visualization and Animation
-
-### Animation Features
-The model includes a built-in animation system that creates:
-- **Time Evolution Plots**: Static 4-panel analysis with production, wealth, climate events, and statistics
-- **Animated GIFs**: Multi-panel visualization showing supply chain networks, production evolution, geographical distribution, and climate impacts
-
-### Enable Animations
-Set in your configuration file:
 ```json
 {
   "simulation": {
-    "create_dynamic_visualization": true
+    "name": "simulation_name",
+    "rounds": 20,
+    "result_path": "result_directory"
+  },
+  "wage": 4.0,
+  "climate": {
+    "stress_enabled": true/false,
+    "acute_stress_ranges": {
+      "commodity_producer": [0.2, 0.8],
+      "intermediary_firm": [0.2, 0.6], 
+      "final_goods_firm": [0.1, 0.4]
+    }
+  },
+  "agents": {
+    "agent_type": {
+      "count": 4,
+      "initial_money": 100,
+      "production": {
+        "base_output_quantity": 4.0,
+        "base_overhead": 2.0,
+        "inputs": {"labor": 1.0},
+        "output": "commodity"
+      },
+      "climate": {
+        "base_vulnerability": 0.3,
+        "cost_sharing": {"customer_share": 0.5}
+      }
+    }
   }
 }
 ```
 
-### Standalone Animation Creation
-Create animations from existing simulation data:
+### Optional Parameters
+
+- **supply_chain.safety_buffer**: Production buffer above strict minimum (defaults to 1.0 = no buffer)
+- **profit_margin**: Target profit margin for pricing (defaults to 0.0)
+- **geographical_distribution**: Agent distribution across continents
+
+### Removed Dependencies
+
+- No hardcoded expected prices
+- No mandatory safety buffers
+- No fixed price configurations
+- Acute stress ranges only required when climate stress is enabled
+
+## Key Features
+
+### 1. Realistic Climate Economics
+- Climate stress as overhead costs rather than productivity loss
+- Configurable cost sharing between firms and customers
+- Separate acute (temporary) and chronic (permanent) stress impacts
+
+### 2. Pure Dynamic Pricing
+- All prices emerge from actual input costs and overhead
+- No hardcoded price expectations
+- Market-driven price discovery and adjustment
+
+### 3. Supply Chain Resilience
+- Firms prioritize survival purchasing to maintain minimum production
+- Debt creation allowed for essential inputs
+- Automatic coordination across supply chain layers
+
+### 4. Comprehensive Data Tracking
+- Overhead cost breakdown (absorbed vs. passed to customers)
+- Debt tracking for all agent types
+- Dynamic pricing evolution
+- Climate event impacts on costs
+
+## Output Data
+
+The model generates detailed CSV files tracking:
+
+**Production Data:**
+- `production_base_overhead`: Original overhead costs
+- `production_current_overhead`: Stress-adjusted overhead costs  
+- `production_overhead_absorbed`: Overhead absorbed by firm
+- `production_overhead_passed_to_customers`: Overhead included in prices
+- `production_price`: Current market price
+- `debt_created_this_round`: Emergency debt for survival purchases
+
+**Visualization:**
+- Time evolution plots showing overhead, pricing, and debt trends
+- Animated supply chain visualizations
+- Climate event impact tracking
+
+## Running Simulations
+
 ```bash
-python animation_visualizer.py result_supply_chain_test/
+# Stable economy (no climate stress)
+python start.py simulation_configurations/stable_config.json
+
+# Climate shock scenario  
+python start.py simulation_configurations/stable_shock_config.json
 ```
 
-## Configuration Testing
+## Model Validation
 
-### Validate Configurations
-Test configurations without running full simulations:
-```bash
-# Validate all configurations
-python test_configurations.py --validate-only
+The model demonstrates:
+- **Economic Stability**: Households maintain consumption above survival minimums
+- **Price Convergence**: Dynamic pricing reaches stable equilibrium
+- **Supply Chain Functionality**: Production meets demand without shortages
+- **Climate Responsiveness**: Overhead costs increase appropriately with climate stress
+- **Market Efficiency**: No artificial constraints or hardcoded values
 
-# Test specific configuration
-python test_configurations.py --config simulation_configurations/model_config.json
-```
+## Future Extensions
 
-## Output and Analysis
-
-### Generated Files
-
-- **CSV files**: Economic data for each agent type with production and optimization details
-- **Visualizations**: Climate analysis charts and supply chain diagrams
-- **Climate summary**: `climate_3_layer_summary.csv` with shock details
-- **Animations**: Time-evolving GIF animations (if enabled)
-- **Optimization logs**: Detailed logs showing input allocation decisions
-
-## Troubleshooting
-
-### Common Issues
-
-**"No configuration file provided"**
-- Always specify a config file path: `python start.py config.json`
-
-**"Configuration file not found"**
-- Ensure the file path is correct relative to current directory
-- Use forward slashes in paths even on Windows
-
-**"Invalid JSON"**
-- Validate JSON syntax using an online validator
-- Check for missing commas, brackets, or quotes
-
-**"Missing required parameter"**
-- Review the error message for the specific missing parameter
-- Compare with the example configurations
+- Industry-specific overhead responses to different climate stress types
+- Regional climate variation impacts
+- Technological adaptation reducing overhead over time
+- Financial market integration for climate risk pricing

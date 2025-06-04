@@ -44,8 +44,50 @@ class CommodityProducer(abce.Agent, abce.Firm):
         self.chronic_stress_accumulated = 1.0  # Multiplicative factor
         self.climate_stressed = False  # Track if currently stressed
         
-        # Pricing from configuration
-        self.price = {self.output: production_config['price']}
+        # Acute stress ranges from configuration (only required if climate stress enabled)
+        climate_stress_enabled = config.get('climate_stress_enabled', False)
+        if climate_stress_enabled:
+            acute_stress_config = climate_config.get('acute_stress_ranges', {})
+            commodity_stress_range = acute_stress_config.get('commodity_producer')
+            if commodity_stress_range is None:
+                raise ValueError(f"Acute stress range not specified in configuration for commodity producer {self.id}. Please provide 'climate.acute_stress_ranges.commodity_producer' as [min, max].")
+            self.acute_stress_range = commodity_stress_range
+        else:
+            # Default range for disabled climate stress (won't be used)
+            self.acute_stress_range = [0.2, 0.8]
+        
+        # Overhead costs (CapEx, legal, damages, business interruptions, etc.)
+        self.base_overhead = production_config.get('base_overhead', 1.0)  # Fixed base overhead per round
+        self.current_overhead = self.base_overhead  # Current overhead (increases with climate stress)
+        
+        # Climate cost sharing parameters
+        cost_sharing_config = climate_config.get('cost_sharing', {'customer_share': 0.5})
+        self.customer_share = cost_sharing_config['customer_share']
+        self.producer_share = 1.0 - self.customer_share
+        
+        # Financial tracking for dynamic pricing
+        self.total_input_costs = 0
+        self.total_overhead_costs = 0  # Track overhead separately
+        self.overhead_absorbed = 0     # How much overhead firm absorbed this round
+        self.overhead_passed_to_customers = 0  # How much overhead passed to price
+        self.revenue = 0
+        self.profit = 0
+        self.profit_margin = production_config.get('profit_margin', 0.0)
+        self.actual_margin = 0
+        
+        # Calculate initial price from expected costs using actual wage from config
+        # Get wage from household config (REQUIRED - no fallback)
+        if 'wage' in config:
+            wage = config['wage']
+        elif 'household' in config and 'labor' in config['household'] and 'wage' in config['household']['labor']:
+            wage = config['household']['labor']['wage']
+        else:
+            raise ValueError(f"Wage not specified in configuration for commodity producer {self.id}. Please provide 'wage' in config or 'household.labor.wage'.")
+        
+        expected_labor_cost = self.inputs.get('labor', 0) * wage
+        expected_cost_per_unit = expected_labor_cost / self.base_output_quantity
+        initial_price = expected_cost_per_unit * (1 + self.profit_margin)
+        self.price = {self.output: initial_price}
         
         # Create production function
         self.pf = self.create_cobb_douglas(self.output, self.current_output_quantity, self.inputs)
@@ -65,7 +107,8 @@ class CommodityProducer(abce.Agent, abce.Firm):
         print(f"  Production capacity: {self.base_output_quantity}")
         print(f"  Minimum production responsibility: {self.minimum_production_responsibility:.3f}")
         print(f"  Climate vulnerability: {self.climate_vulnerability:.3f}")
-        print(f"  Price: ${self.price[self.output]}")
+        print(f"  Initial price: ${initial_price:.2f} (wage: ${wage}, labor: {self.inputs.get('labor', 0)})")
+        print(f"  Profit margin target: {self.profit_margin*100:.1f}%")
         print(f"  Will distribute to {self.intermediary_count} intermediary firms")
 
     def start_round(self):
@@ -75,101 +118,55 @@ class CommodityProducer(abce.Agent, abce.Firm):
         self.labor_purchased = 0
         self.inventory_at_start = self[self.output]
         self.debt_created_this_round = 0  # Track debt created for survival purchasing
+        self.total_input_costs = 0
+        self.total_overhead_costs = 0  # Track overhead separately
+        self.overhead_absorbed = 0     # How much overhead firm absorbed this round
+        self.overhead_passed_to_customers = 0  # How much overhead passed to price
+        self.revenue = 0
+        self.profit = 0
+        self.climate_cost_burden = 0  # Track how much extra cost from climate we absorbed
 
     def buy_labor(self):
-        """ Buy labor from households """
+        """ Buy labor from households and track costs for dynamic pricing """
         labor_start = self['labor']
         offers = self.get_offers("labor")
         available_money = self['money']
-        current_inventory = self[self.output]
-        
-        # Calculate minimum labor needed to ensure minimum production for intermediary firms
-        minimum_production_needed = max(0, self.minimum_production_responsibility - current_inventory)
         
         print(f"    Commodity Producer {self.id}: Has ${available_money:.2f}, received {len(offers)} labor offers")
-        print(f"      Current inventory: {current_inventory:.2f}")
-        print(f"      Minimum production responsibility: {self.minimum_production_responsibility:.2f}")
-        print(f"      Additional production needed: {minimum_production_needed:.2f}")
-        
-        # Calculate labor needed for minimum production
-        minimum_labor_needed = 0
-        if minimum_production_needed > 0:
-            # For Cobb-Douglas Q = A * L^α, so L = (Q/A)^(1/α)
-            # If labor has exponent 1.0, then L = Q/A = minimum_production_needed / current_output_quantity
-            labor_exponent = self.inputs.get('labor', 1.0)
-            if labor_exponent == 1.0:
-                minimum_labor_needed = minimum_production_needed / self.current_output_quantity
-            else:
-                minimum_labor_needed = (minimum_production_needed / self.current_output_quantity) ** (1.0 / labor_exponent)
-        
-        print(f"      Minimum labor needed for survival: {minimum_labor_needed:.2f}")
         
         total_spent = 0
-        survival_spending = 0
-        labor_survival_bought = 0
         
         for offer in offers:
-            # Determine purchase type and quantity
-            purchase_quantity = 0
-            purchase_reason = ""
-            
-            if minimum_labor_needed > 0:
-                # Priority 1: Survival purchasing (even if it exceeds budget)
-                survival_purchase = min(offer.quantity, minimum_labor_needed)
-                purchase_quantity = survival_purchase
-                purchase_reason = "SURVIVAL"
-                minimum_labor_needed -= survival_purchase
-                labor_survival_bought += survival_purchase
-                
-            elif total_spent + (offer.quantity * offer.price) <= available_money:
-                # Priority 2: Regular budget-based purchasing
-                purchase_quantity = offer.quantity
-                purchase_reason = "REGULAR"
-                
-            elif (available_money - total_spent) > 0.01:
-                # Priority 3: Partial purchase within remaining budget
-                affordable_quantity = (available_money - total_spent) / offer.price
-                if affordable_quantity > 0.01:
-                    purchase_quantity = affordable_quantity
-                    purchase_reason = "PARTIAL"
-            
-            # Execute the purchase
-            if purchase_quantity > 0:
-                purchase_cost = purchase_quantity * offer.price
-                
-                # For survival purchases, ensure we have enough money (create debt if needed)
-                if purchase_reason == "SURVIVAL" and self['money'] < purchase_cost:
-                    money_needed = purchase_cost - self['money']
-                    self.create('money', money_needed)
-                    print(f"      🏦 Created ${money_needed:.2f} debt for survival purchasing")
-                    self.debt_created_this_round += money_needed
-                
-                if purchase_quantity == offer.quantity:
-                    self.accept(offer)
-                    print(f"      {purchase_reason}: Accepted full labor offer: {offer.quantity:.2f} units for ${purchase_cost:.2f}")
-                else:
-                    self.accept(offer, quantity=purchase_quantity)
-                    print(f"      {purchase_reason}: Partially accepted labor offer: {purchase_quantity:.2f} units for ${purchase_cost:.2f}")
-                
+            # Simple market purchasing: buy what we can afford
+            if total_spent + (offer.quantity * offer.price) <= available_money:
+                purchase_cost = offer.quantity * offer.price
+                self.accept(offer)
                 total_spent += purchase_cost
-                if purchase_reason == "SURVIVAL":
-                    survival_spending += purchase_cost
+                print(f"      Accepted full labor offer: {offer.quantity:.2f} units for ${purchase_cost:.2f}")
             else:
-                print(f"      SKIPPED: Cannot afford labor offer: {offer.quantity:.2f} units for ${offer.quantity * offer.price:.2f}")
-                break  # Budget exhausted and no survival needs
+                # Partial purchase within remaining budget
+                remaining_budget = available_money - total_spent
+                if remaining_budget > 0.01:
+                    affordable_quantity = remaining_budget / offer.price
+                    if affordable_quantity > 0.01:
+                        purchase_cost = affordable_quantity * offer.price
+                        self.accept(offer, quantity=affordable_quantity)
+                        total_spent += purchase_cost
+                        print(f"      Partially accepted labor offer: {affordable_quantity:.2f} units for ${purchase_cost:.2f}")
+                    break
+                else:
+                    print(f"      Budget exhausted, skipping remaining offers")
+                    break
         
-        # Track labor purchased this round
+        # Track labor purchased this round and costs
         labor_end = self['labor']
         self.labor_purchased = labor_end - labor_start
-        regular_spending = total_spent - survival_spending
+        self.total_input_costs += total_spent  # Track for dynamic pricing
         
         print(f"    Commodity Producer {self.id}: Labor purchasing complete:")
-        print(f"      Total spent: ${total_spent:.2f} (survival: ${survival_spending:.2f}, regular: ${regular_spending:.2f})")
-        print(f"      Labor purchased: {self.labor_purchased:.2f} (survival: {labor_survival_bought:.2f})")
+        print(f"      Total spent: ${total_spent:.2f}")
+        print(f"      Labor purchased: {self.labor_purchased:.2f}")
         print(f"      Money remaining: ${self['money']:.2f}")
-        
-        if self['money'] < 0:
-            print(f"      WARNING: Producer went into debt (${self['money']:.2f}) to ensure minimum production for intermediary firms!")
 
     def production(self):
         """ Produce commodities using labor """
@@ -216,12 +213,48 @@ class CommodityProducer(abce.Agent, abce.Firm):
             print(f"      {good}: {self[good]:.3f}")
         print(f"      Production this round: {self.production_this_round:.3f}")
 
+    def calculate_dynamic_price(self):
+        """Calculate price dynamically based on input costs, overhead, and cost sharing"""
+        if self.production_this_round > 0:
+            # Calculate input cost per unit
+            input_cost_per_unit = self.total_input_costs / self.production_this_round
+            
+            # Calculate overhead cost per unit 
+            overhead_cost_per_unit = self.current_overhead / self.production_this_round
+            
+            # Split overhead according to customer_share parameter
+            overhead_to_customers = overhead_cost_per_unit * self.customer_share
+            overhead_absorbed_by_firm = overhead_cost_per_unit * self.producer_share
+            
+            # Track overhead costs for financial reporting
+            self.overhead_absorbed = overhead_absorbed_by_firm * self.production_this_round
+            self.overhead_passed_to_customers = overhead_to_customers * self.production_this_round
+            self.total_overhead_costs = self.current_overhead
+            
+            # Price = input costs + profit margin + customer's share of overhead
+            base_cost_per_unit = input_cost_per_unit + overhead_to_customers
+            target_price = base_cost_per_unit * (1 + self.profit_margin)
+            
+            self.price[self.output] = target_price
+            
+            print(f"    Dynamic pricing for Commodity Producer {self.id}:")
+            print(f"      Input cost per unit: ${input_cost_per_unit:.2f}")
+            print(f"      Overhead per unit: ${overhead_cost_per_unit:.2f} (total overhead: ${self.current_overhead:.2f})")
+            print(f"      Customer bears: ${overhead_to_customers:.2f}/unit ({self.customer_share:.1%})")
+            print(f"      Firm absorbs: ${overhead_absorbed_by_firm:.2f}/unit ({self.producer_share:.1%})")
+            print(f"      New price: ${target_price:.2f}")
+        else:
+            print(f"    Commodity Producer {self.id}: No production, keeping previous price")
+
     def sell_commodities(self):
-        """ Sell commodities to intermediary firms """
+        """ Sell commodities to intermediary firms at dynamically calculated price """
+        # First calculate the price based on this round's costs
+        self.calculate_dynamic_price()
+        
         commodity_stock = self[self.output]
         self.inventory_before_sales = commodity_stock  # Track inventory before creating offers
         
-        print(f"    Commodity Producer {self.id}: Has {commodity_stock:.2f} {self.output}s to sell")
+        print(f"    Commodity Producer {self.id}: Has {commodity_stock:.2f} {self.output}s to sell at ${self.price[self.output]:.2f}")
         if commodity_stock > 0:
             # Distribute sales among intermediary firms
             quantity_per_firm = commodity_stock / self.intermediary_count  # Assuming evenly distributed
@@ -244,11 +277,19 @@ class CommodityProducer(abce.Agent, abce.Firm):
             print(f"    Commodity Producer {self.id}: No sales tracking data available")
 
     def log_round_data(self):
-        """Log production, sales, and inventory data for this round"""
+        """Log comprehensive production, sales, and financial data"""
         # Calculate inventory change and cumulative inventory
         inventory_change = self.production_this_round - self.sales_this_round
         cumulative_inventory = self[self.output]
         current_money = self['money']
+        
+        # Calculate revenue and profit (including overhead absorption)
+        self.revenue = self.sales_this_round * self.price[self.output]
+        self.profit = self.revenue - self.total_input_costs - self.overhead_absorbed
+        if self.total_input_costs > 0:
+            self.actual_margin = self.profit / self.total_input_costs
+        else:
+            self.actual_margin = 0
         
         # Check if minimum production for intermediary firms is met
         minimum_production_met = cumulative_inventory >= self.minimum_production_responsibility
@@ -263,37 +304,52 @@ class CommodityProducer(abce.Agent, abce.Firm):
             'money': current_money,
             'minimum_production_responsibility': self.minimum_production_responsibility,
             'minimum_production_met': minimum_production_met,
-            'debt_created_this_round': self.debt_created_this_round
+            'debt_created_this_round': self.debt_created_this_round,
+            'revenue': self.revenue,
+            'input_costs': self.total_input_costs,
+            'overhead_total': self.total_overhead_costs,
+            'overhead_absorbed': self.overhead_absorbed,
+            'overhead_passed_to_customers': self.overhead_passed_to_customers,
+            'profit': self.profit,
+            'target_margin': self.profit_margin,
+            'actual_margin': self.actual_margin,
+            'base_overhead': self.base_overhead,
+            'current_overhead': self.current_overhead,
+            'price': self.price[self.output]
         })
         
-        print(f"    Commodity Producer {self.id}: Logged - Production: {self.production_this_round:.2f}, Sales: {self.sales_this_round:.2f}, Labor purchased: {self.labor_purchased:.2f}, Inventory: {cumulative_inventory:.2f}, Money: ${current_money:.2f}, Min. production met: {minimum_production_met}, Debt created this round: ${self.debt_created_this_round:.2f}")
+        print(f"    Commodity Producer {self.id}: Logged - Production: {self.production_this_round:.2f}, Sales: {self.sales_this_round:.2f}, Labor purchased: {self.labor_purchased:.2f}, Inventory: {cumulative_inventory:.2f}, Money: ${current_money:.2f}, Price: ${self.price[self.output]:.2f}, Overhead: ${self.current_overhead:.2f}, Profit: ${self.profit:.2f}, Min. production met: {minimum_production_met}, Debt created this round: ${self.debt_created_this_round:.2f}")
 
     def apply_climate_stress(self, stress_factor):
-        """ Apply climate stress by reducing production capacity """
+        """ Apply climate stress by increasing overhead costs (damages, disruptions, etc.) """
         self.climate_stressed = True
-        original_quantity = self.current_output_quantity
-        self.current_output_quantity = self.base_output_quantity * stress_factor * self.chronic_stress_accumulated
-        print(f"  Commodity Producer {self.id}: CLIMATE STRESS applied! Production: {original_quantity:.2f} -> {self.current_output_quantity:.2f}")
+        # Stress reduces the stress_factor (0.6 means 40% increase in costs)
+        # So overhead increases by: base_overhead / stress_factor
+        stress_multiplier = 1.0 / stress_factor if stress_factor > 0 else 2.0
+        self.current_overhead = self.base_overhead * stress_multiplier * self.chronic_stress_accumulated
+        print(f"  Commodity Producer {self.id}: CLIMATE STRESS! Overhead: ${self.base_overhead:.2f} -> ${self.current_overhead:.2f}")
 
     def reset_climate_stress(self):
-        """ Reset production to normal levels """
+        """ Reset overhead to chronic level """
         if self.climate_stressed:
             self.climate_stressed = False
-            self.current_output_quantity = self.base_output_quantity * self.chronic_stress_accumulated
-            print(f"  Commodity Producer {self.id}: Climate stress cleared, production restored to {self.current_output_quantity:.2f}")
+            self.current_overhead = self.base_overhead * self.chronic_stress_accumulated
+            print(f"  Commodity Producer {self.id}: Climate stress cleared, overhead: ${self.current_overhead:.2f}")
 
     def apply_acute_stress(self):
-        """ Apply acute climate stress (temporary productivity shock) """
-        stress_factor = 1.0 - (self.climate_vulnerability * random.uniform(0.2, 0.8))
-        original_quantity = self.current_output_quantity
-        self.current_output_quantity = self.base_output_quantity * stress_factor * self.chronic_stress_accumulated
-        
-        print(f"  Commodity Producer {self.id}: Acute stress! Production: {original_quantity:.2f} -> {self.current_output_quantity:.2f}")
+        """ Apply acute climate stress (temporary overhead increase) """
+        # Use configured stress range instead of hardcoded values
+        min_stress, max_stress = self.acute_stress_range
+        stress_factor = 1.0 - (self.climate_vulnerability * random.uniform(min_stress, max_stress))
+        stress_multiplier = 1.0 / stress_factor if stress_factor > 0 else 2.0
+        self.current_overhead = self.base_overhead * stress_multiplier * self.chronic_stress_accumulated
+        print(f"  Commodity Producer {self.id}: Acute stress! Overhead: ${self.current_overhead:.2f}")
 
     def apply_chronic_stress(self, stress_factor):
-        """ Apply chronic climate stress (permanent productivity degradation) """
-        self.chronic_stress_accumulated *= stress_factor
-        self.current_output_quantity = self.base_output_quantity * self.chronic_stress_accumulated
+        """ Apply chronic climate stress (permanent overhead increase) """
+        stress_multiplier = 1.0 / stress_factor if stress_factor > 0 else 2.0
+        self.chronic_stress_accumulated *= stress_multiplier
+        self.current_overhead = self.base_overhead * self.chronic_stress_accumulated
 
     def _collect_agent_data(self, round_num, agent_type):
         """ Collect agent data for visualization (called by abcEconomics group system) """

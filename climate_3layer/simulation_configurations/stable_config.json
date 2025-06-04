@@ -6,6 +6,7 @@
     "rounds": 20,
     "result_path": "result_stable_economy"
   },
+  "wage": 4,
   "logging": {
     "agent_activity_logging": true,
     "console_level": "WARNING",
@@ -26,6 +27,11 @@
     "acute_stress_probability": 0.15,
     "chronic_stress_factor": 0.96,
     "geographical_effects": true,
+    "acute_stress_ranges": {
+      "commodity_producer": [0.2, 0.8],
+      "intermediary_firm": [0.2, 0.6],
+      "final_goods_firm": [0.1, 0.4]
+    },
     "shock_rules": [
       {
         "name": "global_commodity_shock",
@@ -54,16 +60,20 @@
       "initial_inventory": {},
       "production": {
         "base_output_quantity": 4,
+        "profit_margin": 0.0,
+        "base_overhead": 2.0,
         "inputs": {
           "labor": 1
         },
         "output": "commodity",
-        "price": 1.0,
         "minimum_production_for_supply_chain": 0.15
       },
       "climate": {
         "base_vulnerability": 0.3,
-        "vulnerability_variance": 0.1
+        "vulnerability_variance": 0.1,
+        "cost_sharing": {
+          "customer_share": 0.5
+        }
       },
       "geographical_distribution": ["Europe", "Asia", "Africa"]
     },
@@ -73,17 +83,21 @@
       "initial_inventory": {},
       "production": {
         "base_output_quantity": 2.0,
+        "profit_margin": 0.0,
+        "base_overhead": 1.5,
         "inputs": {
           "labor": 0.5,
           "commodity": 0.5
         },
         "output": "intermediate_good",
-        "price": 2.0,
         "minimum_production_for_supply_chain": 0.2
       },
       "climate": {
         "base_vulnerability": 0.1,
-        "vulnerability_variance": 0.05
+        "vulnerability_variance": 0.05,
+        "cost_sharing": {
+          "customer_share": 0.5
+        }
       },
       "geographical_distribution": ["North America", "Europe"]
     },
@@ -93,16 +107,20 @@
       "initial_inventory": {},
       "production": {
         "base_output_quantity": 1.0,
+        "profit_margin": 0.0,
+        "base_overhead": 1.0,
         "inputs": {
           "labor": 0.5,
           "intermediate_good": 0.5
         },
-        "output": "final_good",
-        "price": 7
+        "output": "final_good"
       },
       "climate": {
         "base_vulnerability": 0.05,
-        "vulnerability_variance": 0.02
+        "vulnerability_variance": 0.02,
+        "cost_sharing": {
+          "customer_share": 0.5
+        }
       },
       "geographical_distribution": ["North America", "South America"]
     },

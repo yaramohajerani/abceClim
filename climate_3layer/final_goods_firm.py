@@ -33,29 +33,6 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         self.base_output_quantity = production_config['base_output_quantity']
         self.current_output_quantity = self.base_output_quantity
         
-        # Calculate minimum production responsibility based on household survival needs
-        # This ensures coordination between household needs and firm production
-        household_minimum_survival = config.get('household_minimum_survival_consumption', 0.0)
-        num_final_goods_firms = config['final_goods_firm_count']
-        num_households = config['household_count']
-        
-        # Calculate total minimum needed for ALL households
-        total_minimum_needed_all_households = household_minimum_survival * num_households
-        
-        # Each firm is responsible for their share of the total
-        # Add a small safety buffer (10%) to account for market inefficiencies
-        safety_buffer = 1.1
-        self.minimum_production_per_household = household_minimum_survival  # Each household needs this amount
-        self.total_minimum_production_responsibility = (total_minimum_needed_all_households / num_final_goods_firms) * safety_buffer
-        
-        print(f"  Minimum production calculation:")
-        print(f"    Household survival consumption: {household_minimum_survival:.3f} per household")
-        print(f"    Number of households: {num_households}")
-        print(f"    Total minimum needed (all households): {total_minimum_needed_all_households:.3f}")
-        print(f"    Number of final goods firms: {num_final_goods_firms}")
-        print(f"    This firm's responsibility: {self.total_minimum_production_responsibility:.3f}")
-        print(f"    Safety buffer: {safety_buffer:.1f}")
-        
         # Climate stress parameters from configuration
         climate_config = config['climate']
         base_vulnerability = climate_config['base_vulnerability']
@@ -64,8 +41,46 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         self.chronic_stress_accumulated = 1.0  # Multiplicative factor
         self.climate_stressed = False  # Track if currently stressed
         
-        # Pricing from configuration
-        self.price = {self.output: production_config['price']}
+        # Acute stress ranges from configuration (only required if climate stress enabled)
+        climate_stress_enabled = config.get('climate_stress_enabled', False)
+        if climate_stress_enabled:
+            acute_stress_config = climate_config.get('acute_stress_ranges', {})
+            final_goods_stress_range = acute_stress_config.get('final_goods_firm')
+            if final_goods_stress_range is None:
+                raise ValueError(f"Acute stress range not specified in configuration for final goods firm {self.id}. Please provide 'climate.acute_stress_ranges.final_goods_firm' as [min, max].")
+            self.acute_stress_range = final_goods_stress_range
+        else:
+            # Default range for disabled climate stress (won't be used)
+            self.acute_stress_range = [0.1, 0.4]
+        
+        # Overhead costs (CapEx, legal, damages, business interruptions, etc.)
+        self.base_overhead = production_config.get('base_overhead', 1.0)  # Fixed base overhead per round
+        self.current_overhead = self.base_overhead  # Current overhead (increases with climate stress)
+        
+        # Climate cost sharing parameters
+        cost_sharing_config = climate_config.get('cost_sharing', {'customer_share': 0.5})
+        self.customer_share = cost_sharing_config['customer_share']
+        self.producer_share = 1.0 - self.customer_share
+        
+        # Financial tracking for dynamic pricing
+        self.total_input_costs = 0
+        self.total_overhead_costs = 0  # Track overhead separately
+        self.overhead_absorbed = 0     # How much overhead firm absorbed this round
+        self.overhead_passed_to_customers = 0  # How much overhead passed to price
+        self.revenue = 0
+        self.profit = 0
+        self.profit_margin = production_config.get('profit_margin', 0.0)
+        self.actual_margin = 0
+        
+        # Calculate initial price from expected costs using actual wage from config
+        wage = config['wage']
+        expected_labor_cost = self.inputs.get('labor', 0) * wage
+        
+        # For initial price, use a simple multiplier of labor cost since dynamic pricing will adjust quickly
+        # No need for hardcoded expected intermediate price
+        expected_cost_per_unit = expected_labor_cost / self.base_output_quantity
+        initial_price = expected_cost_per_unit * (1 + self.profit_margin + 2.0)  # +2.0 accounts for intermediate goods roughly
+        self.price = {self.output: initial_price}
         
         # Create production function
         self.pf = self.create_cobb_douglas(self.output, self.current_output_quantity, self.inputs)
@@ -78,13 +93,11 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         self.inventory_at_start = self[self.output]
         
         # Store household count for distribution
-        self.num_households = num_households
+        self.num_households = config['household_count']
         
         print(f"Final Goods Firm {self.id} initialized:")
         print(f"  Initial money: ${initial_money}")
         print(f"  Production capacity: {self.base_output_quantity}")
-        print(f"  Minimum production per household: {self.minimum_production_per_household:.3f}")
-        print(f"  Total minimum production responsibility: {self.total_minimum_production_responsibility:.3f}")
         print(f"  Climate vulnerability: {self.climate_vulnerability:.3f}")
         print(f"  Price: ${self.price[self.output]}")
         print(f"  Will distribute to {self.num_households} households")
@@ -109,27 +122,7 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         available_money = self['money']
         current_inventory = self[self.output]
         
-        # Calculate minimum inputs needed to ensure minimum production for households
-        total_minimum_needed = self.total_minimum_production_responsibility
-        minimum_production_needed = max(0, total_minimum_needed - current_inventory)
-        
         print(f"      Current inventory: {current_inventory:.2f}")
-        print(f"      Total minimum needed for this firm's responsibility: {total_minimum_needed:.2f}")
-        print(f"      Additional production needed: {minimum_production_needed:.2f}")
-        
-        # Calculate inputs needed for minimum production
-        minimum_inputs_needed = {}
-        if minimum_production_needed > 0:
-            # For Cobb-Douglas Q = A * L^α * K^β where α + β = 1
-            # If we want Q = minimum_production_needed and symmetric inputs L = K
-            # Then: Q = A * L^α * L^β = A * L^(α+β) = A * L^1 = A * L
-            # So: L = Q/A = minimum_production_needed / current_output_quantity
-            required_input_level = minimum_production_needed / self.current_output_quantity
-            
-            for input_good in self.inputs.keys():
-                minimum_inputs_needed[input_good] = required_input_level
-        
-        print(f"      Minimum inputs needed: {minimum_inputs_needed}")
         
         # Calculate optimal budget allocation for total available money
         optimal_allocation = self.calculate_optimal_input_allocation(available_money, self.inputs)
@@ -140,134 +133,86 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         labor_start = self['labor']
         intermediate_goods_start = self['intermediate_good']
         total_spent = 0
-        survival_spending = 0
         
-        # Process intermediate goods offers (survival + regular in one pass)
-        minimum_intermediate_needed = minimum_inputs_needed.get('intermediate_good', 0)
+        # Process intermediate goods offers (pure market-based purchasing)
         intermediate_budget = optimal_allocation['intermediate_good']
         intermediate_spent = 0
-        intermediate_survival_bought = 0
         
         print(f"      INTERMEDIATE GOODS PURCHASING:")
-        print(f"        Minimum needed for survival: {minimum_intermediate_needed:.2f}")
-        print(f"        Total budget available: ${intermediate_budget:.2f}")
+        print(f"        Budget available: ${intermediate_budget:.2f}")
         
         for offer in intermediate_goods_offers:
             if intermediate_spent >= intermediate_budget:
                 break
                 
-            # Determine purchase type and quantity
-            purchase_quantity = 0
-            purchase_reason = ""
-            
-            if minimum_intermediate_needed > 0:
-                # Priority 1: Survival purchasing (even if it exceeds budget)
-                survival_purchase = min(offer.quantity, minimum_intermediate_needed)
-                purchase_quantity = survival_purchase
-                purchase_reason = "SURVIVAL"
-                minimum_intermediate_needed -= survival_purchase
-                intermediate_survival_bought += survival_purchase
-                
-            elif intermediate_spent + (offer.quantity * offer.price) <= intermediate_budget:
-                # Priority 2: Regular budget-based purchasing
+            # Pure market-based purchasing within budget
+            if intermediate_spent + (offer.quantity * offer.price) <= intermediate_budget:
+                # Full purchase within budget
                 purchase_quantity = offer.quantity
                 purchase_reason = "REGULAR"
-                
             elif (intermediate_budget - intermediate_spent) > 0.01:
-                # Priority 3: Partial purchase within remaining budget
+                # Partial purchase within remaining budget
                 affordable_quantity = (intermediate_budget - intermediate_spent) / offer.price
                 if affordable_quantity > 0.01:
                     purchase_quantity = affordable_quantity
                     purchase_reason = "PARTIAL"
+                else:
+                    break
+            else:
+                break
             
             # Execute the purchase
-            if purchase_quantity > 0:
-                purchase_cost = purchase_quantity * offer.price
-                
-                # For survival purchases, ensure we have enough money (create debt if needed)
-                if purchase_reason == "SURVIVAL" and self['money'] < purchase_cost:
-                    money_needed = purchase_cost - self['money']
-                    self.create('money', money_needed)
-                    print(f"        🏦 Created ${money_needed:.2f} debt for survival purchasing")
-                    self.debt_created_this_round += money_needed
-                
-                if purchase_quantity == offer.quantity:
-                    self.accept(offer)
-                    print(f"        {purchase_reason}: Accepted full intermediate offer: {offer.quantity:.2f} units for ${purchase_cost:.2f}")
-                else:
-                    self.accept(offer, quantity=purchase_quantity)
-                    print(f"        {purchase_reason}: Partially accepted intermediate offer: {purchase_quantity:.2f} units for ${purchase_cost:.2f}")
-                
-                intermediate_spent += purchase_cost
-                if purchase_reason == "SURVIVAL":
-                    survival_spending += purchase_cost
+            purchase_cost = purchase_quantity * offer.price
+            
+            if purchase_quantity == offer.quantity:
+                self.accept(offer)
+                print(f"        {purchase_reason}: Accepted full intermediate offer: {offer.quantity:.2f} units for ${purchase_cost:.2f}")
             else:
-                print(f"        SKIPPED: Intermediate offer: {offer.quantity:.2f} units for ${offer.quantity * offer.price:.2f}")
+                self.accept(offer, quantity=purchase_quantity)
+                print(f"        {purchase_reason}: Partially accepted intermediate offer: {purchase_quantity:.2f} units for ${purchase_cost:.2f}")
+            
+            intermediate_spent += purchase_cost
         
-        # Process labor offers (survival + regular in one pass)
-        minimum_labor_needed = minimum_inputs_needed.get('labor', 0)
+        # Process labor offers (pure market-based purchasing)
         labor_budget = optimal_allocation['labor']
         labor_spent = 0
-        labor_survival_bought = 0
         
         print(f"      LABOR PURCHASING:")
-        print(f"        Minimum needed for survival: {minimum_labor_needed:.2f}")
-        print(f"        Total budget available: ${labor_budget:.2f}")
+        print(f"        Budget available: ${labor_budget:.2f}")
         
         for offer in labor_offers:
             if labor_spent >= labor_budget:
                 break
                 
-            # Determine purchase type and quantity
-            purchase_quantity = 0
-            purchase_reason = ""
-            
-            if minimum_labor_needed > 0:
-                # Priority 1: Survival purchasing (even if it exceeds budget)
-                survival_purchase = min(offer.quantity, minimum_labor_needed)
-                purchase_quantity = survival_purchase
-                purchase_reason = "SURVIVAL"
-                minimum_labor_needed -= survival_purchase
-                labor_survival_bought += survival_purchase
-                
-            elif labor_spent + (offer.quantity * offer.price) <= labor_budget:
-                # Priority 2: Regular budget-based purchasing
+            # Pure market-based purchasing within budget
+            if labor_spent + (offer.quantity * offer.price) <= labor_budget:
+                # Full purchase within budget
                 purchase_quantity = offer.quantity
                 purchase_reason = "REGULAR"
-                
             elif (labor_budget - labor_spent) > 0.01:
-                # Priority 3: Partial purchase within remaining budget
+                # Partial purchase within remaining budget
                 affordable_quantity = (labor_budget - labor_spent) / offer.price
                 if affordable_quantity > 0.01:
                     purchase_quantity = affordable_quantity
                     purchase_reason = "PARTIAL"
+                else:
+                    break
+            else:
+                break
             
             # Execute the purchase
-            if purchase_quantity > 0:
-                purchase_cost = purchase_quantity * offer.price
-                
-                # For survival purchases, ensure we have enough money (create debt if needed)
-                if purchase_reason == "SURVIVAL" and self['money'] < purchase_cost:
-                    money_needed = purchase_cost - self['money']
-                    self.create('money', money_needed)
-                    print(f"        🏦 Created ${money_needed:.2f} debt for survival purchasing")
-                    self.debt_created_this_round += money_needed
-                
-                if purchase_quantity == offer.quantity:
-                    self.accept(offer)
-                    print(f"        {purchase_reason}: Accepted full labor offer: {offer.quantity:.2f} units for ${purchase_cost:.2f}")
-                else:
-                    self.accept(offer, quantity=purchase_quantity)
-                    print(f"        {purchase_reason}: Partially accepted labor offer: {purchase_quantity:.2f} units for ${purchase_cost:.2f}")
-                
-                labor_spent += purchase_cost
-                if purchase_reason == "SURVIVAL":
-                    survival_spending += purchase_cost
+            purchase_cost = purchase_quantity * offer.price
+            
+            if purchase_quantity == offer.quantity:
+                self.accept(offer)
+                print(f"        {purchase_reason}: Accepted full labor offer: {offer.quantity:.2f} units for ${purchase_cost:.2f}")
             else:
-                print(f"        SKIPPED: Labor offer: {offer.quantity:.2f} units for ${offer.quantity * offer.price:.2f}")
+                self.accept(offer, quantity=purchase_quantity)
+                print(f"        {purchase_reason}: Partially accepted labor offer: {purchase_quantity:.2f} units for ${purchase_cost:.2f}")
+            
+            labor_spent += purchase_cost
         
         total_spent = intermediate_spent + labor_spent
-        regular_spending = total_spent - survival_spending
         
         # Track purchases
         labor_end = self['labor']
@@ -276,13 +221,10 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         self.intermediate_goods_purchased = intermediate_goods_end - intermediate_goods_start
         
         print(f"    Final Goods Firm {self.id}: Input purchasing complete:")
-        print(f"      Total spent: ${total_spent:.2f} (survival: ${survival_spending:.2f}, regular: ${regular_spending:.2f})")
-        print(f"      Intermediate goods: purchased {self.intermediate_goods_purchased:.2f} (survival: {intermediate_survival_bought:.2f})")
-        print(f"      Labor: purchased {self.labor_purchased:.2f} (survival: {labor_survival_bought:.2f})")
+        print(f"      Total spent: ${total_spent:.2f}")
+        print(f"      Intermediate goods: purchased {self.intermediate_goods_purchased:.2f}")
+        print(f"      Labor: purchased {self.labor_purchased:.2f}")
         print(f"      Money remaining: ${self['money']:.2f}")
-        
-        if self['money'] < 0:
-            print(f"      WARNING: Firm went into debt (${self['money']:.2f}) to ensure minimum production for households!")
 
     def production(self):
         """ Produce final goods using intermediate goods and labor """
@@ -329,8 +271,44 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
             print(f"      {good}: {self[good]:.3f}")
         print(f"      Production this round: {self.production_this_round:.3f}")
 
+    def calculate_dynamic_price(self):
+        """Calculate price dynamically based on input costs, overhead, and cost sharing"""
+        if self.production_this_round > 0:
+            # Calculate input cost per unit
+            input_cost_per_unit = self.total_input_costs / self.production_this_round
+            
+            # Calculate overhead cost per unit 
+            overhead_cost_per_unit = self.current_overhead / self.production_this_round
+            
+            # Split overhead according to customer_share parameter
+            overhead_to_customers = overhead_cost_per_unit * self.customer_share
+            overhead_absorbed_by_firm = overhead_cost_per_unit * self.producer_share
+            
+            # Track overhead costs for financial reporting
+            self.overhead_absorbed = overhead_absorbed_by_firm * self.production_this_round
+            self.overhead_passed_to_customers = overhead_to_customers * self.production_this_round
+            self.total_overhead_costs = self.current_overhead
+            
+            # Price = input costs + profit margin + customer's share of overhead
+            base_cost_per_unit = input_cost_per_unit + overhead_to_customers
+            target_price = base_cost_per_unit * (1 + self.profit_margin)
+            
+            self.price[self.output] = target_price
+            
+            print(f"    Dynamic pricing for Final Goods Firm {self.id}:")
+            print(f"      Input cost per unit: ${input_cost_per_unit:.2f}")
+            print(f"      Overhead per unit: ${overhead_cost_per_unit:.2f} (total overhead: ${self.current_overhead:.2f})")
+            print(f"      Customer bears: ${overhead_to_customers:.2f}/unit ({self.customer_share:.1%})")
+            print(f"      Firm absorbs: ${overhead_absorbed_by_firm:.2f}/unit ({self.producer_share:.1%})")
+            print(f"      New price: ${target_price:.2f}")
+        else:
+            print(f"    Final Goods Firm {self.id}: No production, keeping previous price")
+
     def sell_final_goods(self):
         """ Sell final goods to households """
+        # First calculate the price based on this round's costs
+        self.calculate_dynamic_price()
+        
         final_goods_stock = self[self.output]
         self.inventory_before_sales = final_goods_stock  # Track inventory before creating offers
         
@@ -365,9 +343,13 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         cumulative_inventory = self[self.output]
         current_money = self['money']
         
-        # Check if minimum production for households is met
-        total_minimum_needed = self.total_minimum_production_responsibility
-        minimum_production_met = cumulative_inventory >= total_minimum_needed
+        # Calculate revenue and profit (including overhead absorption)
+        self.revenue = self.sales_this_round * self.price[self.output]
+        self.profit = self.revenue - self.total_input_costs - self.overhead_absorbed
+        if self.total_input_costs > 0:
+            self.actual_margin = self.profit / self.total_input_costs
+        else:
+            self.actual_margin = 0
         
         # Log the data using abcEconomics logging
         self.log('production', {
@@ -378,13 +360,21 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
             'labor_purchased': self.labor_purchased,
             'intermediate_goods_purchased': self.intermediate_goods_purchased,
             'money': current_money,
-            'minimum_production_responsibility': self.total_minimum_production_responsibility,
-            'total_minimum_needed': total_minimum_needed,
-            'minimum_production_met': minimum_production_met,
-            'debt_created_this_round': self.debt_created_this_round
+            'debt_created_this_round': self.debt_created_this_round,
+            'revenue': self.revenue,
+            'input_costs': self.total_input_costs,
+            'overhead_total': self.total_overhead_costs,
+            'overhead_absorbed': self.overhead_absorbed,
+            'overhead_passed_to_customers': self.overhead_passed_to_customers,
+            'profit': self.profit,
+            'target_margin': self.profit_margin,
+            'actual_margin': self.actual_margin,
+            'base_overhead': self.base_overhead,
+            'current_overhead': self.current_overhead,
+            'price': self.price[self.output]
         })
         
-        print(f"    Final Goods Firm {self.id}: Logged - Production: {self.production_this_round:.2f}, Sales: {self.sales_this_round:.2f}, Labor: {self.labor_purchased:.2f}, Intermediate goods: {self.intermediate_goods_purchased:.2f}, Inventory: {cumulative_inventory:.2f}, Money: ${current_money:.2f}, Min. production met: {minimum_production_met}, Debt created this round: ${self.debt_created_this_round:.2f}")
+        print(f"    Final Goods Firm {self.id}: Logged - Production: {self.production_this_round:.2f}, Sales: {self.sales_this_round:.2f}, Labor: {self.labor_purchased:.2f}, Intermediate goods: {self.intermediate_goods_purchased:.2f}, Inventory: {cumulative_inventory:.2f}, Money: ${current_money:.2f}, Price: ${self.price[self.output]:.2f}, Overhead: ${self.current_overhead:.2f}, Profit: ${self.profit:.2f}, Debt created this round: ${self.debt_created_this_round:.2f}")
 
     def apply_climate_stress(self, stress_factor):
         """ Apply climate stress by reducing production capacity """
@@ -402,7 +392,7 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
 
     def apply_acute_stress(self):
         """ Apply acute climate stress (temporary productivity shock) """
-        stress_factor = 1.0 - (self.climate_vulnerability * random.uniform(0.1, 0.4))
+        stress_factor = 1.0 - (self.climate_vulnerability * random.uniform(self.acute_stress_range[0], self.acute_stress_range[1]))
         original_quantity = self.current_output_quantity
         self.current_output_quantity = self.base_output_quantity * stress_factor * self.chronic_stress_accumulated
         

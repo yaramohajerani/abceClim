@@ -101,6 +101,12 @@ def main(config_file_path):
     intermediary_config['final_goods_count'] = final_goods_config['count']
     commodity_config['intermediary_count'] = intermediary_config['count']
     
+    # Add wage from household config to all firm configs for pricing calculations
+    wage = household_config['labor']['wage']
+    commodity_config['wage'] = wage
+    intermediary_config['wage'] = wage
+    final_goods_config['wage'] = wage
+    
     # Add firm counts to household config for labor distribution
     household_config['commodity_producer_count'] = commodity_config['count']
     household_config['intermediary_firm_count'] = intermediary_config['count']

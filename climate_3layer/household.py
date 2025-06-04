@@ -3,11 +3,12 @@ import abcEconomics as abce
 
 class Household(abce.Agent):
     def init(self, config):
-        """ Households provide labor and consume final goods.
-        They are not directly affected by climate stress but may be affected indirectly through employment.
+        """ Households are consumers and laborers in the economy.
+        They sell labor to firms and use the income to buy final goods for consumption.
+        They try to meet their minimum survival consumption requirements.
         
         Args:
-            config: Configuration dictionary with initial resources, labor, and consumption parameters.
+            config: Configuration dictionary with consumption parameters, labor settings, etc.
         """
         # Initialize money
         initial_money = config['initial_money']
@@ -23,49 +24,57 @@ class Household(abce.Agent):
         self.labor_endowment = labor_config['endowment']
         self.wage = labor_config['wage']
         
+        # Financial tracking
+        self.debt = 0
+        self.income = 0
+        self.spending = 0
+        self.debt_created_this_round = 0
+        
         # Consumption parameters from configuration
         consumption_config = config['consumption']
         self.preferred_good = consumption_config['preference']
-        self.budget_fraction = consumption_config['budget_fraction']  # Fraction of money to spend each round
-        self.consumption_fraction = consumption_config['consumption_fraction']  # Fraction of available goods to consume each round
-        self.minimum_survival_consumption = consumption_config.get('minimum_survival_consumption', 0.0)  # Minimum consumption required for survival
+        self.budget_fraction = consumption_config['budget_fraction']
+        self.consumption_fraction = consumption_config['consumption_fraction']
+        self.minimum_survival_consumption = consumption_config['minimum_survival_consumption']
         
-        # Climate stress (not directly applicable to households but kept for compatibility)
-        self.climate_stressed = False
-        self.climate_stress_factor = 1.0
-        
-        # Create initial labor endowment
-        self.create('labor_endowment', self.labor_endowment)
-        
-        # Calculate initial utility
-        self.utility = 0.0  # Simple utility tracking
-        
-        # Track consumption data for proper logging
+        # Track consumption data for logging
         self.consumption_this_round = 0
+        self.final_goods_purchased = 0
         self.purchases_this_round = 0
         self.labor_sold = 0
-        self.inventory_at_start = self[self.preferred_good]
         
-        # Get firm counts from config for proper labor distribution
+        # Initialize utility tracking
+        self.utility = 0.0
+        
+        # Get firm counts from config for labor distribution
         self.commodity_producer_count = config['commodity_producer_count']
         self.intermediary_firm_count = config['intermediary_firm_count']
         self.final_goods_firm_count = config['final_goods_firm_count']
+        total_firms = self.commodity_producer_count + self.intermediary_firm_count + self.final_goods_firm_count
+        
+        # Calculate labor allocation based on rough needs
+        self.labor_allocation = {
+            'commodity_producer': 0.5,    # 50% to commodity producers (labor-intensive)
+            'intermediary_firm': 0.25,    # 25% to intermediary firms
+            'final_goods_firm': 0.25      # 25% to final goods firms
+        }
         
         print(f"Household {self.id} initialized:")
         print(f"  Initial money: ${initial_money}")
         print(f"  Labor endowment: {self.labor_endowment}")
         print(f"  Wage: ${self.wage}")
-        print(f"  Consumption preference: {self.preferred_good}")
-        print(f"  Budget fraction (spend per round): {self.budget_fraction:.1%}")
-        print(f"  Consumption fraction (consume per round): {self.consumption_fraction:.1%}")
-        print(f"  Will sell labor to {self.commodity_producer_count + self.intermediary_firm_count + self.final_goods_firm_count} firms total")
+        print(f"  Minimum consumption: {self.minimum_survival_consumption}")
+        print(f"  Will distribute labor to {total_firms} firms")
 
     def start_round(self):
         """Called at the start of each round to reset tracking variables"""
         self.consumption_this_round = 0
+        self.final_goods_purchased = 0
         self.purchases_this_round = 0
         self.labor_sold = 0
-        self.inventory_at_start = self[self.preferred_good]
+        self.debt_created_this_round = 0
+        self.income = 0
+        self.spending = 0
 
     def sell_labor(self):
         """ Offer labor to firms """
@@ -107,98 +116,91 @@ class Household(abce.Agent):
         self.labor_sold = labor_start  # Initially assume all labor is offered
 
     def buy_final_goods(self):
-        """ Buy final goods from final goods firms """
+        """ Buy final goods based on total available resources - simple and market-responsive """
+        self.calculate_labor_income()  # First calculate income
+        
+        final_goods_start = self[self.preferred_good]
         offers = self.get_offers(self.preferred_good)
+        
+        # Simple rule: spend a fraction of total available resources on consumption
         available_money = self['money']
-        current_inventory = self[self.preferred_good]
+        total_resources = self.income + available_money  # Income this round + accumulated wealth
         
-        # Calculate budget for this round (fraction of available money)
-        budget_for_round = available_money * self.budget_fraction
+        # Spend 60% of total resources on consumption (this makes households responsive to wealth changes)
+        consumption_spending_budget = total_resources * 0.6
         
-        # Calculate how much we need to buy to ensure minimum survival consumption
-        # We need enough inventory to consume at least minimum_survival_consumption this round
-        # Plus some buffer for next round's consumption
-        next_round_buffer = self.minimum_survival_consumption * 0.1  # 10% buffer
-        minimum_needed_inventory = self.minimum_survival_consumption + next_round_buffer
-        minimum_needed_purchase = max(0, minimum_needed_inventory - current_inventory)
+        # Don't spend more money than we have (unless survival emergency)
+        actual_spending_budget = min(consumption_spending_budget, available_money)
         
+        print(f"  Household {self.id}:")
+        print(f"    Income: ${self.income:.2f}, Money: ${available_money:.2f}, Total resources: ${total_resources:.2f}")
+        print(f"    Consumption budget (60% of resources): ${consumption_spending_budget:.2f}")
+        print(f"    Actual spending budget: ${actual_spending_budget:.2f}")
+        print(f"    Current inventory: {final_goods_start:.2f}")
+        print(f"    Received {len(offers)} final good offers")
+        
+        total_purchased = 0
         total_spent = 0
-        purchases_start = self[self.preferred_good]
+        remaining_budget = actual_spending_budget
         
-        print(f"    Household {self.id}: Has ${available_money:.2f}, budget for round: ${budget_for_round:.2f}")
-        print(f"      Current inventory: {current_inventory:.2f}")
-        print(f"      Minimum survival consumption per round: {self.minimum_survival_consumption:.2f}")
-        print(f"      Minimum inventory needed (consumption + buffer): {minimum_needed_inventory:.2f}")
-        print(f"      Minimum purchase needed for survival: {minimum_needed_purchase:.2f}")
-        print(f"      Received {len(offers)} {self.preferred_good} offers")
-        
-        # Process all offers in a single pass, prioritizing survival first
+        # Buy as much as we can afford with our budget
         for offer in offers:
-            if total_spent >= budget_for_round and minimum_needed_purchase <= 0:
-                # Budget exhausted and survival needs met, stop purchasing
+            if remaining_budget <= 0:
+                print(f"    BUDGET EXHAUSTED")
                 break
                 
-            cost = offer.quantity * offer.price
+            # How much can we afford from this offer?
+            affordable_quantity = remaining_budget / offer.price
+            purchase_quantity = min(offer.quantity, affordable_quantity)
             
-            # Determine what to buy from this offer
-            purchase_quantity = 0
-            purchase_reason = ""
-            
-            if minimum_needed_purchase > 0:
-                # Priority 1: Survival purchasing (can exceed budget if necessary)
-                survival_purchase = min(offer.quantity, minimum_needed_purchase)
-                purchase_quantity = survival_purchase
-                purchase_reason = "SURVIVAL"
-                minimum_needed_purchase -= survival_purchase
-                
-            elif total_spent + cost <= budget_for_round:
-                # Priority 2: Regular budget-based purchasing
-                purchase_quantity = offer.quantity
-                purchase_reason = "REGULAR"
-                
-            elif (budget_for_round - total_spent) > 0.01:
-                # Priority 3: Partial purchase within remaining budget
-                affordable_quantity = (budget_for_round - total_spent) / offer.price
-                if affordable_quantity > 0.01:  # Minimum threshold
-                    purchase_quantity = affordable_quantity
-                    purchase_reason = "PARTIAL"
-            
-            # Execute the purchase
-            if purchase_quantity > 0:
-                purchase_cost = purchase_quantity * offer.price
+            if purchase_quantity > 0.01:  # Worth buying
+                cost = purchase_quantity * offer.price
                 
                 if purchase_quantity == offer.quantity:
                     self.accept(offer)
-                    print(f"        {purchase_reason}: Accepted full offer: {offer.quantity:.2f} units for ${cost:.2f}")
                 else:
                     self.accept(offer, quantity=purchase_quantity)
-                    print(f"        {purchase_reason}: Partially accepted offer: {purchase_quantity:.2f} units for ${purchase_cost:.2f}")
                 
-                total_spent += purchase_cost
+                total_purchased += purchase_quantity
+                total_spent += cost
+                remaining_budget -= cost
+                print(f"    BOUGHT: {purchase_quantity:.3f} units for ${cost:.2f} (price: ${offer.price:.2f}/unit)")
             else:
-                print(f"        SKIPPED: Cannot afford offer: {offer.quantity:.2f} units for ${cost:.2f}")
+                print(f"    SKIPPED: Can't afford offer of {offer.quantity:.2f} at ${offer.price:.2f}/unit")
         
-        # Check if survival needs were met
-        survival_needs_met = minimum_needed_purchase <= 0
-        final_inventory = self[self.preferred_good]
-        can_survive_this_round = final_inventory >= self.minimum_survival_consumption
+        # Emergency debt creation ONLY if we bought nothing and have no inventory
+        current_inventory_after_purchase = final_goods_start + total_purchased
+        if current_inventory_after_purchase < 0.01:  # Essentially no food
+            print(f"    🆘 SURVIVAL EMERGENCY: No inventory, creating emergency debt")
+            emergency_debt = self.minimum_survival_consumption * 50  # Emergency money for survival
+            self.create('money', emergency_debt)
+            self.debt += emergency_debt
+            self.debt_created_this_round += emergency_debt
+            print(f"    💳 Created ${emergency_debt:.2f} emergency debt")
+            
+            # Try to buy something with emergency money
+            if offers and len(offers) > 0:
+                offer = offers[0]  # Take first available offer
+                emergency_quantity = min(offer.quantity, emergency_debt / offer.price)
+                if emergency_quantity > 0.01:
+                    emergency_cost = emergency_quantity * offer.price
+                    self.accept(offer, quantity=emergency_quantity)
+                    total_purchased += emergency_quantity
+                    total_spent += emergency_cost
+                    print(f"    🆘 EMERGENCY BUY: {emergency_quantity:.3f} units for ${emergency_cost:.2f}")
         
-        if not survival_needs_met:
-            print(f"        ⚠️  WARNING: Could not purchase enough for minimum survival! Still need {minimum_needed_purchase:.2f} units")
-        if not can_survive_this_round:
-            print(f"        🚨 CRITICAL: Cannot meet minimum consumption this round! Have {final_inventory:.2f}, need {self.minimum_survival_consumption:.2f}")
+        # Record results
+        self.final_goods_purchased = total_purchased
+        self.spending = total_spent
         
-        print(f"    Household {self.id}: Total spent ${total_spent:.2f} (budget: ${budget_for_round:.2f})")
-        print(f"      Final inventory: {final_inventory:.2f}, can survive this round: {can_survive_this_round}")
+        final_goods_end = self[self.preferred_good]
         
-        # Calculate purchases for this round (increase in inventory)
-        purchases_end = self[self.preferred_good]
-        self.purchases_this_round = purchases_end - purchases_start
-        
-        # Update labor sold calculation after market clearing
-        # Labor sold = initial endowment - remaining labor
-        labor_remaining = self['labor']  # Use dictionary access instead of get method
-        self.labor_sold = self.labor_endowment - labor_remaining
+        print(f"  Household {self.id}: Purchasing complete")
+        print(f"    Total purchased: {self.final_goods_purchased:.3f} for ${total_spent:.2f}")
+        print(f"    Average price paid: ${total_spent/total_purchased if total_purchased > 0 else 0:.2f}/unit")
+        print(f"    Inventory: {final_goods_start:.3f} → {final_goods_end:.3f}")
+        print(f"    Money: ${available_money:.2f} → ${self['money']:.2f}")
+        print(f"    Debt: ${self.debt:.2f}")
 
     def consumption(self):
         """ Consume final goods to generate utility """
@@ -210,9 +212,6 @@ class Household(abce.Agent):
         
         # Calculate intended consumption based on consumption fraction
         normal_consumption = available_goods * self.consumption_fraction
-        if self.climate_stressed:
-            normal_consumption *= self.climate_stress_factor
-            print(f"      Climate stressed! Reducing normal consumption to {normal_consumption:.2f}")
         
         # Ensure consumption is at least the minimum survival level, but never more than available
         intended_consumption = max(self.minimum_survival_consumption, normal_consumption)
@@ -287,30 +286,21 @@ class Household(abce.Agent):
             'type': agent_type,
             'round': round_num,
             'wealth': self['money'],
-            'climate_stressed': self.climate_stressed,
+            'climate_stressed': False,  # Households don't experience direct climate stress
             'continent': getattr(self, 'continent', 'Unknown'),
             'vulnerability': 0,  # No direct climate vulnerability
             'consumption': self.get(self.preferred_good, 0)
         }
 
     def calculate_labor_income(self):
-        """Calculate income from labor sales"""
+        """Calculate income from labor sales after market clearing"""
         # Labor income = (initial labor - remaining labor) * wage
-        # Ensure we never calculate negative labor sold due to over-selling
-        labor_remaining = max(0, self['labor'])  # Protect against negative values
-        labor_sold = max(0, self.labor_endowment - labor_remaining)
-        
-        # Cap labor sold at the endowment to prevent over-selling
-        labor_sold = min(labor_sold, self.labor_endowment)
-        
-        self.labor_sold = labor_sold
+        labor_sold = self.labor_endowment - self['labor']
         self.income = labor_sold * self.wage
         print(f"  Household {self.id}: Sold {labor_sold:.2f} labor, earned ${self.income:.2f}")
         
-        # If we detect negative labor remaining, log an error
+        # If we detect negative labor remaining, log for debugging
         if self['labor'] < 0:
-            print(f"    ⚠️ ERROR: Household {self.id} has negative labor remaining: {self['labor']:.2f}")
+            print(f"    🐛 DEBUG: Household {self.id} has negative labor remaining: {self['labor']:.2f}")
             print(f"    This indicates over-selling in the labor market!")
-            # Reset to zero to prevent further issues
-            self.destroy('labor', self['labor'])  # Remove negative amount
-            self.create('labor', 0)  # Set to zero 
+            print(f"    Labor endowment: {self.labor_endowment}, Labor sold: {labor_sold:.2f}") 
