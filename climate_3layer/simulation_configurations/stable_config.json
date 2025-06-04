@@ -27,11 +27,6 @@
     "acute_stress_probability": 0.15,
     "chronic_stress_factor": 0.96,
     "geographical_effects": true,
-    "acute_stress_ranges": {
-      "commodity_producer": [0.2, 0.8],
-      "intermediary_firm": [0.2, 0.6],
-      "final_goods_firm": [0.1, 0.4]
-    },
     "shock_rules": [
       {
         "name": "global_commodity_shock",

@@ -41,18 +41,6 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
         self.chronic_stress_accumulated = 1.0  # Multiplicative factor
         self.climate_stressed = False  # Track if currently stressed
         
-        # Acute stress ranges from configuration (only required if climate stress enabled)
-        climate_stress_enabled = config.get('climate_stress_enabled', False)
-        if climate_stress_enabled:
-            acute_stress_config = climate_config.get('acute_stress_ranges', {})
-            intermediary_stress_range = acute_stress_config.get('intermediary_firm')
-            if intermediary_stress_range is None:
-                raise ValueError(f"Acute stress range not specified in configuration for intermediary firm {self.id}. Please provide 'climate.acute_stress_ranges.intermediary_firm' as [min, max].")
-            self.acute_stress_range = intermediary_stress_range
-        else:
-            # Default range for disabled climate stress (won't be used)
-            self.acute_stress_range = [0.2, 0.6]
-        
         # Overhead costs (CapEx, legal, damages, business interruptions, etc.)
         self.base_overhead = production_config.get('base_overhead', 1.5)  # Fixed base overhead per round
         self.current_overhead = self.base_overhead  # Current overhead (increases with climate stress)
@@ -407,7 +395,7 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
 
     def apply_acute_stress(self):
         """ Apply acute climate stress (temporary productivity shock) """
-        stress_factor = 1.0 - (self.climate_vulnerability * random.uniform(self.acute_stress_range[0], self.acute_stress_range[1]))
+        stress_factor = 1.0 - (self.climate_vulnerability * random.uniform(0.2, 0.8))
         original_quantity = self.current_output_quantity
         self.current_output_quantity = self.base_output_quantity * stress_factor * self.chronic_stress_accumulated
         

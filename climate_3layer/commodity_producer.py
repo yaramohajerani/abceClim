@@ -44,18 +44,6 @@ class CommodityProducer(abce.Agent, abce.Firm):
         self.chronic_stress_accumulated = 1.0  # Multiplicative factor
         self.climate_stressed = False  # Track if currently stressed
         
-        # Acute stress ranges from configuration (only required if climate stress enabled)
-        climate_stress_enabled = config.get('climate_stress_enabled', False)
-        if climate_stress_enabled:
-            acute_stress_config = climate_config.get('acute_stress_ranges', {})
-            commodity_stress_range = acute_stress_config.get('commodity_producer')
-            if commodity_stress_range is None:
-                raise ValueError(f"Acute stress range not specified in configuration for commodity producer {self.id}. Please provide 'climate.acute_stress_ranges.commodity_producer' as [min, max].")
-            self.acute_stress_range = commodity_stress_range
-        else:
-            # Default range for disabled climate stress (won't be used)
-            self.acute_stress_range = [0.2, 0.8]
-        
         # Overhead costs (CapEx, legal, damages, business interruptions, etc.)
         self.base_overhead = production_config.get('base_overhead', 1.0)  # Fixed base overhead per round
         self.current_overhead = self.base_overhead  # Current overhead (increases with climate stress)
@@ -333,8 +321,7 @@ class CommodityProducer(abce.Agent, abce.Firm):
     def apply_acute_stress(self):
         """ Apply acute climate stress (temporary overhead increase) """
         # Use configured stress range instead of hardcoded values
-        min_stress, max_stress = self.acute_stress_range
-        stress_factor = 1.0 - (self.climate_vulnerability * random.uniform(min_stress, max_stress))
+        stress_factor = 1.0 - (self.climate_vulnerability * random.uniform(0.2, 0.8))
         stress_multiplier = 1.0 / stress_factor if stress_factor > 0 else 2.0
         self.current_overhead = self.base_overhead * stress_multiplier * self.chronic_stress_accumulated
         print(f"  Commodity Producer {self.id}: Acute stress! Overhead: ${self.current_overhead:.2f}")
