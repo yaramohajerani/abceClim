@@ -528,10 +528,10 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     ax4.grid(True, alpha=0.3)
     
     # Plot 5: Wealth evolution by sector (including debt)
-    ax5.plot(rounds, commodity_wealth, 'o-', label='Commodity Producers', color='#8B4513', linewidth=2, markersize=4)
-    ax5.plot(rounds, intermediary_wealth, 's-', label='Intermediary Firms', color='#DAA520', linewidth=2, markersize=4)
-    ax5.plot(rounds, final_goods_wealth, '^-', label='Final Goods Firms', color='#00FF00', linewidth=2, markersize=4)
-    ax5.plot(rounds, household_wealth, 'd-', label='Households', color='#4169E1', linewidth=2, markersize=4)
+    ax5.plot(rounds, commodity_wealth, 'o-', label='Commodity Wealth', color='#8B4513', linewidth=2, markersize=4)
+    ax5.plot(rounds, intermediary_wealth, 's-', label='Intermediary Wealth', color='#DAA520', linewidth=2, markersize=4)
+    ax5.plot(rounds, final_goods_wealth, '^-', label='Final Goods Wealth', color='#00FF00', linewidth=2, markersize=4)
+    ax5.plot(rounds, household_wealth, 'd-', label='Household Wealth', color='#4169E1', linewidth=2, markersize=4)
     add_climate_shocks(ax5)
     ax5.set_title('💵 Wealth Evolution by Sector', fontweight='bold')
     ax5.set_xlabel('Round')
@@ -540,8 +540,8 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     ax5.grid(True, alpha=0.3)
     
     # Plot 6: Debt evolution
-    ax6.plot(rounds, household_debt, 'd-', label='Household Debt', color='#FF4500', linewidth=2, markersize=4)
-    ax6.plot(rounds, firm_debt, 's-', label='Firm Debt', color='#DC143C', linewidth=2, markersize=4)
+    ax6.plot(rounds, household_debt, 'd--', label='Household Debt', color='#4169E1', linewidth=2, markersize=4, alpha=0.6)
+    ax6.plot(rounds, firm_debt, 's--', label='All Firms Debt', color='#666666', linewidth=2, markersize=4, alpha=0.6)
     add_climate_shocks(ax6)
     ax6.set_title('💳 Debt Levels Over Time', fontweight='bold')
     ax6.set_xlabel('Round')
@@ -599,13 +599,13 @@ def create_animated_supply_chain(visualization_data, simulation_path):
     
     # Define continent positions for the world map (simplified layout)
     continent_positions = {
-        'North America': (1, 3, 1.5, 1),     # (x, y, width, height)
-        'South America': (1.2, 1.5, 1, 1.2),
-        'Europe': (3, 3.2, 0.8, 0.6),
-        'Africa': (3.2, 2, 0.8, 1.5),
-        'Asia': (4.5, 2.5, 2, 1.8)
+        'North America': (0.5, 3, 1.5, 1.5),
+        'South America': (0.5, 1, 1.5, 1.5),
+        'Europe': (3, 3.5, 1, 1),
+        'Asia': (4.5, 3, 1.5, 1.5),
+        'Africa': (3, 1.5, 1, 1.5),
+        'Oceania': (5.5, 0.5, 1, 1)
     }
-    
     def animate(frame):
         # Clear all subplots
         for ax in [ax1, ax2, ax3, ax4]:
@@ -710,11 +710,38 @@ def create_animated_supply_chain(visualization_data, simulation_path):
                 pos = agent_positions[agent_type][pos_idx[agent_type]]
                 pos_idx[agent_type] += 1
                 
-                color = '#FF0000' if agent['climate_stressed'] else agent_type_colors[agent_type]
+                # Determine color based on climate stress
+                base_color = agent_type_colors[agent_type]
+                color = '#FF0000' if agent['climate_stressed'] else base_color
                 size = 200 if agent['climate_stressed'] else 100
                 
-                ax1.scatter(pos[0], pos[1], c=color, s=size, alpha=0.8)
-                ax1.text(pos[0], pos[1]-0.2, f"${agent['wealth']:.0f}", 
+                # Determine if agent is in debt and add debt indicator
+                is_in_debt = agent.get('debt', 0) > 0
+                
+                if is_in_debt and not agent['climate_stressed']:
+                    # Agent in debt but not climate stressed - use orange border
+                    ax1.scatter(pos[0], pos[1], c=color, s=size, alpha=0.8, 
+                               edgecolors='#FFA500', linewidths=3)
+                    # Add small debt symbol
+                    ax1.text(pos[0] + 0.1, pos[1] + 0.1, '💳', fontsize=8, ha='center')
+                elif is_in_debt and agent['climate_stressed']:
+                    # Agent both in debt and climate stressed - use black border
+                    ax1.scatter(pos[0], pos[1], c=color, s=size, alpha=0.8, 
+                               edgecolors='black', linewidths=3)
+                    # Add small debt symbol
+                    ax1.text(pos[0] + 0.1, pos[1] + 0.1, '💳', fontsize=8, ha='center')
+                else:
+                    # Normal agent - no special border
+                    ax1.scatter(pos[0], pos[1], c=color, s=size, alpha=0.8)
+                
+                # Show wealth with debt indicator if applicable
+                if is_in_debt:
+                    debt_amount = agent.get('debt', 0)
+                    wealth_text = f"${agent['wealth']-debt_amount:.0f}"
+                else:
+                    wealth_text = f"${agent['wealth']:.0f}"
+
+                ax1.text(pos[0], pos[1]-0.2, wealth_text, 
                         ha='center', fontsize=8)
         
         # Add supply chain flow arrows (dynamic positioning)
@@ -737,6 +764,21 @@ def create_animated_supply_chain(visualization_data, simulation_path):
             ax1.text(5, 5.3, f'Layer 3\nFinal Goods\n({agent_counts["final_goods_firm"]})', ha='center', fontsize=10, fontweight='bold')
         if 'household' in agent_counts:
             ax1.text(7, 5.3, f'Households\n({agent_counts["household"]})', ha='center', fontsize=10, fontweight='bold')
+        
+        # Add legend for network plot indicators
+        legend_elements = []
+        legend_elements.append(plt.Line2D([0], [0], marker='o', color='w', 
+                                        markerfacecolor='#8B4513', markersize=8, 
+                                        label='Normal Agent', markeredgecolor='none'))
+        legend_elements.append(plt.Line2D([0], [0], marker='o', color='w', 
+                                        markerfacecolor='#FF0000', markersize=10, 
+                                        label='Climate Stressed', markeredgecolor='none'))
+        legend_elements.append(plt.Line2D([0], [0], marker='o', color='w', 
+                                        markerfacecolor='#8B4513', markersize=8, 
+                                        label='Agent in Debt', markeredgecolor='#FFA500', markeredgewidth=2))
+        
+        ax1.legend(handles=legend_elements, loc='upper right', fontsize=8, 
+                  title='Agent Status', title_fontsize=9, framealpha=0.8)
         
         # Plot 2: Production & Inventory Levels Over Time
         ax2.set_title('Production & Inventory Levels Over Time')
@@ -938,15 +980,32 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         household_debt_series = [visualization_data['debt'][i].get('households', 0) for i in range(frame+1)]
         firm_debt_series = [visualization_data['debt'][i].get('firms', 0) for i in range(frame+1)]
         
-        # Plot wealth time-series lines
-        ax4.plot(rounds_so_far, commodity_wealth_series, 'o-', label='Commodity Producers', color='#8B4513', linewidth=2, markersize=4)
-        ax4.plot(rounds_so_far, intermediary_wealth_series, 's-', label='Intermediary Firms', color='#DAA520', linewidth=2, markersize=4)
-        ax4.plot(rounds_so_far, final_goods_wealth_series, '^-', label='Final Goods Firms', color='#00FF00', linewidth=2, markersize=4)
-        ax4.plot(rounds_so_far, household_wealth_series, 'd-', label='Households', color='#4169E1', linewidth=2, markersize=4)
+        # Define consistent colors for agent types
+        agent_colors = {
+            'commodity': '#8B4513',
+            'intermediary': '#DAA520', 
+            'final_goods': '#00FF00',
+            'households': '#4169E1'
+        }
         
-        # Plot debt lines (dashed and colored differently)
-        ax4.plot(rounds_so_far, household_debt_series, 'd--', label='Household Debt', color='#FF4500', linewidth=2, markersize=4, alpha=0.8)
-        ax4.plot(rounds_so_far, firm_debt_series, 's--', label='Firm Debt', color='#DC143C', linewidth=2, markersize=4, alpha=0.8)
+        # Plot wealth time-series lines (solid lines)
+        ax4.plot(rounds_so_far, commodity_wealth_series, 'o-', label='Commodity Wealth', 
+                color=agent_colors['commodity'], linewidth=2, markersize=4)
+        ax4.plot(rounds_so_far, intermediary_wealth_series, 's-', label='Intermediary Wealth', 
+                color=agent_colors['intermediary'], linewidth=2, markersize=4)
+        ax4.plot(rounds_so_far, final_goods_wealth_series, '^-', label='Final Goods Wealth', 
+                color=agent_colors['final_goods'], linewidth=2, markersize=4)
+        ax4.plot(rounds_so_far, household_wealth_series, 'd-', label='Household Wealth', 
+                color=agent_colors['households'], linewidth=2, markersize=4)
+        
+        # Plot debt lines (dashed lines with same colors but lighter alpha)
+        ax4.plot(rounds_so_far, household_debt_series, 'd--', label='Household Debt', 
+                color=agent_colors['households'], linewidth=2, markersize=4, alpha=0.6)
+        
+        # Calculate and plot total firm debt (combination of all firm types)
+        # For individual firm debt by type, we'd need to separate the data
+        ax4.plot(rounds_so_far, firm_debt_series, 's--', label='All Firms Debt', 
+                color='#666666', linewidth=2, markersize=4, alpha=0.6)
         
         ax4.set_xlabel('Round')
         ax4.set_ylabel('Total Wealth ($)')
@@ -964,7 +1023,7 @@ def create_animated_supply_chain(visualization_data, simulation_path):
     filename = f"{simulation_path}/climate_3layer_animation_{timestamp}.gif"
     
     print(f"💾 Saving animation as {filename}...")
-    anim.save(filename, writer='pillow', fps=0.67)  # Slower fps for better readability
+    anim.save(filename, writer='pillow', fps=1.5, dpi=72)
     print(f"✅ Animation saved: {filename}")
     
     plt.close()  # Clean up memory

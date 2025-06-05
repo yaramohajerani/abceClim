@@ -51,15 +51,6 @@
         "continents": ["Asia", "Africa"],
         "stress_factor": 0.6,
         "stress_mode": "overhead"
-      },
-      {
-        "name": "industrial_overhead_disruption",
-        "description": "Supply chain disruption increasing manufacturing overhead costs",
-        "probability": 0.08,
-        "agent_types": ["intermediary_firm", "final_goods_firm"],
-        "continents": ["Asia", "Europe"],
-        "stress_factor": 0.8,
-        "stress_mode": "overhead"
       }
     ]
   },
@@ -81,7 +72,7 @@
         "base_vulnerability": 0.4,
         "vulnerability_variance": 0.1,
         "cost_sharing": {
-          "customer_share": 0.6
+          "customer_share": 0.4
         }
       },
       "geographical_distribution": ["Asia", "Africa", "South America", "Europe", "North America", "Asia"]
@@ -106,7 +97,7 @@
         "base_vulnerability": 0.2,
         "vulnerability_variance": 0.08,
         "cost_sharing": {
-          "customer_share": 0.5
+          "customer_share": 0.4
         }
       },
       "geographical_distribution": ["Asia", "Europe", "North America", "South America"]
@@ -129,7 +120,7 @@
         "base_vulnerability": 0.1,
         "vulnerability_variance": 0.05,
         "cost_sharing": {
-          "customer_share": 0.4
+          "customer_share": 0.2
         }
       },
       "geographical_distribution": ["North America", "Europe", "Asia"]
