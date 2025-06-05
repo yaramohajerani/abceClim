@@ -73,6 +73,10 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
         self.commodities_purchased = 0
         self.inventory_at_start = self[self.output]
         
+        # Debt tracking system
+        self.debt = 0.0  # Total debt accumulated
+        self.debt_created_this_round = 0.0  # Track debt created for survival purchasing
+        
         # Get final goods firm count from config for proper distribution
         self.final_goods_count = config['final_goods_count']
         
@@ -90,6 +94,58 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
         self.commodities_purchased = 0
         self.inventory_at_start = self[self.output]
         self.debt_created_this_round = 0  # Track debt created for survival purchasing
+    
+    def spend_money_with_debt(self, amount, description="expense"):
+        """
+        Spend money, creating debt if insufficient funds available.
+        
+        Args:
+            amount: Amount to spend
+            description: Description of the expense for logging
+            
+        Returns:
+            bool: True if expense was handled (with or without debt)
+        """
+        current_money = self['money']
+        
+        if current_money >= amount:
+            # Sufficient funds - pay normally
+            self.destroy('money', amount)
+            print(f"    {self.__class__.__name__} {self.id}: Paid ${amount:.2f} for {description}")
+            return True
+        else:
+            # Insufficient funds - pay what we can and create debt for the rest
+            debt_created = amount - current_money
+            
+            if current_money > 0:
+                self.destroy('money', current_money)
+                print(f"    {self.__class__.__name__} {self.id}: Paid ${current_money:.2f} for {description}")
+            
+            self.debt += debt_created
+            self.debt_created_this_round += debt_created
+            print(f"    {self.__class__.__name__} {self.id}: Created ${debt_created:.2f} debt for {description} (Total debt: ${self.debt:.2f})")
+            return True
+    
+    def receive_money_and_pay_debt(self, amount, source="income"):
+        """
+        Receive money and automatically use it to pay down debt first.
+        
+        Args:
+            amount: Amount of money received
+            source: Source of the money for logging
+        """
+        self.create('money', amount)
+        print(f"    {self.__class__.__name__} {self.id}: Received ${amount:.2f} from {source}")
+        
+        if self.debt > 0:
+            debt_payment = min(amount, self.debt)
+            self.debt -= debt_payment
+            self.destroy('money', debt_payment)
+            print(f"    {self.__class__.__name__} {self.id}: Paid ${debt_payment:.2f} toward debt (Remaining debt: ${self.debt:.2f})")
+    
+    def get_available_money(self):
+        """Get available money (current money minus any reserves if needed)"""
+        return self['money']
 
     def buy_inputs_optimally(self):
         """ Buy all inputs with optimal money allocation based on Cobb-Douglas exponents to maximize production """
@@ -294,9 +350,9 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
             
             self.price[self.output] = target_price
             
-            # Deduct absorbed overhead costs from firm's money
+            # Deduct absorbed overhead costs from firm's money (with debt handling)
             money_before = self['money']
-            self.destroy('money', self.overhead_absorbed)
+            self.spend_money_with_debt(self.overhead_absorbed, "overhead costs")
             money_after = self['money']
             
             print(f"    Dynamic pricing for Intermediary Firm {self.id}:")
@@ -363,6 +419,7 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
             'labor_purchased': self.labor_purchased,
             'commodities_purchased': self.commodities_purchased,
             'money': current_money,
+            'debt': self.debt,
             'debt_created_this_round': self.debt_created_this_round,
             'revenue': self.revenue,
             'input_costs': self.total_input_costs,
@@ -377,7 +434,7 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
             'price': self.price[self.output]
         })
         
-        print(f"    Intermediary Firm {self.id}: Logged - Production: {self.production_this_round:.2f}, Sales: {self.sales_this_round:.2f}, Labor: {self.labor_purchased:.2f}, Commodities: {self.commodities_purchased:.2f}, Inventory: {cumulative_inventory:.2f}, Money: ${current_money:.2f}, Price: ${self.price[self.output]:.2f}, Overhead: ${self.current_overhead:.2f}, Profit: ${self.profit:.2f}, Debt created this round: ${self.debt_created_this_round:.2f}")
+        print(f"    Intermediary Firm {self.id}: Logged - Production: {self.production_this_round:.2f}, Sales: {self.sales_this_round:.2f}, Labor: {self.labor_purchased:.2f}, Commodities: {self.commodities_purchased:.2f}, Inventory: {cumulative_inventory:.2f}, Money: ${current_money:.2f}, Price: ${self.price[self.output]:.2f}, Overhead: ${self.current_overhead:.2f}, Profit: ${self.profit:.2f}, Debt: ${self.debt:.2f}, Debt created this round: ${self.debt_created_this_round:.2f}")
 
 
 
