@@ -18,7 +18,7 @@ def load_geographical_assignments(simulation_path):
     climate_summary_file = os.path.join(simulation_path, 'climate_3_layer_summary.csv')
     
     if not os.path.exists(climate_summary_file):
-        print(f"⚠️ Climate summary file not found: {climate_summary_file}")
+        print(f"WARNING: Climate summary file not found: {climate_summary_file}")
         print(f"   Creating fallback geographical assignments...")
         
         # Create default geographical assignments based on typical configuration
@@ -83,12 +83,12 @@ def load_geographical_assignments(simulation_path):
                         'vulnerability': 0.06 + (i * 0.005)
                     }
             
-            print(f"✅ Created fallback geographical assignments for {len(geographical_assignments)} agent types")
+            print(f"SUCCESS: Created fallback geographical assignments for {len(geographical_assignments)} agent types")
             for agent_type, assignments in geographical_assignments.items():
                 print(f"    {agent_type}: {len(assignments)} agents")
                 
         except Exception as e:
-            print(f"⚠️ Error creating fallback assignments: {e}")
+            print(f"WARNING: Error creating fallback assignments: {e}")
         
         return geographical_assignments
     
@@ -115,14 +115,14 @@ def load_geographical_assignments(simulation_path):
                 'vulnerability': vulnerability
             }
         
-        print(f"✅ Loaded geographical assignments for {len(geographical_assignments)} agent types")
+        print(f"SUCCESS: Loaded geographical assignments for {len(geographical_assignments)} agent types")
         for agent_type, assignments in geographical_assignments.items():
             print(f"    {agent_type}: {len(assignments)} agents")
         
         return geographical_assignments
         
     except Exception as e:
-        print(f"❌ Error loading geographical assignments: {e}")
+        print(f"ERROR: Error loading geographical assignments: {e}")
         return {}
 
 def load_climate_events(simulation_path):
@@ -130,7 +130,7 @@ def load_climate_events(simulation_path):
     climate_summary_file = os.path.join(simulation_path, 'climate_3_layer_summary.csv')
     
     if not os.path.exists(climate_summary_file):
-        print(f"⚠️ Climate summary file not found: {climate_summary_file}")
+        print(f"WARNING: Climate summary file not found: {climate_summary_file}")
         return []
     
     try:
@@ -140,7 +140,7 @@ def load_climate_events(simulation_path):
         events_df = df[df['data_type'] != 'geographical_assignment']
         
         if len(events_df) == 0:
-            print("ℹ️ No climate events found in simulation")
+            print("INFO: No climate events found in simulation")
             return []
         
         # Group events by round
@@ -176,7 +176,7 @@ def load_climate_events(simulation_path):
                 climate_events_history.append({})
         
         total_events = sum(len(events) for events in climate_events_history)
-        print(f"✅ Loaded climate events: {total_events} events across {len(climate_events_history)} rounds")
+        print(f"SUCCESS: Loaded climate events: {total_events} events across {len(climate_events_history)} rounds")
         
         # Show event summary
         for round_num, events in enumerate(climate_events_history):
@@ -187,7 +187,7 @@ def load_climate_events(simulation_path):
         return climate_events_history
         
     except Exception as e:
-        print(f"❌ Error loading climate events: {e}")
+        print(f"ERROR: Error loading climate events: {e}")
         import traceback
         traceback.print_exc()
         return []
@@ -393,7 +393,7 @@ def get_agent_vulnerability(agent_type, agent_id, climate_framework):
 def create_time_evolution_visualization(visualization_data, simulation_path):
     """Create time-evolving visualization from simulation data."""
     
-    print("🎬 Creating time-evolving visualization from simulation data...")
+    print("Creating time-evolving visualization from simulation data...")
     
     rounds = visualization_data['rounds']
     
@@ -488,7 +488,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     ax1.plot(rounds, intermediary_production, 's-', label='Intermediary Production', color='#DAA520', linewidth=2, markersize=4)
     ax1.plot(rounds, final_goods_production, '^-', label='Final Goods Production', color='#00FF00', linewidth=2, markersize=4)
     add_climate_shocks(ax1)
-    ax1.set_title('📊 Production Levels Over Time', fontweight='bold')
+    ax1.set_title('Production Levels Over Time', fontweight='bold')
     ax1.set_xlabel('Round')
     ax1.set_ylabel('Production Level')
     ax1.legend(loc='center right', fontsize=8)
@@ -499,7 +499,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     ax2.plot(rounds, intermediary_inventory, 's-', label='Intermediary Inventory', color='#DAA520', linewidth=2, markersize=4)
     ax2.plot(rounds, final_goods_inventory, '^-', label='Final Goods Inventory', color='#00FF00', linewidth=2, markersize=4)
     add_climate_shocks(ax2)
-    ax2.set_title('📦 Inventory Levels Over Time', fontweight='bold')
+    ax2.set_title('Inventory Levels Over Time', fontweight='bold')
     ax2.set_xlabel('Round')
     ax2.set_ylabel('Inventory Level')
     ax2.legend(loc='center right', fontsize=8)
@@ -510,7 +510,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     ax3.plot(rounds, intermediary_overhead, 's-', label='Intermediary Overhead', color='#DAA520', linewidth=2, markersize=4)
     ax3.plot(rounds, final_goods_overhead, '^-', label='Final Goods Overhead', color='#00FF00', linewidth=2, markersize=4)
     add_climate_shocks(ax3)
-    ax3.set_title('🏭 Overhead Costs Over Time', fontweight='bold')
+    ax3.set_title('Overhead Costs Over Time', fontweight='bold')
     ax3.set_xlabel('Round')
     ax3.set_ylabel('Overhead Cost ($)')
     ax3.legend(loc='center right', fontsize=8)
@@ -521,7 +521,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     ax4.plot(rounds, intermediary_price, 's-', label='Intermediary Price', color='#DAA520', linewidth=2, markersize=4)
     ax4.plot(rounds, final_goods_price, '^-', label='Final Goods Price', color='#00FF00', linewidth=2, markersize=4)
     add_climate_shocks(ax4)
-    ax4.set_title('💰 Pricing Evolution Over Time', fontweight='bold')
+    ax4.set_title('Pricing Evolution Over Time', fontweight='bold')
     ax4.set_xlabel('Round')
     ax4.set_ylabel('Price ($)')
     ax4.legend(loc='center right', fontsize=8)
@@ -533,7 +533,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     ax5.plot(rounds, final_goods_wealth, '^-', label='Final Goods Wealth', color='#00FF00', linewidth=2, markersize=4)
     ax5.plot(rounds, household_wealth, 'd-', label='Household Wealth', color='#4169E1', linewidth=2, markersize=4)
     add_climate_shocks(ax5)
-    ax5.set_title('💵 Wealth Evolution by Sector', fontweight='bold')
+    ax5.set_title('Wealth Evolution by Sector', fontweight='bold')
     ax5.set_xlabel('Round')
     ax5.set_ylabel('Wealth ($)')
     ax5.legend(loc='center right', fontsize=8)
@@ -543,7 +543,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     ax6.plot(rounds, household_debt, 'd--', label='Household Debt', color='#4169E1', linewidth=2, markersize=4, alpha=0.6)
     ax6.plot(rounds, firm_debt, 's--', label='All Firms Debt', color='#666666', linewidth=2, markersize=4, alpha=0.6)
     add_climate_shocks(ax6)
-    ax6.set_title('💳 Debt Levels Over Time', fontweight='bold')
+    ax6.set_title('Debt Levels Over Time', fontweight='bold')
     ax6.set_xlabel('Round')
     ax6.set_ylabel('Debt ($)')
     ax6.legend(loc='center right', fontsize=8)
@@ -551,7 +551,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     
     # Plot 7: Climate stress events count
     ax7.bar(rounds, climate_stress_counts, color='red', alpha=0.6, label='Climate Stressed Agents')
-    ax7.set_title('🌪️ Climate Stress Events', fontweight='bold')
+    ax7.set_title('Climate Stress Events', fontweight='bold')
     ax7.set_xlabel('Round')
     ax7.set_ylabel('Number of Stressed Agents')
     ax7.legend(loc='upper right', fontsize=8)
@@ -568,7 +568,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     ax8_twin.plot(rounds, avg_price, 'b:', label='Avg Price', linewidth=2, alpha=0.8)
     
     add_climate_shocks(ax8)
-    ax8.set_title('📈 Economic Summary', fontweight='bold')
+    ax8.set_title('Economic Summary', fontweight='bold')
     ax8.set_xlabel('Round')
     ax8.set_ylabel('Production', color='green')
     ax8_twin.set_ylabel('Overhead ($) & Price ($)', color='red')
@@ -580,7 +580,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{simulation_path}/climate_3layer_time_evolution_{timestamp}.png"
     plt.savefig(filename, dpi=300, bbox_inches='tight')
-    print(f"✅ Time evolution visualization saved: {filename}")
+    print(f"SUCCESS: Time evolution visualization saved: {filename}")
     
     plt.close()
     return filename
@@ -588,14 +588,23 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
 def create_animated_supply_chain(visualization_data, simulation_path):
     """Create animated GIF showing supply chain evolution over time."""
     
-    print("🎞️ Creating animated supply chain visualization...")
+    print("Creating animated supply chain visualization...")
     
-    # Set up the animation plot with more subplots including geographical map
-    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 14))
+    # Set up the animation plot with 5 subplots in a custom layout
+    # Layout: Network (big left), Production/Inventory (top right), Overhead/Pricing (middle right), 
+    #         Geography (bottom left), Wealth (bottom right)
+    fig = plt.figure(figsize=(16 , 15)) 
     fig.suptitle('Climate 3-Layer Supply Chain Evolution (Animated)', fontsize=16, fontweight='bold')
     
+    # Create custom subplot layout
+    ax1 = plt.subplot2grid((3, 2), (0, 0), rowspan=2)  # Network plot (big, left side)
+    ax2 = plt.subplot2grid((3, 2), (0, 1))             # Production/Inventory (top right)
+    ax3 = plt.subplot2grid((3, 2), (1, 1))             # Overhead/Pricing (middle right)
+    ax4 = plt.subplot2grid((3, 2), (2, 0))             # Geography (bottom left)
+    ax5 = plt.subplot2grid((3, 2), (2, 1))             # Wealth (bottom right)
+    
     # Create the twin axis outside the animate function to avoid overlapping axes
-    ax2_twin = ax2.twinx()
+    ax3_twin = ax3.twinx()
     
     # Define continent positions for the world map (simplified layout)
     continent_positions = {
@@ -608,10 +617,10 @@ def create_animated_supply_chain(visualization_data, simulation_path):
     }
     def animate(frame):
         # Clear all subplots
-        for ax in [ax1, ax2, ax3, ax4]:
+        for ax in [ax1, ax2, ax3, ax4, ax5]:
             ax.clear()
         # Clear the twin axis as well
-        ax2_twin.clear()
+        ax3_twin.clear()
         
         if frame >= len(visualization_data['rounds']):
             return
@@ -722,14 +731,10 @@ def create_animated_supply_chain(visualization_data, simulation_path):
                     # Agent in debt but not climate stressed - use orange border
                     ax1.scatter(pos[0], pos[1], c=color, s=size, alpha=0.8, 
                                edgecolors='#FFA500', linewidths=3)
-                    # Add small debt symbol
-                    ax1.text(pos[0] + 0.1, pos[1] + 0.1, '💳', fontsize=8, ha='center')
                 elif is_in_debt and agent['climate_stressed']:
                     # Agent both in debt and climate stressed - use black border
                     ax1.scatter(pos[0], pos[1], c=color, s=size, alpha=0.8, 
                                edgecolors='black', linewidths=3)
-                    # Add small debt symbol
-                    ax1.text(pos[0] + 0.1, pos[1] + 0.1, '💳', fontsize=8, ha='center')
                 else:
                     # Normal agent - no special border
                     ax1.scatter(pos[0], pos[1], c=color, s=size, alpha=0.8)
@@ -737,12 +742,12 @@ def create_animated_supply_chain(visualization_data, simulation_path):
                 # Show wealth with debt indicator if applicable
                 if is_in_debt:
                     debt_amount = agent.get('debt', 0)
-                    wealth_text = f"${agent['wealth']-debt_amount:.0f}"
-                else:
+                    wealth_text = f"-${debt_amount-agent['wealth']:.0f}"
+                else: 
                     wealth_text = f"${agent['wealth']:.0f}"
 
                 ax1.text(pos[0], pos[1]-0.2, wealth_text, 
-                        ha='center', fontsize=8)
+                        ha='center', fontsize=10) 
         
         # Add supply chain flow arrows (dynamic positioning)
         if 'commodity_producer' in agent_counts and 'intermediary_firm' in agent_counts:
@@ -757,13 +762,13 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         
         # Add layer labels with actual counts
         if 'commodity_producer' in agent_counts:
-            ax1.text(1, 5.3, f'Layer 1\nCommodity\n({agent_counts["commodity_producer"]})', ha='center', fontsize=10, fontweight='bold')
+            ax1.text(1, 5.2, f'Layer 1\nCommodity\n({agent_counts["commodity_producer"]})', ha='center', fontsize=10, fontweight='bold')
         if 'intermediary_firm' in agent_counts:
-            ax1.text(3, 5.3, f'Layer 2\nIntermediary\n({agent_counts["intermediary_firm"]})', ha='center', fontsize=10, fontweight='bold')
+            ax1.text(3, 5.2, f'Layer 2\nIntermediary\n({agent_counts["intermediary_firm"]})', ha='center', fontsize=10, fontweight='bold')
         if 'final_goods_firm' in agent_counts:
-            ax1.text(5, 5.3, f'Layer 3\nFinal Goods\n({agent_counts["final_goods_firm"]})', ha='center', fontsize=10, fontweight='bold')
+            ax1.text(5, 5.2, f'Layer 3\nFinal Goods\n({agent_counts["final_goods_firm"]})', ha='center', fontsize=10, fontweight='bold')
         if 'household' in agent_counts:
-            ax1.text(7, 5.3, f'Households\n({agent_counts["household"]})', ha='center', fontsize=10, fontweight='bold')
+            ax1.text(7, 5.2, f'Households\n({agent_counts["household"]})', ha='center', fontsize=10, fontweight='bold')
         
         # Add legend for network plot indicators
         legend_elements = []
@@ -788,7 +793,37 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         intermediary_prod = [visualization_data['production_data'][i].get('intermediary', 0) for i in range(frame+1)]
         final_goods_prod = [visualization_data['production_data'][i].get('final_goods', 0) for i in range(frame+1)]
         
-        # Add overhead and pricing data
+        # Add inventory data
+        commodity_inventory = [visualization_data['inventories'][i].get('commodity', 0) for i in range(frame+1)]
+        intermediary_inventory = [visualization_data['inventories'][i].get('intermediary', 0) for i in range(frame+1)]
+        final_goods_inventory = [visualization_data['inventories'][i].get('final_goods', 0) for i in range(frame+1)]
+        
+        # Plot production (solid lines)
+        ax2.plot(rounds_so_far, commodity_prod, 'o-', label='Commodity Prod', color='#8B4513', linewidth=2, markersize=3)
+        ax2.plot(rounds_so_far, intermediary_prod, 's-', label='Intermediary Prod', color='#DAA520', linewidth=2, markersize=3)
+        ax2.plot(rounds_so_far, final_goods_prod, '^-', label='Final Goods Prod', color='#00FF00', linewidth=2, markersize=3)
+        
+        # Plot inventory (dashed lines)
+        ax2.plot(rounds_so_far, commodity_inventory, 'o--', label='Commodity Inv', color='#8B4513', linewidth=1, alpha=0.7, markersize=2)
+        ax2.plot(rounds_so_far, intermediary_inventory, 's--', label='Intermediary Inv', color='#DAA520', linewidth=1, alpha=0.7, markersize=2)
+        ax2.plot(rounds_so_far, final_goods_inventory, '^--', label='Final Goods Inv', color='#00FF00', linewidth=1, alpha=0.7, markersize=2)
+        
+        ax2.set_ylabel('Production & Inventory', color='black')
+        ax2.legend(fontsize=8)
+        ax2.set_xlabel('Round')
+        ax2.grid(True, alpha=0.3)
+        
+        # Add climate shock indicators
+        for shock_round in range(frame + 1):
+            if shock_round < len(visualization_data['climate_events']):
+                events = visualization_data['climate_events'][shock_round]
+                if events:
+                    ax2.axvline(x=shock_round, color='red', linestyle='--', alpha=0.6, linewidth=1)
+        
+        # Plot 3: Overhead Costs & Pricing Over Time
+        ax3.set_title('Overhead Costs & Pricing Over Time')
+        
+        # Get overhead and pricing data
         commodity_overhead = [visualization_data['overhead_costs'][i].get('commodity', 0) for i in range(frame+1)]
         intermediary_overhead = [visualization_data['overhead_costs'][i].get('intermediary', 0) for i in range(frame+1)]
         final_goods_overhead = [visualization_data['overhead_costs'][i].get('final_goods', 0) for i in range(frame+1)]
@@ -797,79 +832,40 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         intermediary_price = [visualization_data['pricing'][i].get('intermediary', 0) for i in range(frame+1)]
         final_goods_price = [visualization_data['pricing'][i].get('final_goods', 0) for i in range(frame+1)]
         
-        # Plot production (solid lines) - LEFT Y-AXIS
-        ax2.plot(rounds_so_far, commodity_prod, 'o-', label='Commodity Prod', color='#8B4513', linewidth=2)
-        ax2.plot(rounds_so_far, intermediary_prod, 's-', label='Intermediary Prod', color='#DAA520', linewidth=2)
-        ax2.plot(rounds_so_far, final_goods_prod, '^-', label='Final Goods Prod', color='#00FF00', linewidth=2)
-        ax2.set_ylabel('Production per Round', color='black')
+        # Plot overhead (solid lines) - LEFT Y-AXIS
+        ax3.plot(rounds_so_far, commodity_overhead, 'o-', label='Commodity Overhead', color='#8B4513', linewidth=2, markersize=3)
+        ax3.plot(rounds_so_far, intermediary_overhead, 's-', label='Intermediary Overhead', color='#DAA520', linewidth=2, markersize=3)
+        ax3.plot(rounds_so_far, final_goods_overhead, '^-', label='Final Goods Overhead', color='#00FF00', linewidth=2, markersize=3)
+        ax3.set_ylabel('Overhead Costs ($)', color='black')
         
-        # Plot overhead (dashed lines) - RIGHT Y-AXIS using the pre-created twin axis
-        ax2_twin.plot(rounds_so_far, commodity_overhead, 'o--', label='Commodity Overhead', color='#8B4513', alpha=0.7, linewidth=1)
-        ax2_twin.plot(rounds_so_far, intermediary_overhead, 's--', label='Intermediary Overhead', color='#DAA520', alpha=0.7, linewidth=1)
-        ax2_twin.plot(rounds_so_far, final_goods_overhead, '^--', label='Final Goods Overhead', color='#00FF00', alpha=0.7, linewidth=1)
-        ax2_twin.set_ylabel('Overhead Costs ($)', color='gray')
-        ax2_twin.tick_params(axis='y', labelcolor='gray')
-        # Explicitly set the label position to the right side
-        ax2_twin.yaxis.set_label_position('right')
+        # Plot pricing (dashed lines) - RIGHT Y-AXIS using the pre-created twin axis
+        ax3_twin.plot(rounds_so_far, commodity_price, 'o--', label='Commodity Price', color='#8B4513', alpha=0.7, linewidth=1, markersize=2)
+        ax3_twin.plot(rounds_so_far, intermediary_price, 's--', label='Intermediary Price', color='#DAA520', alpha=0.7, linewidth=1, markersize=2)
+        ax3_twin.plot(rounds_so_far, final_goods_price, '^--', label='Final Goods Price', color='#00FF00', alpha=0.7, linewidth=1, markersize=2)
+        ax3_twin.set_ylabel('Prices ($)', color='gray')
+        ax3_twin.tick_params(axis='y', labelcolor='gray')
+        ax3_twin.yaxis.set_label_position('right')
         
-        # Add climate shock indicators as vertical lines
-        shock_colors = {
-            'commodity_producer': '#8B4513',
-            'intermediary_firm': '#DAA520', 
-            'final_goods_firm': '#00FF00',
-            'household': '#4169E1',
-            'all_sectors': '#FF0000'  # For multi-sector shocks
-        }
-        
-        climate_shock_legend_added = False
+        # Add climate shock indicators
         for shock_round in range(frame + 1):
             if shock_round < len(visualization_data['climate_events']):
                 events = visualization_data['climate_events'][shock_round]
-                if events:  # Climate events occurred in this round
-                    # Determine which sectors were affected
-                    affected_sectors = set()
-                    for event_name, event_data in events.items():
-                        if isinstance(event_data, dict) and 'agent_types' in event_data:
-                            affected_sectors.update(event_data['agent_types'])
-                    
-                    # Choose line color based on affected sectors
-                    if len(affected_sectors) > 1:
-                        line_color = shock_colors['all_sectors']
-                        line_label = 'Multi-Sector Climate Shock'
-                    elif len(affected_sectors) == 1:
-                        sector = list(affected_sectors)[0]
-                        line_color = shock_colors.get(sector, '#FF0000')
-                        sector_names = {
-                            'commodity_producer': 'Commodity',
-                            'intermediary_firm': 'Intermediary', 
-                            'final_goods_firm': 'Final Goods',
-                            'household': 'Household'
-                        }
-                        line_label = f'{sector_names.get(sector, sector)} Climate Shock'
-                    else:
-                        line_color = '#FF0000'
-                        line_label = 'Climate Shock'
-                    
-                    # Add vertical line at the shock round
-                    ax2.axvline(x=shock_round, color=line_color, linestyle='--', 
-                               alpha=0.8, linewidth=2, 
-                               label=line_label if not climate_shock_legend_added else "")
-                    
-                    climate_shock_legend_added = True
+                if events:
+                    ax3.axvline(x=shock_round, color='red', linestyle='--', alpha=0.6, linewidth=1)
         
         # Combine legends
-        lines1, labels1 = ax2.get_legend_handles_labels()
-        lines2, labels2 = ax2_twin.get_legend_handles_labels()
-        ax2.legend(lines1 + lines2, labels1 + labels2, fontsize=7, loc='upper left')
+        lines1, labels1 = ax3.get_legend_handles_labels()
+        lines2, labels2 = ax3_twin.get_legend_handles_labels()
+        ax3.legend(lines1 + lines2, labels1 + labels2, fontsize=8)
         
-        ax2.set_xlabel('Round')
-        ax2.grid(True, alpha=0.3)
+        ax3.set_xlabel('Round')
+        ax3.grid(True, alpha=0.3)
         
-        # Plot 3: Geographical Distribution World Map
-        ax3.set_title(f'Global Climate Impact Map - Round {round_num}')
-        ax3.set_xlim(0, 7)
-        ax3.set_ylim(0, 5)
-        ax3.set_aspect('equal')
+        # Plot 4: Geographical Distribution World Map
+        ax4.set_title(f'Global Climate Impact Map - Round {round_num}')
+        ax4.set_xlim(0, 7)
+        ax4.set_ylim(0, 5)
+        ax4.set_aspect('equal')
         
         # Draw continent shapes (simplified rectangles)
         continent_colors = {}
@@ -890,10 +886,10 @@ def create_animated_supply_chain(visualization_data, simulation_path):
                                          facecolor=base_color, 
                                          edgecolor='black', 
                                          alpha=0.6)
-            ax3.add_patch(continent_rect)
+            ax4.add_patch(continent_rect)
             
             # Add continent label
-            ax3.text(x + width/2, y + height/2, continent.replace(' ', '\n'), 
+            ax4.text(x + width/2, y + height/2, continent.replace(' ', '\n'), 
                     ha='center', va='center', fontsize=8, fontweight='bold')
         
         # Place agents on their continents
@@ -939,20 +935,20 @@ def create_animated_supply_chain(visualization_data, simulation_path):
                         color = '#FF0000' if stressed_agents else agent_colors[i]
                         size = 150 if stressed_agents else 80
                         
-                        ax3.scatter(pos_x, pos_y, c=color, s=size, marker=agent_symbols[i], 
+                        ax4.scatter(pos_x, pos_y, c=color, s=size, marker=agent_symbols[i], 
                                   alpha=0.9, edgecolors='black', linewidth=1)
                         
                         # Add count label
-                        ax3.text(pos_x, pos_y - 0.15, str(counts[agent_type]), 
+                        ax4.text(pos_x, pos_y - 0.15, str(counts[agent_type]), 
                                ha='center', va='center', fontsize=6, fontweight='bold')
         
         # Add legend for agent types
         legend_elements = []
         agent_type_names = ['Commodity Producers', 'Intermediary Firms', 'Final Goods Firms', 'Households']
-        agent_colors = ['#8B4513', '#DAA520', '#00FF00', '#4169E1']
+        legend_agent_colors = ['#8B4513', '#DAA520', '#00FF00', '#4169E1']
         agent_symbols = ['o', 's', '^', 'D']
         
-        for i, (name, color, symbol) in enumerate(zip(agent_type_names, agent_colors, agent_symbols)):
+        for i, (name, color, symbol) in enumerate(zip(agent_type_names, legend_agent_colors, agent_symbols)):
             legend_elements.append(plt.Line2D([0], [0], marker=symbol, color='w', 
                                             markerfacecolor=color, markersize=8, 
                                             label=name, markeredgecolor='black', markeredgewidth=0.5))
@@ -962,13 +958,13 @@ def create_animated_supply_chain(visualization_data, simulation_path):
                                         markerfacecolor='#FF0000', markersize=10, 
                                         label='Climate Stressed', markeredgecolor='black', markeredgewidth=0.5))
         
-        ax3.legend(handles=legend_elements, loc='lower right', fontsize=8, 
+        ax4.legend(handles=legend_elements, loc='lower center', fontsize=8, 
                   title='Agent Types', title_fontsize=9, framealpha=0.8)
+         
+        ax4.axis('off')  # Remove axes for cleaner world map look
         
-        ax3.axis('off')  # Remove axes for cleaner world map look
-        
-        # Plot 4: Wealth time-series by sector
-        ax4.set_title('Wealth Evolution by Sector')
+        # Plot 5: Wealth time-series by sector
+        ax5.set_title('Wealth Evolution by Sector')
         
         # Collect wealth data over time up to current frame
         commodity_wealth_series = [visualization_data['wealth_data'][i].get('commodity', 0) for i in range(frame+1)]
@@ -989,28 +985,27 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         }
         
         # Plot wealth time-series lines (solid lines)
-        ax4.plot(rounds_so_far, commodity_wealth_series, 'o-', label='Commodity Wealth', 
+        ax5.plot(rounds_so_far, commodity_wealth_series, 'o-', label='Commodity Wealth', 
                 color=agent_colors['commodity'], linewidth=2, markersize=4)
-        ax4.plot(rounds_so_far, intermediary_wealth_series, 's-', label='Intermediary Wealth', 
+        ax5.plot(rounds_so_far, intermediary_wealth_series, 's-', label='Intermediary Wealth', 
                 color=agent_colors['intermediary'], linewidth=2, markersize=4)
-        ax4.plot(rounds_so_far, final_goods_wealth_series, '^-', label='Final Goods Wealth', 
+        ax5.plot(rounds_so_far, final_goods_wealth_series, '^-', label='Final Goods Wealth', 
                 color=agent_colors['final_goods'], linewidth=2, markersize=4)
-        ax4.plot(rounds_so_far, household_wealth_series, 'd-', label='Household Wealth', 
+        ax5.plot(rounds_so_far, household_wealth_series, 'd-', label='Household Wealth', 
                 color=agent_colors['households'], linewidth=2, markersize=4)
         
         # Plot debt lines (dashed lines with same colors but lighter alpha)
-        ax4.plot(rounds_so_far, household_debt_series, 'd--', label='Household Debt', 
+        ax5.plot(rounds_so_far, household_debt_series, 'd--', label='Household Debt', 
                 color=agent_colors['households'], linewidth=2, markersize=4, alpha=0.6)
         
         # Calculate and plot total firm debt (combination of all firm types)
-        # For individual firm debt by type, we'd need to separate the data
-        ax4.plot(rounds_so_far, firm_debt_series, 's--', label='All Firms Debt', 
+        ax5.plot(rounds_so_far, firm_debt_series, 's--', label='All Firms Debt', 
                 color='#666666', linewidth=2, markersize=4, alpha=0.6)
         
-        ax4.set_xlabel('Round')
-        ax4.set_ylabel('Total Wealth ($)')
-        ax4.legend(fontsize=8)
-        ax4.grid(True, alpha=0.3)
+        ax5.set_xlabel('Round')
+        ax5.set_ylabel('Total Wealth ($)')
+        ax5.legend(fontsize=8)
+        ax5.grid(True, alpha=0.3)
         
         plt.tight_layout()
     
@@ -1022,9 +1017,9 @@ def create_animated_supply_chain(visualization_data, simulation_path):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{simulation_path}/climate_3layer_animation_{timestamp}.gif"
     
-    print(f"💾 Saving animation as {filename}...")
+    print(f"Saving animation as {filename}...")
     anim.save(filename, writer='pillow', fps=1.5, dpi=72)
-    print(f"✅ Animation saved: {filename}")
+    print(f"SUCCESS: Animation saved: {filename}")
     
     plt.close()  # Clean up memory
     
@@ -1033,7 +1028,7 @@ def create_animated_supply_chain(visualization_data, simulation_path):
 def collect_all_visualization_data(simulation_path, climate_framework, num_rounds):
     """Collect visualization data for all rounds from the simulation CSV files."""
     
-    print("📊 Collecting visualization data from simulation results...")
+    print("Collecting visualization data from simulation results...")
     visualization_data = {
         'rounds': [],
         'agent_data': [],
@@ -1065,35 +1060,35 @@ def collect_all_visualization_data(simulation_path, climate_framework, num_round
         total_inventory = sum(round_data['inventories'].values())
         print(f"    Round {r}: Production = {total_production:.2f}, Inventory = {total_inventory:.2f}")
     
-    print("✅ Visualization data collection completed!")
+    print("SUCCESS: Visualization data collection completed!")
     return visualization_data
 
 def run_animation_visualizations(simulation_path):
     """Main function to run all animation visualizations from simulation output."""
     
-    print("🎬 Starting Animation Visualizer for Climate 3-Layer Model")
+    print("Starting Animation Visualizer for Climate 3-Layer Model")
     print("=" * 60)
     
     # Try to detect number of rounds from CSV files
     production_file = os.path.join(simulation_path, 'panel_commodity_producer_production.csv')
     if not os.path.exists(production_file):
-        print(f"❌ Simulation output not found in: {simulation_path}")
+        print(f"ERROR: Simulation output not found in: {simulation_path}")
         print("Make sure you've run the simulation first!")
         return
     
     try:
         df = pd.read_csv(production_file)
         num_rounds = df['round'].max() + 1
-        print(f"📊 Detected {num_rounds} rounds in simulation output")
+        print(f"Detected {num_rounds} rounds in simulation output")
     except Exception as e:
-        print(f"❌ Error reading simulation data: {e}")
+        print(f"ERROR: Error reading simulation data: {e}")
         return
     
     # Load geographical assignments and climate events from CSV files
-    print("🌍 Loading geographical assignments from simulation data...")
+    print("Loading geographical assignments from simulation data...")
     geographical_assignments = load_geographical_assignments(simulation_path)
     
-    print("🌪️ Loading climate events from simulation data...")
+    print("Loading climate events from simulation data...")
     climate_events_history = load_climate_events(simulation_path)
     
     # Ensure we have enough rounds in climate events (pad with empty events if needed)
@@ -1109,11 +1104,11 @@ def run_animation_visualizations(simulation_path):
     )
     
     if not visualization_data['rounds']:
-        print("❌ No visualization data collected!")
+        print("ERROR: No visualization data collected!")
         return
     
     # Create visualizations
-    print("\n🎬 Creating time-evolving visualizations...")
+    print("\nCreating time-evolving visualizations...")
     
     # Create time evolution plot
     time_plot_file = create_time_evolution_visualization(
@@ -1125,9 +1120,9 @@ def run_animation_visualizations(simulation_path):
         visualization_data, simulation_path
     )
     
-    print(f"\n🎉 Animation visualizations completed!")
-    print(f"📊 Time evolution plot: {time_plot_file}")
-    print(f"🎞️ Animation: {animation_file}")
+    print(f"\nAnimation visualizations completed!")
+    print(f"Time evolution plot: {time_plot_file}")
+    print(f"Animation: {animation_file}")
     
     return {
         'time_plot': time_plot_file,
@@ -1146,15 +1141,15 @@ def main():
     simulation_path = sys.argv[1]
     
     if not os.path.exists(simulation_path):
-        print(f"❌ Simulation path does not exist: {simulation_path}")
+        print(f"ERROR: Simulation path does not exist: {simulation_path}")
         sys.exit(1)
     
     results = run_animation_visualizations(simulation_path)
     
     if results:
-        print("\n✅ Animation visualization completed successfully!")
+        print("\nSUCCESS: Animation visualization completed successfully!")
     else:
-        print("\n❌ Animation visualization failed!")
+        print("\nERROR: Animation visualization failed!")
         sys.exit(1)
 
 if __name__ == '__main__':
