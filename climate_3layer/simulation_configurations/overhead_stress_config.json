@@ -18,18 +18,19 @@
     },
     "chronic_rules": [
       {
-        "name": "global_degradation",
-        "description": "Long-term climate degradation affecting all production",
-        "agent_types": ["commodity_producer", "intermediary_firm", "final_goods_firm"],
-        "continents": ["all"],
-        "stress_factor": 0.995
-      },
-      {
-        "name": "commodity_overhead_pressure",
-        "description": "Increasing overhead pressures on commodity producers due to climate regulations",
+        "name": "agricultural_soil_degradation",
+        "description": "Long-term soil degradation affecting commodity production globally",
         "agent_types": ["commodity_producer"],
         "continents": ["all"],
-        "stress_factor": 0.98,
+        "stress_factor": 0.95,
+        "stress_mode": "productivity"
+      },
+      {
+        "name": "tropical_heat_stress",
+        "description": "Rising temperatures reducing industrial productivity in tropical regions",
+        "agent_types": ["intermediary_firm"],
+        "continents": ["Africa", "South America"],
+        "stress_factor": 0.96,
         "stress_mode": "overhead"
       }
     ],
@@ -40,7 +41,7 @@
         "probability": 0.15,
         "agent_types": ["commodity_producer", "intermediary_firm"],
         "continents": ["all"],
-        "stress_factor": 0.7,
+        "stress_factor": 0.5,
         "stress_mode": "overhead"
       },
       {
@@ -49,7 +50,7 @@
         "probability": 0.1,
         "agent_types": ["commodity_producer"],
         "continents": ["Asia", "Africa"],
-        "stress_factor": 0.6,
+        "stress_factor": 0.3,
         "stress_mode": "overhead"
       }
     ]
@@ -57,7 +58,7 @@
   "agents": {
     "commodity_producer": {
       "count": 6,
-      "initial_money": 40,
+      "initial_money": 30,
       "initial_inventory": {},
       "production": {
         "base_output_quantity": 0.8,
@@ -69,17 +70,17 @@
         "price": 1.5
       },
       "climate": {
-        "base_vulnerability": 0.4,
+        "base_vulnerability": 0.5,
         "vulnerability_variance": 0.1,
         "cost_sharing": {
           "customer_share": 0.4
         }
       },
-      "geographical_distribution": ["Asia", "Africa", "South America", "Europe", "North America", "Asia"]
+      "geographical_distribution": ["Asia", "Africa", "South America", "North America"]
     },
     "intermediary_firm": {
       "count": 4,
-      "initial_money": 45,
+      "initial_money": 30,
       "initial_inventory": {
         "commodity": 0.5
       },
@@ -87,8 +88,8 @@
         "base_output_quantity": 1.0,
         "base_overhead": 1.5,
         "inputs": {
-          "labor": 1,
-          "commodity": 1
+          "labor": 0.5,
+          "commodity": 0.5
         },
         "output": "intermediate_good",
         "price": 3.0
@@ -104,14 +105,14 @@
     },
     "final_goods_firm": {
       "count": 3,
-      "initial_money": 50,
+      "initial_money": 40,
       "initial_inventory": {},
       "production": {
         "base_output_quantity": 1.2,
         "base_overhead": 1.0,
         "inputs": {
-          "labor": 1,
-          "intermediate_good": 1
+          "labor": 0.5,
+          "intermediate_good": 0.5
         },
         "output": "final_good",
         "price": 7
@@ -120,18 +121,18 @@
         "base_vulnerability": 0.1,
         "vulnerability_variance": 0.05,
         "cost_sharing": {
-          "customer_share": 0.2
+          "customer_share": 0.4
         }
       },
       "geographical_distribution": ["North America", "Europe", "Asia"]
     },
     "household": {
       "count": 30,
-      "initial_money": 8,
+      "initial_money": 5,
       "initial_inventory": {},
       "labor": {
         "endowment": 1,
-        "wage": 0.8
+        "wage": 2
       },
       "consumption": {
         "preference": "final_good",

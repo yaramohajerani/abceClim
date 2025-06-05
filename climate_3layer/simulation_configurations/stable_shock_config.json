@@ -36,14 +36,16 @@
         "description": "Long-term soil degradation affecting commodity production globally",
         "agent_types": ["commodity_producer"],
         "continents": ["all"],
-        "stress_factor": 0.96
+        "stress_factor": 0.96,
+        "stress-mode": "productivity"
       },
       {
         "name": "tropical_heat_stress",
         "description": "Rising temperatures reducing industrial productivity in tropical regions",
         "agent_types": ["intermediary_firm"],
         "continents": ["Africa", "South America"],
-        "stress_factor": 0.95
+        "stress_factor": 0.95,
+        "stress-mode": "overhead"
       }
     ],
     "shock_rules": [
@@ -53,8 +55,9 @@
         "probability": 0.20,
         "agent_types": ["commodity_producer"],
         "continents": ["Africa", "Europe", "Asia"],
-        "stress_factor": 0.6,
-        "duration": 2
+        "stress_factor": 0.5,
+        "duration": 2,
+        "stress-mode": "overhead"
       },
       {
         "name": "severe_climate_event", 
@@ -62,7 +65,7 @@
         "probability": 0.15,
         "agent_types": ["commodity_producer", "intermediary_firm"],
         "continents": ["all"],
-        "stress_factor": 0.4,
+        "stress_factor": 0.3,
         "duration": 3
       }
     ]
@@ -70,7 +73,7 @@
   "agents": {
     "commodity_producer": {
       "count": 4,
-      "initial_money": 100,
+      "initial_money": 10,
       "initial_inventory": {},
       "production": {
         "base_output_quantity": 4,
@@ -82,17 +85,17 @@
         "output": "commodity"
       },
       "climate": {
-        "base_vulnerability": 0.3,
+        "base_vulnerability": 0.4,
         "vulnerability_variance": 0.1,
         "cost_sharing": {
-          "customer_share": 0.8
+          "customer_share": 0.5
         }
       },
       "geographical_distribution": ["Europe", "Asia", "Africa"]
     },
     "intermediary_firm": {
       "count": 3,
-      "initial_money": 200,
+      "initial_money": 20,
       "initial_inventory": {},
       "production": {
         "base_output_quantity": 2.0,
@@ -105,17 +108,17 @@
         "output": "intermediate_good"
       },
       "climate": {
-        "base_vulnerability": 0.1,
+        "base_vulnerability": 0.2,
         "vulnerability_variance": 0.05,
         "cost_sharing": {
-          "customer_share": 0.5
+          "customer_share": 0.2
         }
       },
       "geographical_distribution": ["North America", "Europe"]
     },
     "final_goods_firm": {
       "count": 2,
-      "initial_money": 200,
+      "initial_money": 20,
       "initial_inventory": {},
       "production": {
         "base_output_quantity": 1.0,
@@ -138,7 +141,7 @@
     },
     "household": {
       "count": 20,
-      "initial_money": 50,
+      "initial_money": 5,
       "initial_inventory": {
         "final_good": 0.1
       },
