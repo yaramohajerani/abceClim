@@ -1,0 +1,102 @@
+{
+  "simulation": {
+    "name": "debt_test",
+    "rounds": 3,
+    "result_path": "result_debt_test"
+  },
+  "climate": {
+    "stress_enabled": false,
+    "stress_mode": "overhead",
+    "shock_rules": [],
+    "chronic_rules": []
+  },
+  "agents": {
+    "commodity_producer": {
+      "count": 2,
+      "initial_money": 40,
+      "initial_inventory": {},
+      "production": {
+        "base_output_quantity": 0.8,
+        "base_overhead": 2.0,
+        "inputs": {"labor": 1},
+        "output": "commodity",
+        "price": 1.5
+      },
+      "climate": {
+        "base_vulnerability": 0.1,
+        "vulnerability_variance": 0.05,
+        "cost_sharing": {
+          "customer_share": 0.8
+        }
+      },
+      "geographical_distribution": ["Asia", "Europe"]
+    },
+    "intermediary_firm": {
+      "count": 1,
+      "initial_money": 45,
+      "initial_inventory": {"commodity": 0.5},
+      "production": {
+        "base_output_quantity": 1.0,
+        "base_overhead": 1.5,
+        "inputs": {"labor": 1, "commodity": 1},
+        "output": "intermediate_good",
+        "price": 2.0
+      },
+      "climate": {
+        "base_vulnerability": 0.1,
+        "vulnerability_variance": 0.05,
+        "cost_sharing": {
+          "customer_share": 0.5
+        }
+      },
+      "geographical_distribution": ["Asia", "Europe"]
+    },
+    "final_goods_firm": {
+      "count": 1,
+      "initial_money": 50,
+      "initial_inventory": {"intermediate_good": 0.5},
+      "production": {
+        "base_output_quantity": 1.2,
+        "base_overhead": 1.0,
+        "inputs": {"labor": 1, "intermediate_good": 1},
+        "output": "final_good",
+        "price": 3.0
+      },
+      "climate": {
+        "base_vulnerability": 0.1,
+        "vulnerability_variance": 0.05,
+        "cost_sharing": {
+          "customer_share": 0.2
+        }
+      },
+      "geographical_distribution": ["Asia", "Europe"]
+    },
+    "household": {
+      "count": 5,
+      "initial_money": 2,
+      "labor": {
+        "endowment": 1.0,
+        "wage": 1.0
+      },
+      "consumption": {
+        "budget_fraction": 0.8,
+        "consumption_fraction": 0.8,
+        "preference": "final_good",
+        "minimum_survival_consumption": 3.0
+      },
+      "geographical_distribution": ["all"]
+    }
+  },
+  "data_collection": {
+    "track_goods": {
+      "commodity_producer": ["money", "labor", "commodity"],
+      "intermediary_firm": ["money", "labor", "commodity", "intermediate_good"],
+      "final_goods_firm": ["money", "labor", "intermediate_good", "final_good"],
+      "household": ["money", "labor", "final_good"]
+    }
+  },
+  "visualization": {
+    "create_visualizations": false,
+    "create_dynamic_visualization": false
+  }
+} 

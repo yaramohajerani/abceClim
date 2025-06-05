@@ -23,26 +23,47 @@
   },
   "climate": {
     "stress_enabled": true,
-    "chronic_stress_factor": 0.5,
     "geographical_effects": true,
+    "stress_mode": "overhead",
+    "agent_stress_modes": {
+      "commodity_producer": "overhead",
+      "intermediary_firm": "overhead",
+      "final_goods_firm": "overhead"
+    },
+    "chronic_rules": [
+      {
+        "name": "agricultural_soil_degradation",
+        "description": "Long-term soil degradation affecting commodity production globally",
+        "agent_types": ["commodity_producer"],
+        "continents": ["all"],
+        "stress_factor": 0.96
+      },
+      {
+        "name": "tropical_heat_stress",
+        "description": "Rising temperatures reducing industrial productivity in tropical regions",
+        "agent_types": ["intermediary_firm"],
+        "continents": ["Africa", "South America"],
+        "stress_factor": 0.95
+      }
+    ],
     "shock_rules": [
       {
         "name": "global_commodity_shock",
         "description": "Global shock affecting all commodity producers",
         "probability": 0.20,
         "agent_types": ["commodity_producer"],
-        "continents": ["all"],
+        "continents": ["Africa", "Europe", "Asia"],
         "stress_factor": 0.6,
-        "duration": 1
+        "duration": 2
       },
       {
         "name": "severe_climate_event", 
         "description": "Severe weather disrupting commodity production",
         "probability": 0.15,
-        "agent_types": ["commodity_producer"],
+        "agent_types": ["commodity_producer", "intermediary_firm"],
         "continents": ["all"],
         "stress_factor": 0.4,
-        "duration": 2
+        "duration": 3
       }
     ]
   },
@@ -64,7 +85,7 @@
         "base_vulnerability": 0.3,
         "vulnerability_variance": 0.1,
         "cost_sharing": {
-          "customer_share": 0.5
+          "customer_share": 0.8
         }
       },
       "geographical_distribution": ["Europe", "Asia", "Africa"]
@@ -87,7 +108,7 @@
         "base_vulnerability": 0.1,
         "vulnerability_variance": 0.05,
         "cost_sharing": {
-          "customer_share": 0.2
+          "customer_share": 0.5
         }
       },
       "geographical_distribution": ["North America", "Europe"]

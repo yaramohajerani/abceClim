@@ -146,7 +146,7 @@
         "preference": "final_good",
         "budget_fraction": 0.8,
         "consumption_fraction": 0.9,
-        "minimum_survival_consumption": 0.2
+        "minimum_survival_consumption": 5
       },
       "geographical_distribution": ["all"]
     }
@@ -160,7 +160,7 @@
     }
   },
   "visualization": {
-    "create_visualizations": true,
+    "create_visualizations": false,
     "create_dynamic_visualization": true
   }
 } 
