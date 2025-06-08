@@ -23,9 +23,14 @@
   },
   "climate": {
     "stress_enabled": false,
-    "acute_stress_probability": 0.15,
-    "chronic_stress_factor": 0.96,
     "geographical_effects": true,
+    "stress_mode": "productivity",
+    "overhead_redistribution": {
+      "enabled": true,
+      "household_share": 0.6,
+      "firm_share": 0.4,
+      "distribution_method": "equal"
+    },
     "shock_rules": [
       {
         "name": "global_commodity_shock",
@@ -33,8 +38,8 @@
         "probability": 0.20,
         "agent_types": ["commodity_producer"],
         "continents": ["all"],
-        "stress_factor": 0.6,
-        "duration": 1
+        "productivity_stress_factor": 0.6,
+        "stress_mode": "productivity"
       },
       {
         "name": "severe_climate_event", 
@@ -42,8 +47,8 @@
         "probability": 0.15,
         "agent_types": ["commodity_producer"],
         "continents": ["all"],
-        "stress_factor": 0.4,
-        "duration": 2
+        "productivity_stress_factor": 0.4,
+        "stress_mode": "productivity"
       }
     ]
   },
@@ -130,7 +135,7 @@
         "preference": "final_good",
         "budget_fraction": 0.8,
         "consumption_fraction": 0.9,
-        "minimum_survival_consumption": 0.2
+        "minimum_survival_consumption": 3
       },
       "geographical_distribution": ["all"]
     }

@@ -273,6 +273,10 @@ class CommodityProducer(abce.Agent, abce.Firm):
             self.spend_money_with_debt(self.overhead_absorbed, "overhead costs")
             money_after = self['money']
             
+            # Track overhead absorbed for potential redistribution by climate framework
+            if hasattr(self, 'climate_framework'):
+                self.climate_framework.total_overhead_absorbed_by_firms += self.overhead_absorbed
+            
             print(f"    Dynamic pricing for Commodity Producer {self.id}:")
             print(f"      Input cost per unit: ${input_cost_per_unit:.2f}")
             print(f"      Overhead per unit: ${overhead_cost_per_unit:.2f} (total overhead: ${self.current_overhead:.2f})")

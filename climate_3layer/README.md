@@ -20,24 +20,44 @@ This model uses an **overhead-based climate impact system** where climate stress
 
 ### Climate Impact Mechanism
 
-The model supports **two climate stress modes** that can be configured per agent type:
+The model supports **multiple climate stress modes** that can be configured per agent type and per climate event:
 
-**Overhead Cost Mode (Recommended for Commodity Producers):**
+**Overhead Cost Mode (Recommended for Infrastructure/Legal impacts):**
 - **Base Overhead**: Fixed operational costs per round (configured per agent type)
 - **Current Overhead**: Base overhead multiplied by stress factors from climate events
 - **Cost Sharing**: Configurable split between firm absorption vs. customer price pass-through
+- **Money Conservation**: Overhead costs absorbed by firms are redistributed to other agents to maintain economic equilibrium
 
-**Productivity Mode (Recommended for Manufacturing):**
+**Productivity Mode (Recommended for Direct Production impacts):**
 - **Base Production**: Baseline production capacity
 - **Current Production**: Base production multiplied by stress factors from climate events
 - Climate stress directly reduces output quantity
 
-**Stress Types (Both Modes):**
-- **Acute Stress**: Temporary impacts from discrete climate events
+**Combined Mode ("both"):**
+- Both overhead and productivity impacts can be applied simultaneously
+- Each climate event can specify separate stress factors for productivity and overhead
+- Enables modeling complex climate impacts (e.g., extreme weather reducing output AND increasing repair costs)
+
+**Stress Types (All Modes):**
+- **Acute Stress**: Temporary impacts from discrete climate events with gradual recovery
 - **Chronic Stress**: Permanent degradation from long-term climate change
 
-**3Layer Model Configuration:**
-All agents in the 3layer model use **overhead mode** by default, as the core design principle is that climate stress manifests as increased operational costs (CapEx, legal fees, damages, disruptions) rather than direct productivity losses. This reflects the reality that firms rarely lose productive capacity directly, but instead face higher costs when dealing with climate challenges.
+**Enhanced Configuration Options:**
+- **Per-Event Stress Modes**: Each chronic rule and shock rule can specify different stress modes
+- **Separate Stress Factors**: `productivity_stress_factor` and `overhead_stress_factor` can be configured independently
+- **Backward Compatibility**: Legacy `stress_factor` parameter still supported for existing configurations
+
+**Money Conservation & Redistribution:**
+When firms absorb overhead costs (cannot pass to customers), these costs are redistributed throughout the economy:
+- **Household Share**: Percentage redistributed to households as income (default: 60%)
+- **Firm Share**: Percentage redistributed to other firms as business income (default: 40%)
+- **Total Conservation**: All overhead costs are redistributed, maintaining total money supply
+
+**Debt Mechanism:**
+Firms facing overwhelming overhead costs or reduced productivity may go into debt if sales cannot cover expenses:
+- **Automatic Debt Creation**: When expenses exceed available money
+- **Debt Repayment**: Automatic debt reduction when cash becomes available
+- **Survival Operations**: Firms continue operating even with debt to maintain supply chains
 
 ### Dynamic Pricing System
 
@@ -73,28 +93,51 @@ This creates automatic supply chain coordination without central planning.
   },
   "climate": {
     "stress_enabled": true/false,
-    "stress_mode": "productivity",
+    "stress_mode": "both",
     "agent_stress_modes": {
-      "commodity_producer": "overhead",
-      "intermediary_firm": "overhead", 
-      "final_goods_firm": "overhead"
+      "commodity_producer": "both",
+      "intermediary_firm": "both", 
+      "final_goods_firm": "both"
+    },
+    "overhead_redistribution": {
+      "enabled": true,
+      "household_share": 0.6,
+      "firm_share": 0.4,
+      "distribution_method": "equal"
     },
     "chronic_rules": [
       {
-        "name": "rule_name",
+        "name": "soil_degradation",
         "agent_types": ["commodity_producer"],
         "continents": ["all"],
-        "stress_factor": 0.99,
-        "stress_mode": "overhead"
+        "productivity_stress_factor": 0.98,
+        "stress_mode": "productivity"
+      },
+      {
+        "name": "heat_stress_combined",
+        "agent_types": ["intermediary_firm"],
+        "continents": ["Africa", "South America"],
+        "productivity_stress_factor": 0.97,
+        "overhead_stress_factor": 1.03,
+        "stress_mode": "both"
       }
     ],
     "shock_rules": [
       {
-        "name": "shock_name", 
-        "probability": 0.1,
+        "name": "extreme_weather", 
+        "probability": 0.25,
         "agent_types": ["commodity_producer"],
         "continents": ["Asia"],
-        "stress_factor": 0.7,
+        "productivity_stress_factor": 0.4,
+        "overhead_stress_factor": 1.8,
+        "stress_mode": "both"
+      },
+      {
+        "name": "infrastructure_failure",
+        "probability": 0.15,
+        "agent_types": ["final_goods_firm"],
+        "continents": ["all"],
+        "overhead_stress_factor": 2.0,
         "stress_mode": "overhead"
       }
     ]
@@ -165,6 +208,12 @@ The model generates detailed CSV files tracking:
 - `production_overhead_passed_to_customers`: Overhead included in prices
 - `production_price`: Current market price
 - `debt_created_this_round`: Emergency debt for survival purchases
+- `overhead_redistributed_this_round`: Income received from other agents' overhead costs
+
+**Household Data:**
+- `overhead_redistributed_this_round`: Income received from firms' absorbed overhead costs
+- `debt`: Accumulated debt from survival purchases
+- `debt_created_this_round`: New debt created this round
 
 **Visualization:**
 - Time evolution plots showing overhead, pricing, and debt trends
@@ -177,8 +226,11 @@ The model generates detailed CSV files tracking:
 # Stable economy (no climate stress)
 python start.py simulation_configurations/stable_config.json
 
-# Climate shock scenario  
+# Climate shock scenario (legacy overhead mode)
 python start.py simulation_configurations/stable_shock_config.json
+
+# Enhanced climate stress (both productivity and overhead impacts with redistribution)
+python start.py simulation_configurations/enhanced_shock_config.json
 ```
 
 ## Model Validation
