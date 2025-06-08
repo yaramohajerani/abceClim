@@ -4,16 +4,11 @@ Climate Economics Framework
 
 import random
 import os
-from typing import Dict, List, Any, Optional
+from copy import copy
+from typing import Dict, List, Any
 
 # Define continents and their climate characteristics
-CONTINENTS = {
-    'North America': {'climate_risk': 0.8},
-    'Europe': {'climate_risk': 0.6},
-    'Asia': {'climate_risk': 1.2},
-    'South America': {'climate_risk': 1.0},
-    'Africa': {'climate_risk': 1.1}
-}
+continent_list: List[str] = ['North America', 'Europe',  'Asia', 'South America',  'Africa', 'Oceania']
 
 
 class ClimateFramework:
@@ -30,20 +25,15 @@ class ClimateFramework:
         print(f"Climate Framework initialized")
     
     def assign_geographical_locations(self, agent_groups: Dict[str, List], 
-                                    distribution_rules: Optional[Dict] = None):
+                                    distribution_rules: Dict[str, List]):
         """
         Assign agents to continents and store the assignment plan.
         """
-        if distribution_rules is None:
-            distribution_rules = self._get_default_distribution_rules()
-        
-        continents = list(CONTINENTS.keys())
-        
         for agent_type, agent_group in agent_groups.items():
             if agent_type in distribution_rules:
                 target_continents = distribution_rules[agent_type]
             else:
-                target_continents = continents
+                target_continents = copy(continent_list)
             
             num_agents = agent_group.num_agents
             print(f"  Assigning {num_agents} {agent_type.replace('_', ' ')}s to continents...")
@@ -53,15 +43,9 @@ class ClimateFramework:
             
             for i in range(num_agents):
                 continent = target_continents[i % len(target_continents)]
-                base_vulnerability = 0.1
-                new_vulnerability = base_vulnerability * CONTINENTS[continent]['climate_risk']
+                self.geographical_assignments[agent_type][i] = {'continent': continent}
                 
-                self.geographical_assignments[agent_type][i] = {
-                    'continent': continent,
-                    'vulnerability': new_vulnerability
-                }
-                
-                print(f"    {agent_type.replace('_', ' ').title()} {i} assigned to {continent} (vulnerability: {new_vulnerability:.2f})")
+                print(f"    {agent_type.replace('_', ' ').title()} {i} assigned to {continent}.")
             
             print(f"    Geographical assignment completed for {agent_type}")
     
@@ -72,16 +56,16 @@ class ClimateFramework:
         climate_events = {}
         
         # Apply climate stress based on configured rules
-        shock_rules = self.params.get('shock_rules', [])
-        chronic_rules = self.params.get('chronic_rules', [])
+        shock_rules = self.params['shock_rules']
+        chronic_rules = self.params['chronic_rules']
         
         # Apply chronic stress first (if configured)
-        if chronic_rules:
+        if len(chronic_rules) != 0:
             print(f"\nApplying chronic stress...")
             self._apply_chronic_stress(agent_groups, chronic_rules)
         
         # Apply acute shocks
-        if shock_rules:
+        if len(shock_rules) != 0:
             print(f"\nChecking for acute climate shocks...")
             climate_events = self._apply_shock_rules(agent_groups, shock_rules)
         
@@ -92,26 +76,21 @@ class ClimateFramework:
     def _apply_chronic_stress(self, agent_groups: Dict[str, List], chronic_rules: List[Dict]):
         """Apply chronic climate stress based on rules."""
         for rule in chronic_rules:
-            agent_types = rule.get('agent_types', [])
-            continents = rule.get('continents', ['all'])
-            stress_factor = rule.get('stress_factor', 0.99)
-            
-            print(f"  Applying chronic stress: {rule.get('name', 'unnamed')} (factor: {stress_factor})")
-            
-            self._apply_stress_to_agents(agent_groups, agent_types, continents, stress_factor, 'chronic')
+            print(f"  Applying chronic stress: {rule.get('name', 'unnamed')} (factor: {rule['stress_factor']})")
+            self._apply_stress_to_agents(agent_groups, rule['agent_types'], rule['continents'], rule['stress_factor'], 'chronic')
     
     def _apply_shock_rules(self, agent_groups: Dict[str, List], shock_rules: List[Dict]) -> Dict[str, str]:
         """Apply acute climate shocks based on configured rules."""
         climate_events = {}
         
         for rule in shock_rules:
-            probability = rule.get('probability', 0.1)
+            probability = rule['probability']
             
             if random.random() < probability:
-                rule_name = rule.get('name', 'climate_shock')
-                agent_types = rule.get('agent_types', [])
-                continents = rule.get('continents', ['all'])
-                stress_factor = rule.get('stress_factor', 0.7)
+                rule_name = rule.get('name', 'unnamed_shock')
+                agent_types = rule['agent_types']
+                continents = rule['continents']
+                stress_factor = rule['stress_factor']
                 
                 print(f"  CLIMATE SHOCK: {rule_name} (factor: {stress_factor})")
                 
@@ -133,7 +112,7 @@ class ClimateFramework:
                               stress_type: str):
         """Apply stress to specific agent types in specific continents."""
         if 'all' in target_continents:
-            target_continents = list(CONTINENTS.keys())
+            target_continents = copy(continent_list)
         
         for agent_type in target_agent_types:
             if agent_type not in agent_groups:
@@ -143,7 +122,7 @@ class ClimateFramework:
             agent_group = agent_groups[agent_type]
             
             # Apply stress using appropriate method
-            method_name = 'apply_chronic_stress' if stress_type == 'chronic' else 'apply_climate_stress'
+            method_name = 'apply_chronic_stress' if stress_type == 'chronic' else 'apply_acute_stress'
             
             if hasattr(agent_group, method_name):
                 try:
@@ -175,34 +154,20 @@ class ClimateFramework:
         # Add climate events
         for round_num, events in enumerate(self.climate_events_history):
             for event_key, event_data in events.items():
-                if isinstance(event_data, dict):
-                    # New format with event details
-                    continents = event_data.get('continents', ['all'])
-                    if 'all' in continents:
-                        continents = list(CONTINENTS.keys())
-                    
-                    for continent in continents:
-                        summary_data.append({
-                            'agent_type': 'climate_event',
-                            'agent_id': event_key,
-                            'round': round_num,
-                            'continent': continent,
-                            'vulnerability': CONTINENTS[continent]['climate_risk'],
-                            'data_type': 'climate_shock',
-                            'event_name': event_key,
-                            'stress_factor': event_data.get('stress_factor', 1.0)
-                        })
-                else:
-                    # Simple format
+                continents = event_data['continents']
+
+                if 'all' in continents:
+                    continents = copy(continent_list)
+                
+                for continent in continents:
                     summary_data.append({
                         'agent_type': 'climate_event',
                         'agent_id': event_key,
                         'round': round_num,
-                        'continent': 'all',
-                        'vulnerability': 1.0,
-                        'data_type': 'simple_stress',
+                        'continent': continent,
+                        'data_type': 'climate_shock',
                         'event_name': event_key,
-                        'stress_factor': 1.0
+                        'stress_factor': event_data['stress_factor']
                     })
         
         if summary_data:
@@ -221,16 +186,6 @@ class ClimateFramework:
         else:
             print("No climate data to export")
             return None
-    
-    def _get_default_distribution_rules(self) -> Dict[str, List[str]]:
-        """Default geographical distribution rules for common agent types."""
-        return {
-            'commodity_producer': ['Asia', 'South America', 'Africa'],
-            'intermediary_firm': ['Asia', 'Europe'],
-            'final_goods_firm': ['North America', 'Europe'],
-            'household': list(CONTINENTS.keys()),
-            'firm': ['North America', 'Europe', 'Asia']
-        }
 
 
 # Utility functions for easy integration
@@ -239,16 +194,13 @@ def create_climate_framework(simulation_parameters: Dict[str, Any]) -> ClimateFr
     return ClimateFramework(simulation_parameters)
 
 
-def add_climate_capabilities(agent_class):
+def add_climate_capabilities(agent_class):    
     """
     Decorator to add basic climate stress capabilities to agent classes.
     """
     def init_wrapper(original_init):
         def new_init(self, *args, **kwargs):
             original_init(self, *args, **kwargs)
-            # Add climate attributes if not present
-            if not hasattr(self, 'climate_vulnerability'):
-                self.climate_vulnerability = 0.1
             if not hasattr(self, 'base_output_quantity'):
                 current_output = getattr(self, 'current_output_quantity', 1.0)
                 self.base_output_quantity = current_output
@@ -256,14 +208,14 @@ def add_climate_capabilities(agent_class):
                 self.chronic_stress_accumulated = 1.0
             if not hasattr(self, 'climate_stressed'):
                 self.climate_stressed = False
+
         return new_init
     
-    def apply_climate_stress(self, stress_factor):
+    def apply_acute_stress(self, stress_factor):
         """Apply climate stress to productivity."""
         self.climate_stressed = True
-        if hasattr(self, 'current_output_quantity'):
-            self.current_output_quantity = self.base_output_quantity * stress_factor * self.chronic_stress_accumulated
-            print(f"  {self.__class__.__name__} {self.id}: CLIMATE STRESS! Production: {self.base_output_quantity:.2f} -> {self.current_output_quantity:.2f}")
+        self.current_output_quantity = self.base_output_quantity * stress_factor * self.chronic_stress_accumulated
+        print(f"  {self.__class__.__name__} {self.id}: CLIMATE STRESS! Production: {self.base_output_quantity:.2f} -> {self.current_output_quantity:.2f}")
     
     def reset_climate_stress(self):
         """Reset climate stress to chronic level."""
@@ -283,9 +235,9 @@ def add_climate_capabilities(agent_class):
     # Wrap the original __init__ method
     if hasattr(agent_class, '__init__'):
         agent_class.__init__ = init_wrapper(agent_class.__init__)
-    
+
     # Add climate methods
-    agent_class.apply_climate_stress = apply_climate_stress
+    agent_class.apply_acute_stress = apply_acute_stress
     agent_class.reset_climate_stress = reset_climate_stress
     agent_class.apply_chronic_stress = apply_chronic_stress
     
