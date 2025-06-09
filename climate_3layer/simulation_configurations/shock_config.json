@@ -3,7 +3,7 @@
     "name": "shock_test",
     "trade_logging": "on",
     "random_seed": 42,
-    "rounds": 30,
+    "rounds": 25,
     "result_path": "result_shock_economy"
   },
   "logging": {
@@ -46,7 +46,7 @@
       {
         "name": "extreme_weather_event",
         "description": "Extreme weather disrupting production and damaging infrastructure",
-        "probability": 0.1,
+        "probability": 0.12,
         "agent_types": ["commodity_producer"],
         "continents": ["Africa"],
         "productivity_stress_factor": 0.3,
@@ -55,7 +55,7 @@
       {
         "name": "energy_grid_failure",
         "description": "Climate stress on energy infrastructure increasing operational costs",
-        "probability": 0.1,
+        "probability": 0.12,
         "agent_types": ["intermediary_firm"],
         "continents": ["Asia"],
         "productivity_stress_factor": 0.2,
