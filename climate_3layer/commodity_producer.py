@@ -1,13 +1,6 @@
 import abcEconomics as abce
-import random
-import sys
-import os
-# Add the root directory to Python path to find the climate framework
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from climate_framework import add_climate_capabilities
 
 
-@add_climate_capabilities
 class CommodityProducer(abce.Agent, abce.Firm):
     def init(self, config):
         """ Commodity producers are the first layer in the supply chain.
@@ -33,24 +26,13 @@ class CommodityProducer(abce.Agent, abce.Firm):
         self.base_output_quantity = production_config['base_output_quantity']
         self.current_output_quantity = self.base_output_quantity
         
-        # Calculate minimum production responsibility for intermediary firms' survival needs
-        self.minimum_production_responsibility = config.get('commodity_minimum_per_producer', 0.0)
-        
-        # Climate stress parameters from configuration
-        climate_config = config['climate']
-        base_vulnerability = climate_config['base_vulnerability']
-        vulnerability_variance = climate_config['vulnerability_variance']
-        self.climate_vulnerability = base_vulnerability + (self.id * vulnerability_variance)
-        self.chronic_stress_accumulated = 1.0  # Multiplicative factor
-        self.climate_stressed = False  # Track if currently stressed
-        
         # Overhead costs (CapEx, legal, damages, business interruptions, etc.)
         self.base_overhead = production_config.get('base_overhead', 1.0)  # Fixed base overhead per round
         self.current_overhead = self.base_overhead  # Current overhead (increases with climate stress)
         
         # Climate cost sharing parameters
-        cost_sharing_config = climate_config.get('cost_sharing', {'customer_share': 0.5})
-        self.customer_share = cost_sharing_config['customer_share']
+        climate_config = config['climate']
+        self.customer_share = climate_config['customer_cost_sharing']
         self.producer_share = 1.0 - self.customer_share
         
         # Financial tracking for dynamic pricing
@@ -60,7 +42,7 @@ class CommodityProducer(abce.Agent, abce.Firm):
         self.overhead_passed_to_customers = 0  # How much overhead passed to price
         self.revenue = 0
         self.profit = 0
-        self.profit_margin = production_config.get('profit_margin', 0.0)
+        self.profit_margin = production_config['profit_margin']
         self.actual_margin = 0
         
         # No initial price calculation - price will be calculated dynamically after purchasing inputs
@@ -85,8 +67,6 @@ class CommodityProducer(abce.Agent, abce.Firm):
         print(f"Commodity Producer {self.id} initialized:")
         print(f"  Initial money: ${initial_money}")
         print(f"  Production capacity: {self.base_output_quantity}")
-        print(f"  Minimum production responsibility: {self.minimum_production_responsibility:.3f}")
-        print(f"  Climate vulnerability: {self.climate_vulnerability:.3f}")
         print(f"  Profit margin target: {self.profit_margin*100:.1f}%")
         print(f"  Will distribute to {self.intermediary_count} intermediary firms")
 
@@ -332,9 +312,6 @@ class CommodityProducer(abce.Agent, abce.Firm):
         else:
             self.actual_margin = 0
         
-        # Check if minimum production for intermediary firms is met
-        minimum_production_met = cumulative_inventory >= self.minimum_production_responsibility
-        
         # Log the data using abcEconomics logging
         self.log('production', {
             'production': self.production_this_round,
@@ -344,8 +321,6 @@ class CommodityProducer(abce.Agent, abce.Firm):
             'labor_purchased': self.labor_purchased,
             'money': current_money,
             'debt': self.debt,
-            'minimum_production_responsibility': self.minimum_production_responsibility,
-            'minimum_production_met': minimum_production_met,
             'debt_created_this_round': self.debt_created_this_round,
             'revenue': self.revenue,
             'input_costs': self.total_input_costs,
@@ -360,8 +335,7 @@ class CommodityProducer(abce.Agent, abce.Firm):
             'price': self.price[self.output]
         })
         
-        print(f"    Commodity Producer {self.id}: Logged - Production: {self.production_this_round:.2f}, Sales: {self.sales_this_round:.2f}, Labor purchased: {self.labor_purchased:.2f}, Inventory: {cumulative_inventory:.2f}, Money: ${current_money:.2f}, Price: ${self.price[self.output]:.2f}, Overhead: ${self.current_overhead:.2f}, Profit: ${self.profit:.2f}, Min. production met: {minimum_production_met}, Debt: ${self.debt:.2f}, Debt created this round: ${self.debt_created_this_round:.2f}")
-
+        print(f"    Commodity Producer {self.id}: Logged - Production: {self.production_this_round:.2f}, Sales: {self.sales_this_round:.2f}, Labor purchased: {self.labor_purchased:.2f}, Inventory: {cumulative_inventory:.2f}, Money: ${current_money:.2f}, Price: ${self.price[self.output]:.2f}, Overhead: ${self.current_overhead:.2f}, Profit: ${self.profit:.2f}, Debt: ${self.debt:.2f}, Debt created this round: ${self.debt_created_this_round:.2f}")
 
 
     def _collect_agent_data(self, round_num, agent_type):
@@ -373,6 +347,5 @@ class CommodityProducer(abce.Agent, abce.Firm):
             'wealth': self['money'],
             'climate_stressed': self.climate_stressed,
             'continent': getattr(self, 'continent', 'Unknown'),
-            'vulnerability': getattr(self, 'climate_vulnerability', 0),
             'production': self.current_output_quantity
         } 

@@ -46,6 +46,10 @@ class Household(abce.Agent):
         # Initialize utility tracking
         self.utility = 0.0
         
+        # Climate framework requirements (households don't produce but framework expects these)
+        self.current_output_quantity = 1.0  # For labor capacity
+        self.current_overhead = 0.0  # Households have no overhead
+        
         # Get firm counts from config for labor distribution
         self.commodity_producer_count = config['commodity_producer_count']
         self.intermediary_firm_count = config['intermediary_firm_count']

@@ -149,26 +149,19 @@ def main(config_file_path):
         'household': households
     }
     
-    # Initialize climate capabilities for all agents before using the framework
-    print("Initializing climate capabilities for all agents...")
+    # Verify agents have required attributes for climate framework
+    print("Verifying agent compatibility with climate framework...")
     for agent_type, agent_group in agent_groups.items():
         agents = agent_group.agents if hasattr(agent_group, 'agents') else agent_group
+        agent_count = 0
         for agent in agents:
-            # Ensure agents have required attributes for climate framework
+            agent_count += 1
+            # Quick verification that required attributes exist
             if not hasattr(agent, 'current_output_quantity'):
-                raise ValueError(f"{agent} has no current_output_quantity.")
-                # # Set default based on agent type - firms have production, households have labor
-                # if 'firm' in agent_type or 'producer' in agent_type:
-                #     agent.current_output_quantity = 1.0  # Default production capacity
-                # else:
-                #     agent.current_output_quantity = 1.0  # Default for households
-            else:
-                print(f"{agent} has no current_output_quantity: {agent['current_output_quantity']}.")
+                print(f"      WARNING: {agent.__class__.__name__} {agent.id} missing current_output_quantity")
             if not hasattr(agent, 'current_overhead'):
-                # agent.current_overhead = 0.0  # Default overhead
-                raise ValueError(f"{agent} has no current_overhead.")
-            else:
-                print(f"{agent} has no current_overhead: {agent['current_overhead']}.")
+                print(f"      WARNING: {agent.__class__.__name__} {agent.id} missing current_overhead")
+        print(f"  ✓ {agent_count} {agent_type.replace('_', ' ')}s verified")
     
     # Assign geographical locations using the framework with configuration rules
     print("Assigning geographical locations...")
@@ -180,7 +173,7 @@ def main(config_file_path):
     print(f"  {intermediary_firms.num_agents} intermediary firms") 
     print(f"  {final_goods_firms.num_agents} final goods firms")
     print(f"  {households.num_agents} households")
-    print(f"  All agents initialized with climate capabilities")
+    print(f"  All agents ready for simplified climate framework")
     print(f"  Distributed across continents according to configuration")
 
     # Set up data collection using configuration

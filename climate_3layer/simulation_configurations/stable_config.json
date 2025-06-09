@@ -24,33 +24,8 @@
   "climate": {
     "stress_enabled": false,
     "geographical_effects": true,
-    "stress_mode": "productivity",
-    "overhead_redistribution": {
-      "enabled": true,
-      "household_share": 0.6,
-      "firm_share": 0.4,
-      "distribution_method": "equal"
-    },
-    "shock_rules": [
-      {
-        "name": "global_commodity_shock",
-        "description": "Global shock affecting all commodity producers",
-        "probability": 0.20,
-        "agent_types": ["commodity_producer"],
-        "continents": ["all"],
-        "productivity_stress_factor": 0.6,
-        "stress_mode": "productivity"
-      },
-      {
-        "name": "severe_climate_event", 
-        "description": "Severe weather disrupting commodity production",
-        "probability": 0.15,
-        "agent_types": ["commodity_producer"],
-        "continents": ["all"],
-        "productivity_stress_factor": 0.4,
-        "stress_mode": "productivity"
-      }
-    ]
+    "chronic_rules": [],
+    "shock_rules": []
   },
   "agents": {
     "commodity_producer": {
@@ -69,9 +44,7 @@
       "climate": {
         "base_vulnerability": 0.3,
         "vulnerability_variance": 0.1,
-        "cost_sharing": {
-          "customer_share": 0.5
-        }
+        "customer_cost_sharing": 0.5
       },
       "geographical_distribution": ["Europe", "Asia", "Africa"]
     },
@@ -92,9 +65,7 @@
       "climate": {
         "base_vulnerability": 0.1,
         "vulnerability_variance": 0.05,
-        "cost_sharing": {
-          "customer_share": 0.2
-        }
+        "customer_cost_sharing": 0.2
       },
       "geographical_distribution": ["North America", "Europe"]
     },
@@ -115,9 +86,7 @@
       "climate": {
         "base_vulnerability": 0.05,
         "vulnerability_variance": 0.02,
-        "cost_sharing": {
-          "customer_share": 0.2
-        }
+        "customer_cost_sharing": 0.2
       },
       "geographical_distribution": ["North America", "South America"]
     },

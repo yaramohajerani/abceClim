@@ -2,12 +2,8 @@ import abcEconomics as abce
 import random
 import sys
 import os
-# Add the root directory to Python path to find the climate framework
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from climate_framework import add_climate_capabilities
 
 
-@add_climate_capabilities
 class FinalGoodsFirm(abce.Agent, abce.Firm):
     def init(self, config):
         """ Final goods firms are the third layer in the supply chain.
@@ -33,21 +29,13 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         self.base_output_quantity = production_config['base_output_quantity']
         self.current_output_quantity = self.base_output_quantity
         
-        # Climate stress parameters from configuration
-        climate_config = config['climate']
-        base_vulnerability = climate_config['base_vulnerability']
-        vulnerability_variance = climate_config['vulnerability_variance']
-        self.climate_vulnerability = base_vulnerability + (self.id * vulnerability_variance)
-        self.chronic_stress_accumulated = 1.0  # Multiplicative factor
-        self.climate_stressed = False  # Track if currently stressed
-        
         # Overhead costs (CapEx, legal, damages, business interruptions, etc.)
-        self.base_overhead = production_config.get('base_overhead', 1.0)  # Fixed base overhead per round
+        self.base_overhead = production_config['base_overhead']  # Fixed base overhead per round
         self.current_overhead = self.base_overhead  # Current overhead (increases with climate stress)
         
         # Climate cost sharing parameters
-        cost_sharing_config = climate_config.get('cost_sharing', {'customer_share': 0.5})
-        self.customer_share = cost_sharing_config['customer_share']
+        climate_config = config['climate']
+        self.customer_share = climate_config['customer_cost_sharing']
         self.producer_share = 1.0 - self.customer_share
         
         # Financial tracking for dynamic pricing
@@ -57,7 +45,7 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         self.overhead_passed_to_customers = 0  # How much overhead passed to price
         self.revenue = 0
         self.profit = 0
-        self.profit_margin = production_config.get('profit_margin', 0.0)
+        self.profit_margin = production_config['profit_margin']
         self.actual_margin = 0
         
         # No initial price calculation - price will be calculated dynamically after purchasing inputs
@@ -83,7 +71,6 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         print(f"Final Goods Firm {self.id} initialized:")
         print(f"  Initial money: ${initial_money}")
         print(f"  Production capacity: {self.base_output_quantity}")
-        print(f"  Climate vulnerability: {self.climate_vulnerability:.3f}")
         print(f"  Will distribute to {self.num_households} households")
 
     def start_round(self):
@@ -431,6 +418,5 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
             'wealth': self['money'],
             'climate_stressed': self.climate_stressed,
             'continent': getattr(self, 'continent', 'Unknown'),
-            'vulnerability': getattr(self, 'climate_vulnerability', 0),
             'production': self.current_output_quantity
         } 
