@@ -41,11 +41,6 @@
         },
         "output": "commodity"
       },
-      "climate": {
-        "base_vulnerability": 0.3,
-        "vulnerability_variance": 0.1,
-        "customer_cost_sharing": 0.5
-      },
       "geographical_distribution": ["Europe", "Asia", "Africa"]
     },
     "intermediary_firm": {
@@ -61,11 +56,6 @@
           "commodity": 0.4
         },
         "output": "intermediate_good"
-      },
-      "climate": {
-        "base_vulnerability": 0.1,
-        "vulnerability_variance": 0.05,
-        "customer_cost_sharing": 0.2
       },
       "geographical_distribution": ["North America", "Europe"]
     },
@@ -83,11 +73,6 @@
         },
         "output": "final_good"
       },
-      "climate": {
-        "base_vulnerability": 0.05,
-        "vulnerability_variance": 0.02,
-        "customer_cost_sharing": 0.2
-      },
       "geographical_distribution": ["North America", "South America"]
     },
     "household": {
@@ -102,9 +87,8 @@
       },
       "consumption": {
         "preference": "final_good",
-        "budget_fraction": 0.8,
-        "consumption_fraction": 0.9,
-        "minimum_survival_consumption": 3
+        "consumption_fraction": 0.5,
+        "minimum_survival_consumption": 2
       },
       "geographical_distribution": ["all"]
     }

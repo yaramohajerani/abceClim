@@ -252,6 +252,7 @@ def main(config_file_path):
         final_goods_firms.calculate_sales_after_market_clearing()  # Now calculate actual sales
         final_goods_firms.log_round_data()     # Log with correct sales data
         households.consumption()
+        households.pay_debts()                 # Pay debts at the end of each round 
         households.log_round_data()
         
         # Reset climate stress to chronic levels at end of round (acute stress is temporary)
