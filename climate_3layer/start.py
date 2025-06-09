@@ -8,8 +8,9 @@ as well as households, who both consume from the output of the firms and are emp
 Acute and chronic physical climate stress will be unequally applied to the firms 
 to examine the macroeconomic effects.
 
-This example uses the reusable Climate Framework for geographical distribution,
-climate stress modeling, and visualization.
+This example uses the simplified Climate Framework for geographical distribution,
+climate stress modeling, and visualization. The framework now handles all climate
+functionality internally within the ClimateFramework class.
 
 Simulation parameters are provided through JSON configuration files.
 """
@@ -42,10 +43,6 @@ def main(config_file_path):
     Args:
         config_file_path: Path to the JSON configuration file. If None, uses default "model_config.json"
     """
-    # Load configuration - use provided path or default
-    if config_file_path is None:
-        config_file_path = os.path.join(os.path.dirname(__file__), "model_config.json")
-    
     print(f"🔧 Loading configuration from: {config_file_path}")
     config_loader = load_model_config(config_file_path)
     
@@ -83,9 +80,9 @@ def main(config_file_path):
     if sim_logger:
         # Replace agent print statements with structured logging
         replace_agent_prints_with_logging(sim_logger)
-        print(f"📄 Detailed agent activity will be logged to: {sim_logger.log_file_path}")
+        print(f"Detailed agent activity will be logged to: {sim_logger.log_file_path}")
     else:
-        print("📄 Agent activity logging is disabled")
+        print("Agent activity logging is disabled")
 
     # Build agents for each layer using configuration
     print(f"\n Building agents from configuration...")
@@ -152,8 +149,29 @@ def main(config_file_path):
         'household': households
     }
     
+    # Initialize climate capabilities for all agents before using the framework
+    print("Initializing climate capabilities for all agents...")
+    for agent_type, agent_group in agent_groups.items():
+        agents = agent_group.agents if hasattr(agent_group, 'agents') else agent_group
+        for agent in agents:
+            # Ensure agents have required attributes for climate framework
+            if not hasattr(agent, 'current_output_quantity'):
+                raise ValueError(f"{agent} has no current_output_quantity.")
+                # # Set default based on agent type - firms have production, households have labor
+                # if 'firm' in agent_type or 'producer' in agent_type:
+                #     agent.current_output_quantity = 1.0  # Default production capacity
+                # else:
+                #     agent.current_output_quantity = 1.0  # Default for households
+            else:
+                print(f"{agent} has no current_output_quantity: {agent['current_output_quantity']}.")
+            if not hasattr(agent, 'current_overhead'):
+                # agent.current_overhead = 0.0  # Default overhead
+                raise ValueError(f"{agent} has no current_overhead.")
+            else:
+                print(f"{agent} has no current_overhead: {agent['current_overhead']}.")
+    
     # Assign geographical locations using the framework with configuration rules
-    print("🌍 Assigning geographical locations...")
+    print("Assigning geographical locations...")
     distribution_rules = config_loader.get_geographical_distribution_rules()
     climate_framework.assign_geographical_locations(agent_groups, distribution_rules)
     
@@ -162,6 +180,7 @@ def main(config_file_path):
     print(f"  {intermediary_firms.num_agents} intermediary firms") 
     print(f"  {final_goods_firms.num_agents} final goods firms")
     print(f"  {households.num_agents} households")
+    print(f"  All agents initialized with climate capabilities")
     print(f"  Distributed across continents according to configuration")
 
     # Set up data collection using configuration
@@ -169,7 +188,7 @@ def main(config_file_path):
     print("goods to track: ", goods_to_track)
     
     # Run simulation
-    print(f"\n🚀 Starting simulation for {simulation_parameters['rounds']} rounds...")
+    print(f"\nStarting simulation for {simulation_parameters['rounds']} rounds...")
     for r in range(simulation_parameters['rounds']):
         print(f"Round {r}...", end=" ")
         
@@ -240,11 +259,16 @@ def main(config_file_path):
         households.consumption()
         households.log_round_data()
         
+        # Reset climate stress to chronic levels at end of round (acute stress is temporary)
+        if simulation_parameters['climate_stress_enabled'] and climate_events:
+            if sim_logger:
+                sim_logger.set_phase("Climate Stress Reset")
+            print("  Resetting acute climate stress...")
+            climate_framework.reset_climate_stress(agent_groups)
+        
         # Collect data using the new framework method (still needed for climate data)
         if sim_logger:
             sim_logger.set_phase("Data Collection")
-        # DISABLED: Old panel_log data collection - we now use our own comprehensive logging
-        # climate_framework.collect_panel_data(agent_groups, goods_to_track)
         
         print("completed")
     
@@ -329,9 +353,8 @@ if __name__ == '__main__':
         print("No configuration file provided.")
         sys.exit()
         
-    print("🌍 Climate 3-Layer Economic Model with Configurable Parameters")
+    print(" Climate 3-Layer Economic Model with Configurable Parameters")
     print("=" * 60)
     
     results = main(config_file)
-    print(f"\n✅ Final result summary: {len(results.climate_events_history)} rounds completed")
-    print(f"📊 Configuration-driven simulation successful!") 
+    print(f"\n Final result summary: {len(results.climate_events_history)} rounds completed")
