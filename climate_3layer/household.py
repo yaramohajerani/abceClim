@@ -87,20 +87,23 @@ class Household(abce.Agent):
         
         # first check if there's enough money to get minimum consumption
         additional_inventory_needed = self.minimum_survival_consumption - final_goods_start
-        if additional_inventory_needed < 0:
+        print(f"    DEBUG: Household {self.id} has {final_goods_start}. inventory shortage: {additional_inventory_needed}")
+        if additional_inventory_needed > 0:
             acquired_dry_run = 0
             price_dry_run = 0
             for offer in offers:
                 acquired_dry_run += offer.quantity
                 price_dry_run += offer.quantity * offer.price
             
-                if acquired_dry_run >= abs(additional_inventory_needed):
+                if acquired_dry_run >= additional_inventory_needed:
                     break
         
             # check if we need to create enough debt to get minimum
             debt_neeeded = price_dry_run - money_start
+            print(f"    DEBUG: Household {self.id} needs {debt_neeeded} more money")
 
             if debt_neeeded > 0:
+                print(f"    DEBUG: Household {self.id} created {debt_neeeded} more debt")
                 # Insufficient funds - create money for the shortfall via debt
                 self.create('money', debt_neeeded)
                 
