@@ -1,10 +1,10 @@
 {
   "simulation": {
-    "name": "enhanced_shock_test",
+    "name": "shock_test",
     "trade_logging": "on",
     "random_seed": 42,
-    "rounds": 20,
-    "result_path": "result_enhanced_shock_economy"
+    "rounds": 30,
+    "result_path": "result_shock_economy"
   },
   "logging": {
     "agent_activity_logging": true,
@@ -24,149 +24,107 @@
   "climate": {
     "stress_enabled": true,
     "geographical_effects": true,
-    "overhead_redistribution": {
-      "enabled": true,
-      "household_share": 0.6,
-      "firm_share": 0.4,
-      "distribution_method": "equal"
-    },
     "chronic_rules": [
       {
-        "name": "agricultural_soil_degradation",
-        "description": "Long-term soil degradation affecting commodity production globally",
+        "name": "Commodity productivity loss and overhead increase",
+        "description": "Long term decrease in the yield of plants, production of mines, and increases in overhead",
         "agent_types": ["commodity_producer"],
-        "continents": ["all"],
-        "productivity_stress_factor": 0.98
-      },
-      {
-        "name": "tropical_heat_stress",
-        "description": "Rising temperatures increasing cooling costs and reducing productivity in tropical regions",
-        "agent_types": ["intermediary_firm"],
-        "continents": ["Africa", "South America"],
-        "productivity_stress_factor": 0.97,
-        "overhead_stress_factor": 1.03
+        "continents": ["Asia"],
+        "productivity_stress_factor": 0.92,
+        "overhead_stress_factor": 1.10
       },
       {
         "name": "sea_level_infrastructure_damage",
         "description": "Rising sea levels requiring increased maintenance and insurance costs",
-        "agent_types": ["final_goods_firm"],
-        "continents": ["North America", "Europe"],
-        "overhead_stress_factor": 1.02
+        "agent_types": ["intermediary_firm"],
+        "continents": ["South America"],
+        "productivity_stress_factor": 0.95,
+        "overhead_stress_factor": 1.08
       }
     ],
     "shock_rules": [
       {
         "name": "extreme_weather_event",
         "description": "Extreme weather disrupting production and damaging infrastructure",
-        "probability": 0.25,
+        "probability": 0.1,
         "agent_types": ["commodity_producer"],
-        "continents": ["Africa", "Europe", "Asia"],
-        "productivity_stress_factor": 0.4,
-        "overhead_stress_factor": 1.8
-      },
-      {
-        "name": "supply_chain_disruption", 
-        "description": "Climate-related supply chain disruptions affecting manufacturing",
-        "probability": 0.15,
-        "agent_types": ["intermediary_firm", "final_goods_firm"],
-        "continents": ["all"],
-        "productivity_stress_factor": 0.6,
-        "overhead_stress_factor": 1.4
+        "continents": ["Africa"],
+        "productivity_stress_factor": 0.3,
+        "overhead_stress_factor": 2.5
       },
       {
         "name": "energy_grid_failure",
         "description": "Climate stress on energy infrastructure increasing operational costs",
-        "probability": 0.20,
-        "agent_types": ["intermediary_firm", "final_goods_firm"],
-        "continents": ["North America", "Europe"],
-        "overhead_stress_factor": 2.0
+        "probability": 0.1,
+        "agent_types": ["intermediary_firm"],
+        "continents": ["Asia"],
+        "productivity_stress_factor": 0.2,
+        "overhead_stress_factor": 3.0
       }
     ]
   },
   "agents": {
     "commodity_producer": {
-      "count": 4,
-      "initial_money": 50,
+      "count": 2,
+      "initial_money": 10,
       "initial_inventory": {},
       "production": {
-        "base_output_quantity": 4,
-        "profit_margin": 0.1,
-        "base_overhead": 2.0,
+        "base_output_quantity": 0.9,
+        "profit_margin": 0.0,
+        "base_overhead": 0.05,
         "inputs": {
           "labor": 1
         },
         "output": "commodity"
       },
-      "climate": {
-        "base_vulnerability": 0.4,
-        "vulnerability_variance": 0.1,
-        "cost_sharing": {
-          "customer_share": 0.3
-        }
-      },
-      "geographical_distribution": ["Europe", "Asia", "Africa"]
+      "geographical_distribution": ["Africa", "Asia"]
     },
     "intermediary_firm": {
-      "count": 3,
-      "initial_money": 100,
+      "count": 2,
+      "initial_money": 10,
       "initial_inventory": {},
       "production": {
-        "base_output_quantity": 2.0,
-        "profit_margin": 0.1,
-        "base_overhead": 1.5,
+        "base_output_quantity": 1.5,
+        "profit_margin": 0.0,
+        "base_overhead": 0.05,
         "inputs": {
-          "labor": 0.5,
-          "commodity": 0.4
+          "labor": 0.4,
+          "commodity": 0.6
         },
         "output": "intermediate_good"
       },
-      "climate": {
-        "base_vulnerability": 0.2,
-        "vulnerability_variance": 0.05,
-        "cost_sharing": {
-          "customer_share": 0.4
-        }
-      },
-      "geographical_distribution": ["North America", "Europe"]
+      "geographical_distribution": ["Asia", "South America"]
     },
     "final_goods_firm": {
       "count": 2,
-      "initial_money": 150,
+      "initial_money": 10,
       "initial_inventory": {},
       "production": {
-        "base_output_quantity": 1.0,
-        "profit_margin": 0.1,
-        "base_overhead": 1.0,
+        "base_output_quantity": 3,
+        "profit_margin": 0.0,
+        "base_overhead": 0.05,
         "inputs": {
           "labor": 0.5,
           "intermediate_good": 0.5
         },
         "output": "final_good"
       },
-      "climate": {
-        "base_vulnerability": 0.05,
-        "vulnerability_variance": 0.02,
-        "cost_sharing": {
-          "customer_share": 0.5
-        }
-      },
-      "geographical_distribution": ["North America", "South America"]
+      "geographical_distribution": ["North America", "Europe"]
     },
     "household": {
-      "count": 20,
-      "initial_money": 25,
+      "count": 6,
+      "initial_money": 5,
       "initial_inventory": {
         "final_good": 0.1
       },
       "labor": {
         "endowment": 1,
-        "wage": 5
+        "wage": 10
       },
       "consumption": {
         "preference": "final_good",
-        "budget_fraction": 0.8,
-        "consumption_fraction": 0.9,
-        "minimum_survival_consumption": 2
+        "consumption_fraction": 0.51,
+        "minimum_survival_consumption": 0.5
       },
       "geographical_distribution": ["all"]
     }
@@ -180,7 +138,7 @@
     }
   },
   "visualization": {
-    "create_visualizations": true,
+    "create_visualizations": false,
     "create_dynamic_visualization": true,
     "save_climate_summary": true
   }

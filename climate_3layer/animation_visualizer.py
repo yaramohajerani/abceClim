@@ -18,85 +18,17 @@ def load_geographical_assignments(simulation_path):
     climate_summary_file = os.path.join(simulation_path, 'climate_3_layer_summary.csv')
     
     if not os.path.exists(climate_summary_file):
-        print(f"WARNING: Climate summary file not found: {climate_summary_file}")
-        print(f"   Creating fallback geographical assignments...")
-        
-        # Create default geographical assignments based on typical configuration
-        geographical_assignments = {
-            'commodity_producer': {},
-            'intermediary_firm': {},
-            'final_goods_firm': {},
-            'household': {}
-        }
-        
-        # Try to infer agent counts from CSV files
-        try:
-            # Check commodity producers
-            commodity_file = os.path.join(simulation_path, 'panel_commodity_producer_production.csv')
-            if os.path.exists(commodity_file):
-                df = pd.read_csv(commodity_file)
-                unique_names = df['name'].unique()
-                continents = ['Europe', 'Asia', 'Africa']
-                for i, name in enumerate(unique_names):
-                    agent_id = int(name.replace('commodity_producer', ''))
-                    geographical_assignments['commodity_producer'][agent_id] = {
-                        'continent': continents[i % len(continents)],
-                        'vulnerability': 0.1 + (i * 0.02)
-                    }
-            
-            # Check intermediary firms
-            intermediary_file = os.path.join(simulation_path, 'panel_intermediary_firm_production.csv')
-            if os.path.exists(intermediary_file):
-                df = pd.read_csv(intermediary_file)
-                unique_names = df['name'].unique()
-                continents = ['North America', 'Europe']
-                for i, name in enumerate(unique_names):
-                    agent_id = int(name.replace('intermediary_firm', ''))
-                    geographical_assignments['intermediary_firm'][agent_id] = {
-                        'continent': continents[i % len(continents)],
-                        'vulnerability': 0.08 + (i * 0.02)
-                    }
-            
-            # Check final goods firms
-            final_goods_file = os.path.join(simulation_path, 'panel_final_goods_firm_production.csv')
-            if os.path.exists(final_goods_file):
-                df = pd.read_csv(final_goods_file)
-                unique_names = df['name'].unique()
-                continents = ['North America', 'South America']
-                for i, name in enumerate(unique_names):
-                    agent_id = int(name.replace('final_goods_firm', ''))
-                    geographical_assignments['final_goods_firm'][agent_id] = {
-                        'continent': continents[i % len(continents)],
-                        'vulnerability': 0.05 + (i * 0.01)
-                    }
-            
-            # Check households
-            household_file = os.path.join(simulation_path, 'panel_household_consumption.csv')
-            if os.path.exists(household_file):
-                df = pd.read_csv(household_file)
-                unique_names = df['name'].unique()
-                continents = ['North America', 'Europe', 'Asia', 'South America', 'Africa']
-                for i, name in enumerate(unique_names):
-                    agent_id = int(name.replace('household', ''))
-                    geographical_assignments['household'][agent_id] = {
-                        'continent': continents[i % len(continents)],
-                        'vulnerability': 0.06 + (i * 0.005)
-                    }
-            
-            print(f"SUCCESS: Created fallback geographical assignments for {len(geographical_assignments)} agent types")
-            for agent_type, assignments in geographical_assignments.items():
-                print(f"    {agent_type}: {len(assignments)} agents")
-                
-        except Exception as e:
-            print(f"WARNING: Error creating fallback assignments: {e}")
-        
-        return geographical_assignments
+        print(f"ERROR: Climate summary file not found: {climate_summary_file}")
+        raise FileNotFoundError(f"Climate summary file missing: {climate_summary_file}")
     
     try:
         df = pd.read_csv(climate_summary_file)
         
         # Filter for geographical assignments
         geo_df = df[df['data_type'] == 'geographical_assignment']
+        
+        if len(geo_df) == 0:
+            raise ValueError("No geographical assignments found in climate summary")
         
         # Convert to the expected format
         geographical_assignments = {}
@@ -105,14 +37,12 @@ def load_geographical_assignments(simulation_path):
             agent_type = row['agent_type']
             agent_id = int(row['agent_id'])
             continent = row['continent']
-            vulnerability = row['vulnerability']
             
             if agent_type not in geographical_assignments:
                 geographical_assignments[agent_type] = {}
             
             geographical_assignments[agent_type][agent_id] = {
-                'continent': continent,
-                'vulnerability': vulnerability
+                'continent': continent
             }
         
         print(f"SUCCESS: Loaded geographical assignments for {len(geographical_assignments)} agent types")
@@ -123,15 +53,15 @@ def load_geographical_assignments(simulation_path):
         
     except Exception as e:
         print(f"ERROR: Error loading geographical assignments: {e}")
-        return {}
+        raise
 
 def load_climate_events(simulation_path):
     """Load climate events from the climate summary CSV file."""
     climate_summary_file = os.path.join(simulation_path, 'climate_3_layer_summary.csv')
     
     if not os.path.exists(climate_summary_file):
-        print(f"WARNING: Climate summary file not found: {climate_summary_file}")
-        return []
+        print(f"ERROR: Climate summary file not found: {climate_summary_file}")
+        raise FileNotFoundError(f"Climate summary file missing: {climate_summary_file}")
     
     try:
         df = pd.read_csv(climate_summary_file)
@@ -161,13 +91,17 @@ def load_climate_events(simulation_path):
                         first_row = event_rows.iloc[0]
                         continents_affected = list(event_rows['continent'].unique())
                         
+                        # Extract agent types from the data_type field (which contains the rule name)
+                        # The agent types affected are implicit from which agents are in the targeted continents
+                        agent_types = []  # We'll determine this from the geographical assignments
+                        
                         events_dict[event_name] = {
                             'type': 'configurable_shock',
                             'rule_name': first_row['data_type'],
-                            'agent_types': first_row['affected_agent_types'].split(',') if pd.notna(first_row['affected_agent_types']) else [],
+                            'agent_types': agent_types,  # Will be filled later
                             'continents': continents_affected,
-                            'stress_factor': float(first_row['stress_factor']) if pd.notna(first_row['stress_factor']) else 1.0,
-                            'estimated_recovery_rounds': int(first_row['estimated_recovery_rounds']) if pd.notna(first_row['estimated_recovery_rounds']) else 1,
+                            'productivity_stress_factor': float(first_row['productivity_stress_factor']),
+                            'overhead_stress_factor': float(first_row['overhead_stress_factor']),
                             'affected_agents': {}
                         }
                 
@@ -190,7 +124,7 @@ def load_climate_events(simulation_path):
         print(f"ERROR: Error loading climate events: {e}")
         import traceback
         traceback.print_exc()
-        return []
+        raise
 
 class ClimateFrameworkFromData:
     """Simple climate framework that loads data from CSV files."""
@@ -207,9 +141,9 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
         'production': {},
         'wealth': {},
         'inventories': {},
-        'overhead_costs': {},  # Track overhead costs
-        'debt': {},            # Track debt levels
-        'pricing': {}          # Track pricing by layer
+        'overhead_costs': {},
+        'debt': {},
+        'pricing': {}
     }
     
     # Get actual climate events for this round from climate framework
@@ -224,7 +158,7 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
         'household': 'panel_household_consumption.csv'
     }
     
-    # Initialize based on ACTUAL data from CSV files, not hardcoded values
+    # Initialize storage
     round_data['production'] = {}
     round_data['inventories'] = {}
     round_data['overhead_costs'] = {}
@@ -253,21 +187,21 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
                         
                         # Get wealth (money) data
                         if agent_type == 'household':
-                            wealth = row.get('consumption_money', row.get('money', 0))
-                            debt = row.get('consumption_debt', row.get('debt', 0))
+                            wealth = row['consumption_money'] if 'consumption_money' in row else row['money']
+                            debt = row['consumption_debt'] if 'consumption_debt' in row else row['debt']
                             production = 0  # Households don't produce
-                            consumption = row.get('consumption_consumption', row.get('consumption', 0))
-                            inventory = row.get('cumulative_inventory', 0)
+                            consumption = row['consumption_consumption'] if 'consumption_consumption' in row else row['consumption']
+                            inventory = row['cumulative_inventory']
                             overhead = 0  # Households don't have overhead
                             price = 0     # Households don't set prices
                         else:
-                            wealth = row.get('money', 0)
-                            debt = row.get('debt_created_this_round', row.get('debt', 0))
-                            production = row.get('production', 0)
+                            wealth = row['money']
+                            debt = row['debt_created_this_round'] if 'debt_created_this_round' in row else row['debt']
+                            production = row['production']
                             consumption = 0  # Firms don't consume
-                            inventory = row.get('cumulative_inventory', 0)
-                            overhead = row.get('current_overhead', row.get('overhead', 0))
-                            price = row.get('price', 0)
+                            inventory = row['cumulative_inventory']
+                            overhead = row['current_overhead'] if 'current_overhead' in row else row['overhead']
+                            price = row['price']
                         
                         agent_data = {
                             'id': agent_id,
@@ -282,8 +216,7 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
                             'debt': debt,
                             'overhead': overhead,
                             'price': price,
-                            'continent': get_agent_continent(agent_type, agent_id, climate_framework),
-                            'vulnerability': get_agent_vulnerability(agent_type, agent_id, climate_framework)
+                            'continent': get_agent_continent(agent_type, agent_id, climate_framework)
                         }
                         
                         round_data['agents'].append(agent_data)
@@ -291,9 +224,9 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
                     # Aggregate data by layer - ONLY from actual data, no hardcoding
                     if agent_type == 'household':
                         # Household data
-                        total_consumption = round_df['consumption'].sum() if 'consumption' in round_df.columns else 0
-                        total_inventory = round_df['cumulative_inventory'].sum() if 'cumulative_inventory' in round_df.columns else 0
-                        total_debt = round_df['debt'].sum() if 'debt' in round_df.columns else 0
+                        total_consumption = round_df['consumption'].sum()
+                        total_inventory = round_df['cumulative_inventory'].sum()
+                        total_debt = round_df['debt'].sum()
                         
                         round_data['production']['household'] = total_consumption  # Track consumption as "production" for households
                         round_data['inventories']['household'] = total_inventory
@@ -302,11 +235,11 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
                         round_data['pricing']['household'] = 0  # Households don't set prices
                     else:
                         # Production agent data
-                        total_production = round_df['production'].sum() if 'production' in round_df.columns else 0
-                        total_inventory = round_df['cumulative_inventory'].sum() if 'cumulative_inventory' in round_df.columns else 0
-                        total_overhead = round_df['current_overhead'].sum() if 'current_overhead' in round_df.columns else 0
-                        total_debt = round_df['debt_created_this_round'].sum() if 'debt_created_this_round' in round_df.columns else 0
-                        avg_price = round_df['price'].mean() if 'price' in round_df.columns else 0
+                        total_production = round_df['production'].sum()
+                        total_inventory = round_df['cumulative_inventory'].sum()
+                        total_overhead = round_df['current_overhead'].sum() if 'current_overhead' in round_df.columns else round_df['overhead'].sum()
+                        total_debt = round_df['debt_created_this_round'].sum() if 'debt_created_this_round' in round_df.columns else round_df['debt'].sum()
+                        avg_price = round_df['price'].mean()
                         
                         # Map to simplified names for visualization
                         if agent_type == 'commodity_producer':
@@ -353,18 +286,15 @@ def is_agent_climate_stressed(agent_type, agent_id, climate_events, climate_fram
     for event_key, event_data in climate_events.items():
         if isinstance(event_data, dict):
             # New configurable shock format
-            affected_agent_types = event_data.get('agent_types', [])
-            affected_continents = event_data.get('continents', [])
+            affected_continents = event_data['continents']
             
-            # Check if this agent type is affected
-            if agent_type in affected_agent_types:
-                # Check if this agent's continent is affected
-                if 'all' in affected_continents:
-                    return True
-                
-                agent_continent = get_agent_continent(agent_type, agent_id, climate_framework)
-                if agent_continent in affected_continents:
-                    return True
+            # Check if this agent's continent is affected
+            if 'all' in affected_continents:
+                return True
+            
+            agent_continent = get_agent_continent(agent_type, agent_id, climate_framework)
+            if agent_continent in affected_continents:
+                return True
         
         elif event_key in ['North America', 'Europe', 'Asia', 'South America', 'Africa']:
             # Old format where event key is continent name
@@ -376,19 +306,8 @@ def is_agent_climate_stressed(agent_type, agent_id, climate_events, climate_fram
 
 def get_agent_continent(agent_type, agent_id, climate_framework):
     """Get the continent assignment for a specific agent."""
-    if agent_type in climate_framework.geographical_assignments:
-        assignments = climate_framework.geographical_assignments[agent_type]
-        if agent_id in assignments:
-            return assignments[agent_id]['continent']
-    return 'Unknown'
-
-def get_agent_vulnerability(agent_type, agent_id, climate_framework):
-    """Get the vulnerability for a specific agent."""
-    if agent_type in climate_framework.geographical_assignments:
-        assignments = climate_framework.geographical_assignments[agent_type]
-        if agent_id in assignments:
-            return assignments[agent_id]['vulnerability']
-    return 0.0
+    assignments = climate_framework.geographical_assignments[agent_type]
+    return assignments[agent_id]['continent']
 
 def create_time_evolution_visualization(visualization_data, simulation_path):
     """Create time-evolving visualization from simulation data."""
@@ -397,9 +316,9 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     
     rounds = visualization_data['rounds']
     
-    # Extract time series data - safely handle missing data
-    def safe_extract(data_list, key, default=0):
-        return [data.get(key, default) for data in data_list]
+    # Extract time series data - no defaults, crash if missing
+    def safe_extract(data_list, key):
+        return [data[key] for data in data_list]
     
     # Production data
     commodity_production = safe_extract(visualization_data['production_data'], 'commodity')

@@ -46,8 +46,14 @@ class ConfigLoader:
         return self.config['agents'][agent_type]
     
     def get_geographical_distribution_rules(self) -> Dict[str, List[str]]:
-        """Get geographical distribution rules."""
-        return self.config.get('geographical_distribution', {})
+        """Get geographical distribution rules from each agent's configuration."""
+        distribution_rules = {}
+        
+        for agent_type, agent_config in self.config['agents'].items():
+            if 'geographical_distribution' in agent_config:
+                distribution_rules[agent_type] = agent_config['geographical_distribution']
+        
+        return distribution_rules
     
     def get_goods_to_track(self) -> Dict[str, List[str]]:
         """Get goods to track for data collection."""

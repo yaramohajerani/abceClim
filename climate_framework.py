@@ -21,6 +21,7 @@ class ClimateFramework:
         self.params = simulation_parameters
         self.climate_events_history = []
         self.geographical_assignments = {}
+        self.agent_climate_data: Dict[tuple, Dict[str, float]] = {}
         
         print(f"Climate Framework initialized")
     
@@ -43,6 +44,7 @@ class ClimateFramework:
             
             for i in range(num_agents):
                 continent = target_continents[i % len(target_continents)]
+                
                 self.geographical_assignments[agent_type][i] = {'continent': continent}
                 
                 print(f"    {agent_type.replace('_', ' ').title()} {i} assigned to {continent}.")
@@ -74,18 +76,47 @@ class ClimateFramework:
         return climate_events
     
     def reset_climate_stress(self, agent_groups: Dict[str, List]):
-        """Reset all climate stress to chronic levels for all agents."""
+        """Reset all acute climate stress effects for all agents."""
+        print("  Resetting acute climate stress...")
+        
         for agent_type, agent_group in agent_groups.items():
             try:
                 agent_count = agent_group.num_agents
+                scheduler = agent_group._scheduler
                 
-                # Access agents by index since abcEconomics groups are not directly iterable
                 for i in range(agent_count):
-                    agent = agent_group[i]
-                    if hasattr(agent, 'climate_stressed'):
-                        self._reset_agent_climate_stress(agent)
+                    # Get agent name and access real agent object
+                    agent_name = (agent_group.agent_name_prefix, i)
+                    
+                    if hasattr(scheduler, 'agents') and agent_name in scheduler.agents:
+                        real_agent = scheduler.agents[agent_name]
+                    else:
+                        real_agent = agent_group[i]
+                    
+                    agent_key = (agent_type, i)
+                    
+                    if agent_key in self.agent_climate_data:
+                        climate_data = self.agent_climate_data[agent_key]
+                        
+                        if climate_data.get('climate_stressed', False):
+                            climate_data['climate_stressed'] = False
+                            
+                            # Reset to chronic level
+                            if hasattr(real_agent, 'current_output_quantity'):
+                                base_output = climate_data['base_output_quantity']
+                                chronic_accumulated = climate_data['chronic_productivity_stress_accumulated']
+                                real_agent.current_output_quantity = base_output * chronic_accumulated
+                                    
+                            if hasattr(real_agent, 'current_overhead'):
+                                base_overhead = climate_data['base_overhead']
+                                chronic_accumulated = climate_data['chronic_overhead_stress_accumulated']
+                                real_agent.current_overhead = base_overhead * chronic_accumulated
+                                
+                            print(f"      {agent_type} {i}: Climate stress cleared")
+                            
             except Exception as e:
-                print(f"Could not reset climate stress for {agent_type}: {e}")
+                print(f"    Could not reset climate stress for {agent_type}: {e}")
+                raise  # Re-raise to see the actual error
     
     def _apply_chronic_stress(self, agent_groups: Dict[str, List], chronic_rules: List[Dict]):
         """Apply chronic climate stress based on rules."""
@@ -156,75 +187,125 @@ class ClimateFramework:
             try:
                 agent_count = agent_group.num_agents
                 
-                # Access agents by index since abcEconomics groups are not directly iterable
+                # Access real agents through the scheduler's agent storage
+                scheduler = agent_group._scheduler
+                
                 for i in range(agent_count):
-                    agent = agent_group[i]
+                    # Get agent name using the group's naming convention
+                    agent_name = (agent_group.agent_name_prefix, i)
+                    
+                    # Access the real agent object from the scheduler
+                    if hasattr(scheduler, 'agents') and agent_name in scheduler.agents:
+                        real_agent = scheduler.agents[agent_name]
+                    else:
+                        # Fallback to the Action object approach if direct access fails
+                        real_agent = agent_group[i]
+                    
                     # Initialize climate capabilities if not present
-                    self._initialize_agent_climate_capabilities(agent)
+                    self._initialize_agent_climate_capabilities(agent_type, i, real_agent)
                     
                     # Apply stress
                     if stress_type == 'chronic':
-                        self._apply_chronic_stress_to_agent(agent, stress_factor, stress_target)
+                        self._apply_chronic_stress_to_agent(agent_type, i, real_agent, stress_factor, stress_target)
                     else:
-                        self._apply_acute_stress_to_agent(agent, stress_factor, stress_target)
+                        self._apply_acute_stress_to_agent(agent_type, i, real_agent, stress_factor, stress_target)
                 
                 print(f"    Applied {stress_target} {stress_type} stress to {agent_count} {agent_type} agents (factor: {stress_factor})")
             except Exception as e:
                 print(f"    Could not apply {stress_type} stress to {agent_type}: {e}")
+                raise  # Re-raise to see the actual error
 
-    def _initialize_agent_climate_capabilities(self, agent):
+    def _initialize_agent_climate_capabilities(self, agent_type, agent_id, agent):
         """Initialize climate stress capabilities for an individual agent."""
-        if not hasattr(agent, 'base_output_quantity'):
-            current_output = getattr(agent, 'current_output_quantity')
-            agent.base_output_quantity = current_output
-        if not hasattr(agent, 'base_overhead'):
-            current_overhead = getattr(agent, 'current_overhead')
-            agent.base_overhead = current_overhead
-        if not hasattr(agent, 'chronic_productivity_stress_accumulated'):
-            agent.chronic_productivity_stress_accumulated = 1.0
-        if not hasattr(agent, 'chronic_overhead_stress_accumulated'):
-            agent.chronic_overhead_stress_accumulated = 1.0
-        if not hasattr(agent, 'climate_stressed'):
-            agent.climate_stressed = False
+        # Use the agent type and index directly to avoid Action object issues
+        agent_key = (agent_type, agent_id)
+        
+        if agent_key not in self.agent_climate_data:
+            # Get the base values from the agent directly
+            try:
+                base_output = getattr(agent, 'base_output_quantity', getattr(agent, 'current_output_quantity'))
+                base_overhead = getattr(agent, 'base_overhead', getattr(agent, 'current_overhead'))
+                
+                # Convert to float to avoid Action objects
+                if hasattr(base_output, '__float__'):
+                    base_output = float(base_output)
+                else:
+                    base_output = 1.0  # Default fallback
+                    
+                if hasattr(base_overhead, '__float__'):
+                    base_overhead = float(base_overhead)  
+                else:
+                    base_overhead = 0.0  # Default fallback
+                
+                self.agent_climate_data[agent_key] = {
+                    'base_output_quantity': base_output,
+                    'base_overhead': base_overhead,
+                    'chronic_productivity_stress_accumulated': 1.0,
+                    'chronic_overhead_stress_accumulated': 1.0,
+                    'climate_stressed': False
+                }
+                
+                print(f"        Initialized climate data for {agent_type} {agent_id}: output={base_output:.2f}, overhead={base_overhead:.2f}")
+                
+            except Exception as e:
+                print(f"        Could not initialize {agent_type} {agent_id}: {e}")
 
-    def _apply_acute_stress_to_agent(self, agent, stress_factor: float, stress_target: str):
+    def _apply_acute_stress_to_agent(self, agent_type, agent_id, agent, stress_factor: float, stress_target: str):
         """Apply acute climate stress to an individual agent."""
-        agent.climate_stressed = True
+        agent_key = (agent_type, agent_id)
+        if agent_key not in self.agent_climate_data:
+            return
+            
+        climate_data = self.agent_climate_data[agent_key]
+        climate_data['climate_stressed'] = True
+        
         if stress_target == 'productivity':
-            agent.current_output_quantity = agent.base_output_quantity * stress_factor * agent.chronic_productivity_stress_accumulated
-            print(f"      {agent.__class__.__name__} {agent.id}: CLIMATE STRESS! Production: {agent.base_output_quantity:.2f} -> {agent.current_output_quantity:.2f}")
+            base_output = climate_data['base_output_quantity']
+            chronic_accumulated = climate_data['chronic_productivity_stress_accumulated']
+            new_output = base_output * float(stress_factor) * chronic_accumulated
+            
+            # Apply to agent - crash if it fails so we can see the error
+            agent.current_output_quantity = new_output
+            print(f"      {agent_type} {agent_id}: CLIMATE STRESS! Production: {base_output:.2f} -> {new_output:.2f}")
+                
         elif stress_target == 'overhead':
             if hasattr(agent, 'current_overhead'):
-                agent.current_overhead = agent.base_overhead * stress_factor * agent.chronic_overhead_stress_accumulated
-                print(f"      {agent.__class__.__name__} {agent.id}: CLIMATE STRESS! Overhead: {agent.base_overhead:.2f} -> {agent.current_overhead:.2f}")
+                base_overhead = climate_data['base_overhead']
+                chronic_accumulated = climate_data['chronic_overhead_stress_accumulated']
+                new_overhead = base_overhead * float(stress_factor) * chronic_accumulated
+                
+                agent.current_overhead = new_overhead
+                print(f"      {agent_type} {agent_id}: CLIMATE STRESS! Overhead: {base_overhead:.2f} -> {new_overhead:.2f}")
             else:
-                print(f"      {agent.__class__.__name__} {agent.id}: No overhead attribute to apply stress to")
+                print(f"      {agent_type} {agent_id}: No overhead attribute to apply stress to")
 
-    def _apply_chronic_stress_to_agent(self, agent, stress_factor: float, stress_target: str):
+    def _apply_chronic_stress_to_agent(self, agent_type, agent_id, agent, stress_factor: float, stress_target: str):
         """Apply chronic climate stress to an individual agent."""
+        agent_key = (agent_type, agent_id)
+        if agent_key not in self.agent_climate_data:
+            return
+            
+        climate_data = self.agent_climate_data[agent_key]
+        
         if stress_target == 'productivity':
-            agent.chronic_productivity_stress_accumulated *= stress_factor
+            climate_data['chronic_productivity_stress_accumulated'] *= stress_factor
+            
+            # Apply to agent's actual attributes if possible
             if hasattr(agent, 'current_output_quantity'):
-                agent.current_output_quantity = agent.base_output_quantity * agent.chronic_productivity_stress_accumulated
-                print(f"      {agent.__class__.__name__} {agent.id}: Chronic productivity stress applied (factor: {stress_factor:.2f})")
+                base_output = climate_data['base_output_quantity']
+                chronic_stress = climate_data['chronic_productivity_stress_accumulated']
+                agent.current_output_quantity = base_output * chronic_stress
+                print(f"      {agent_type} {agent_id}: Chronic productivity stress applied (factor: {stress_factor:.2f})")
+                    
         elif stress_target == 'overhead':
-            agent.chronic_overhead_stress_accumulated *= stress_factor
+            climate_data['chronic_overhead_stress_accumulated'] *= stress_factor
+            
             if hasattr(agent, 'current_overhead'):
-                agent.current_overhead = agent.base_overhead * agent.chronic_overhead_stress_accumulated
-                print(f"      {agent.__class__.__name__} {agent.id}: Chronic overhead stress applied (factor: {stress_factor:.2f})")
-            else:
-                print(f"      {agent.__class__.__name__} {agent.id}: No overhead attribute to apply chronic stress to")
+                base_overhead = climate_data['base_overhead']
+                chronic_stress = climate_data['chronic_overhead_stress_accumulated']
+                agent.current_overhead = base_overhead * chronic_stress
+                print(f"      {agent_type} {agent_id}: Chronic overhead stress applied (factor: {stress_factor:.2f})")
 
-    def _reset_agent_climate_stress(self, agent):
-        """Reset climate stress to chronic level for an individual agent."""
-        if agent.climate_stressed:
-            agent.climate_stressed = False
-            if hasattr(agent, 'current_output_quantity'):
-                agent.current_output_quantity = agent.base_output_quantity * agent.chronic_productivity_stress_accumulated
-            if hasattr(agent, 'current_overhead'):
-                agent.current_overhead = agent.base_overhead * agent.chronic_overhead_stress_accumulated
-            print(f"      {agent.__class__.__name__} {agent.id}: Climate stress cleared")
-    
     def export_climate_summary(self, simulation_path: str = None, filename: str = "climate_summary.csv"):
         """Export a summary of climate events and geographical assignments."""
         import pandas as pd
@@ -257,7 +338,8 @@ class ClimateFramework:
                         'continent': continent,
                         'data_type': 'climate_shock',
                         'event_name': event_key,
-                        'stress_factor': event_data['stress_factor']
+                        'productivity_stress_factor': event_data['productivity_stress_factor'],
+                        'overhead_stress_factor': event_data['overhead_stress_factor']
                     })
         
         if summary_data:
