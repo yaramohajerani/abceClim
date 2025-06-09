@@ -85,94 +85,26 @@ class CommodityProducer(abce.Agent, abce.Firm):
         self.profit = 0
         self.climate_cost_burden = 0  # Track how much extra cost from climate we absorbed
     
-    def spend_money_with_debt(self, amount, description="expense"):
-        """
-        Spend money, creating debt if insufficient funds available.
-        
-        Args:
-            amount: Amount to spend
-            description: Description of the expense for logging
-            
-        Returns:
-            bool: True if expense was handled (with or without debt)
-        """
-        current_money = self['money']
-        
-        if current_money >= amount:
-            # Sufficient funds - pay normally
-            self.destroy('money', amount)
-            print(f"    {self.__class__.__name__} {self.id}: Paid ${amount:.2f} for {description}")
-            return True
-        else:
-            # Insufficient funds - pay what we can and create debt for the rest
-            debt_created = amount - current_money
-            
-            if current_money > 0:
-                self.destroy('money', current_money)
-                print(f"    {self.__class__.__name__} {self.id}: Paid ${current_money:.2f} for {description}")
-            
-            self.debt += debt_created
-            self.debt_created_this_round += debt_created
-            print(f"    {self.__class__.__name__} {self.id}: Created ${debt_created:.2f} debt for {description} (Total debt: ${self.debt:.2f})")
-            return True
-    
-    def receive_money_and_pay_debt(self, amount, source="income"):
-        """
-        Receive money and automatically use it to pay down debt first.
-        
-        Args:
-            amount: Amount of money received
-            source: Source of the money for logging
-        """
-        self.create('money', amount)
-        print(f"    {self.__class__.__name__} {self.id}: Received ${amount:.2f} from {source}")
-        
-        if self.debt > 0:
-            debt_payment = min(amount, self.debt)
-            self.debt -= debt_payment
-            self.destroy('money', debt_payment)
-            print(f"    {self.__class__.__name__} {self.id}: Paid ${debt_payment:.2f} toward debt (Remaining debt: ${self.debt:.2f})")
-    
-    def get_available_money(self):
-        """Get available money (current money minus any reserves if needed)"""
-        return self['money']
-
     def buy_labor(self):
         """ Buy labor from households and track costs for dynamic pricing """
         labor_start = self['labor']
+        money_start = self['money']
         offers = self.get_offers("labor")
-        available_money = self['money']
         
-        print(f"    Commodity Producer {self.id}: Has ${available_money:.2f}, received {len(offers)} labor offers")
-        
-        total_spent = 0
+        print(f"    Commodity Producer {self.id}: Has ${money_start:.2f}, received {len(offers)} labor offers")
         
         for offer in offers:
-            # Simple market purchasing: buy what we can afford
-            if total_spent + (offer.quantity * offer.price) <= available_money:
-                purchase_cost = offer.quantity * offer.price
-                self.accept(offer)
-                total_spent += purchase_cost
-                print(f"      Accepted full labor offer: {offer.quantity:.2f} units for ${purchase_cost:.2f}")
-            else:
-                # Partial purchase within remaining budget
-                remaining_budget = available_money - total_spent
-                if remaining_budget > 0.01:
-                    affordable_quantity = remaining_budget / offer.price
-                    if affordable_quantity > 0.01:
-                        purchase_cost = affordable_quantity * offer.price
-                        self.accept(offer, quantity=affordable_quantity)
-                        total_spent += purchase_cost
-                        print(f"      Partially accepted labor offer: {affordable_quantity:.2f} units for ${purchase_cost:.2f}")
-                    break
-                else:
-                    print(f"      Budget exhausted, skipping remaining offers")
-                    break
+            # abcEcon already takes care of full and partial acceptances based on how much money is available
+            self.accept(offer)
         
         # Track labor purchased this round and costs
         labor_end = self['labor']
         self.labor_purchased = labor_end - labor_start
-        self.total_input_costs += total_spent  # Track for dynamic pricing
+        
+        # get total spend
+        money_end = self['money'] 
+        total_spent = money_start - money_end + self.current_overhead
+        self.total_input_costs += total_spent  # Track for dynamic pricing, also include overhead
         
         print(f"    Commodity Producer {self.id}: Labor purchasing complete:")
         print(f"      Total spent: ${total_spent:.2f}")
@@ -185,13 +117,11 @@ class CommodityProducer(abce.Agent, abce.Firm):
         inventory_before = self[self.output]
         print(f"    Commodity Producer {self.id}: BEFORE production:")
         print(f"      Current output quantity (multiplier): {self.current_output_quantity}")
-        print(f"      Inputs recipe: {self.inputs}")
         for good in ['money', 'labor', self.output]:
             print(f"      {good}: {self[good]:.3f}")
         
         # Update production function with current output quantity (accounting for climate stress)
         self.pf = self.create_cobb_douglas(self.output, self.current_output_quantity, self.inputs)
-        print(f"      Production function created with multiplier: {self.current_output_quantity}, exponents: {self.inputs}")
         
         # Prepare actual input quantities (what we actually have available)
         actual_inputs = {}
@@ -200,13 +130,6 @@ class CommodityProducer(abce.Agent, abce.Firm):
             print(f"      Available {input_good}: {actual_inputs[input_good]:.3f}")
         
         print(f"      Calling production function with actual inputs: {actual_inputs}")
-        
-        # Manual calculation of expected Cobb-Douglas output for verification
-        expected_output = self.current_output_quantity  # multiplier
-        for input_good, exponent in self.inputs.items():
-            available_quantity = actual_inputs[input_good]
-            expected_output *= (available_quantity ** exponent)
-        print(f"      Expected Cobb-Douglas output: {self.current_output_quantity} * {' * '.join([f'{actual_inputs[good]}^{exp}' for good, exp in self.inputs.items()])} = {expected_output:.3f}")
         
         try:
             self.produce(self.pf, actual_inputs)
@@ -230,40 +153,14 @@ class CommodityProducer(abce.Agent, abce.Firm):
             # Calculate input cost per unit
             input_cost_per_unit = self.total_input_costs / self.production_this_round
             
-            # Calculate overhead cost per unit 
-            overhead_cost_per_unit = self.current_overhead / self.production_this_round
-            
-            # Split overhead according to customer_share parameter
-            overhead_to_customers = overhead_cost_per_unit * self.customer_share
-            overhead_absorbed_by_firm = overhead_cost_per_unit * self.producer_share
-            
-            # Track overhead costs for financial reporting
-            self.overhead_absorbed = overhead_absorbed_by_firm * self.production_this_round
-            self.overhead_passed_to_customers = overhead_to_customers * self.production_this_round
-            self.total_overhead_costs = self.current_overhead
-            
             # Price = input costs + profit margin + customer's share of overhead
-            base_cost_per_unit = input_cost_per_unit + overhead_to_customers
-            target_price = base_cost_per_unit * (1 + self.profit_margin)
+            target_price = input_cost_per_unit * (1 + self.profit_margin)
             
             self.price[self.output] = target_price
             
-            # Deduct absorbed overhead costs from firm's money (with debt handling)
-            money_before = self['money']
-            self.spend_money_with_debt(self.overhead_absorbed, "overhead costs")
-            money_after = self['money']
-            
-            # Track overhead absorbed for potential redistribution by climate framework
-            if hasattr(self, 'climate_framework'):
-                self.climate_framework.total_overhead_absorbed_by_firms += self.overhead_absorbed
-            
             print(f"    Dynamic pricing for Commodity Producer {self.id}:")
             print(f"      Input cost per unit: ${input_cost_per_unit:.2f}")
-            print(f"      Overhead per unit: ${overhead_cost_per_unit:.2f} (total overhead: ${self.current_overhead:.2f})")
-            print(f"      Customer bears: ${overhead_to_customers:.2f}/unit ({self.customer_share:.1%})")
-            print(f"      Firm absorbs: ${overhead_absorbed_by_firm:.2f}/unit ({self.producer_share:.1%})")
             print(f"      New price: ${target_price:.2f}")
-            print(f"      💰 Overhead cost deducted: ${self.overhead_absorbed:.2f} (Money: ${money_before:.2f} → ${money_after:.2f})")
         else:
             print(f"    Commodity Producer {self.id}: No production, keeping previous price")
 
@@ -324,9 +221,6 @@ class CommodityProducer(abce.Agent, abce.Firm):
             'debt_created_this_round': self.debt_created_this_round,
             'revenue': self.revenue,
             'input_costs': self.total_input_costs,
-            'overhead_total': self.total_overhead_costs,
-            'overhead_absorbed': self.overhead_absorbed,
-            'overhead_passed_to_customers': self.overhead_passed_to_customers,
             'profit': self.profit,
             'target_margin': self.profit_margin,
             'actual_margin': self.actual_margin,

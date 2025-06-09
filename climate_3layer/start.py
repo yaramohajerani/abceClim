@@ -152,10 +152,12 @@ def main(config_file_path):
     # Verify agents have required attributes for climate framework
     print("Verifying agent compatibility with climate framework...")
     for agent_type, agent_group in agent_groups.items():
-        agents = agent_group.agents if hasattr(agent_group, 'agents') else agent_group
-        agent_count = 0
-        for agent in agents:
-            agent_count += 1
+        agent_count = agent_group.num_agents
+        print(f"  Checking {agent_count} {agent_type.replace('_', ' ')}s...")
+        
+        # Access agents by index since abcEconomics groups are not directly iterable
+        for i in range(agent_count):
+            agent = agent_group[i]
             # Quick verification that required attributes exist
             if not hasattr(agent, 'current_output_quantity'):
                 print(f"      WARNING: {agent.__class__.__name__} {agent.id} missing current_output_quantity")

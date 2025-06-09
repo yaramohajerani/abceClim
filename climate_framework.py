@@ -77,8 +77,11 @@ class ClimateFramework:
         """Reset all climate stress to chronic levels for all agents."""
         for agent_type, agent_group in agent_groups.items():
             try:
-                agents = agent_group.agents if hasattr(agent_group, 'agents') else agent_group
-                for agent in agents:
+                agent_count = agent_group.num_agents
+                
+                # Access agents by index since abcEconomics groups are not directly iterable
+                for i in range(agent_count):
+                    agent = agent_group[i]
                     if hasattr(agent, 'climate_stressed'):
                         self._reset_agent_climate_stress(agent)
             except Exception as e:
@@ -151,9 +154,11 @@ class ClimateFramework:
             
             # Apply stress to individual agents
             try:
-                agents = agent_group.agents if hasattr(agent_group, 'agents') else agent_group
-                count = 0
-                for agent in agents:
+                agent_count = agent_group.num_agents
+                
+                # Access agents by index since abcEconomics groups are not directly iterable
+                for i in range(agent_count):
+                    agent = agent_group[i]
                     # Initialize climate capabilities if not present
                     self._initialize_agent_climate_capabilities(agent)
                     
@@ -162,9 +167,8 @@ class ClimateFramework:
                         self._apply_chronic_stress_to_agent(agent, stress_factor, stress_target)
                     else:
                         self._apply_acute_stress_to_agent(agent, stress_factor, stress_target)
-                    count += 1
                 
-                print(f"    Applied {stress_target} {stress_type} stress to {count} {agent_type} agents (factor: {stress_factor})")
+                print(f"    Applied {stress_target} {stress_type} stress to {agent_count} {agent_type} agents (factor: {stress_factor})")
             except Exception as e:
                 print(f"    Could not apply {stress_type} stress to {agent_type}: {e}")
 
