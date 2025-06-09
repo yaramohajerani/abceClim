@@ -257,17 +257,17 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
                             debt = row.get('consumption_debt', row.get('debt', 0))
                             production = 0  # Households don't produce
                             consumption = row.get('consumption_consumption', row.get('consumption', 0))
-                            inventory = row.get('consumption_cumulative_inventory', row.get('cumulative_inventory', 0))
+                            inventory = row.get('cumulative_inventory', 0)
                             overhead = 0  # Households don't have overhead
                             price = 0     # Households don't set prices
                         else:
-                            wealth = row.get('production_money', row.get('money', 0))
-                            debt = row.get('production_debt_created_this_round', row.get('debt', 0))
-                            production = row.get('production_production', row.get('production', 0))
+                            wealth = row.get('money', 0)
+                            debt = row.get('debt_created_this_round', row.get('debt', 0))
+                            production = row.get('production', 0)
                             consumption = 0  # Firms don't consume
-                            inventory = row.get('production_cumulative_inventory', row.get('cumulative_inventory', 0))
-                            overhead = row.get('production_current_overhead', row.get('current_overhead', row.get('overhead', 0)))
-                            price = row.get('production_price', row.get('price', 0))
+                            inventory = row.get('cumulative_inventory', 0)
+                            overhead = row.get('current_overhead', row.get('overhead', 0))
+                            price = row.get('price', 0)
                         
                         agent_data = {
                             'id': agent_id,
@@ -291,9 +291,9 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
                     # Aggregate data by layer - ONLY from actual data, no hardcoding
                     if agent_type == 'household':
                         # Household data
-                        total_consumption = round_df['consumption_consumption'].sum() if 'consumption_consumption' in round_df.columns else 0
-                        total_inventory = round_df['consumption_cumulative_inventory'].sum() if 'consumption_cumulative_inventory' in round_df.columns else 0
-                        total_debt = round_df['consumption_debt'].sum() if 'consumption_debt' in round_df.columns else 0
+                        total_consumption = round_df['consumption'].sum() if 'consumption' in round_df.columns else 0
+                        total_inventory = round_df['cumulative_inventory'].sum() if 'cumulative_inventory' in round_df.columns else 0
+                        total_debt = round_df['debt'].sum() if 'debt' in round_df.columns else 0
                         
                         round_data['production']['household'] = total_consumption  # Track consumption as "production" for households
                         round_data['inventories']['household'] = total_inventory
@@ -302,11 +302,11 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
                         round_data['pricing']['household'] = 0  # Households don't set prices
                     else:
                         # Production agent data
-                        total_production = round_df['production_production'].sum() if 'production_production' in round_df.columns else 0
-                        total_inventory = round_df['production_cumulative_inventory'].sum() if 'production_cumulative_inventory' in round_df.columns else 0
-                        total_overhead = round_df['production_current_overhead'].sum() if 'production_current_overhead' in round_df.columns else 0
-                        total_debt = round_df['production_debt_created_this_round'].sum() if 'production_debt_created_this_round' in round_df.columns else 0
-                        avg_price = round_df['production_price'].mean() if 'production_price' in round_df.columns else 0
+                        total_production = round_df['production'].sum() if 'production' in round_df.columns else 0
+                        total_inventory = round_df['cumulative_inventory'].sum() if 'cumulative_inventory' in round_df.columns else 0
+                        total_overhead = round_df['current_overhead'].sum() if 'current_overhead' in round_df.columns else 0
+                        total_debt = round_df['debt_created_this_round'].sum() if 'debt_created_this_round' in round_df.columns else 0
+                        avg_price = round_df['price'].mean() if 'price' in round_df.columns else 0
                         
                         # Map to simplified names for visualization
                         if agent_type == 'commodity_producer':

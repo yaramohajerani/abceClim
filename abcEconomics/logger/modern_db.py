@@ -99,11 +99,20 @@ class ModernDbDatabase:
                 _, group, name, round, data_to_write, subround_or_serial = msg
                 table_key = f'panel_{group}_{subround_or_serial}'
                 
-                # Prepare data row
+                # Prepare data row - remove prefixing from column names
+                clean_data = {}
+                for k, v in data_to_write.items():
+                    # Remove the action_name prefix if it exists (e.g., "production_sales" -> "sales")
+                    if '_' in k and k.startswith(subround_or_serial + '_'):
+                        clean_key = k[len(subround_or_serial) + 1:]
+                    else:
+                        clean_key = k
+                    clean_data[clean_key] = v
+                
                 row_data = {
                     'round': str(round),
                     'name': str(name),
-                    **{k: v for k, v in data_to_write.items()}
+                    **clean_data
                 }
                 
                 self.data[table_key].append(row_data)

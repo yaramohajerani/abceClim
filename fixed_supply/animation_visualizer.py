@@ -231,23 +231,23 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
                 agent_id = int(agent_name.replace(agent_type, ''))
                 agent_round_data = round_data[round_data['name'] == agent_name].iloc[0]
                 
-                # Fixed supply model uses prefixed column names
+                # Extract financial data with clean column names
                 if agent_type == 'household':
-                    wealth = agent_round_data.get('consumption_money', 0)
-                    debt = agent_round_data.get('consumption_debt', 0)
+                    wealth = agent_round_data.get('money', 0)
+                    debt = agent_round_data.get('debt', 0)
                     profit = 0  # Households don't have profit
                     actual_margin = 0
                     target_margin = 0
                     climate_cost_absorbed = 0
                     price = 0
                 else:
-                    wealth = agent_round_data.get('production_money', 0)
-                    debt = agent_round_data.get('production_debt', 0)
-                    profit = agent_round_data.get('production_profit', 0)
-                    actual_margin = agent_round_data.get('production_actual_margin', 0)
-                    target_margin = agent_round_data.get('production_target_margin', 0)
-                    climate_cost_absorbed = agent_round_data.get('production_climate_cost_absorbed', 0)
-                    price = agent_round_data.get('production_price', 0)
+                    wealth = agent_round_data.get('money', 0)
+                    debt = agent_round_data.get('debt', 0)
+                    profit = agent_round_data.get('profit', 0)
+                    actual_margin = agent_round_data.get('actual_margin', 0)
+                    target_margin = agent_round_data.get('target_margin', 0)
+                    climate_cost_absorbed = agent_round_data.get('climate_cost_absorbed', 0)
+                    price = agent_round_data.get('price', 0)
                 
                 # Basic agent data
                 agent_info = {
@@ -312,26 +312,26 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
             df = pd.read_csv(filepath)
             round_data = df[df['round'] == round_num]
             
-            # Fixed supply model uses prefixed column names
-            if 'production_production' in round_data.columns:
-                production_data[good_type] = round_data['production_production'].sum()
+            # Check for production data
+            if 'production' in round_data.columns:
+                production_data[good_type] = round_data['production'].sum()
             
-            if 'production_cumulative_inventory' in round_data.columns:
-                inventory_data[good_type] = round_data['production_cumulative_inventory'].sum()
+            if 'cumulative_inventory' in round_data.columns:
+                inventory_data[good_type] = round_data['cumulative_inventory'].sum()
             
-            # Collect financial metrics with prefixed names
-            if 'production_debt' in round_data.columns:
-                financial_data['total_debt'] += round_data['production_debt'].sum()
+            # Collect financial metrics with clean column names
+            if 'debt' in round_data.columns:
+                financial_data['total_debt'] += round_data['debt'].sum()
             
-            if 'production_profit' in round_data.columns:
-                financial_data['total_profit'] += round_data['production_profit'].sum()
+            if 'profit' in round_data.columns:
+                financial_data['total_profit'] += round_data['profit'].sum()
                 
-            if 'production_actual_margin' in round_data.columns and 'production_target_margin' in round_data.columns:
-                margin_deviations = abs(round_data['production_actual_margin'] - round_data['production_target_margin'])
+            if 'actual_margin' in round_data.columns and 'target_margin' in round_data.columns:
+                margin_deviations = abs(round_data['actual_margin'] - round_data['target_margin'])
                 financial_data['avg_margin_deviation'] += margin_deviations.mean()
                 
-            if 'production_climate_cost_absorbed' in round_data.columns:
-                financial_data['climate_cost_total'] += round_data['production_climate_cost_absorbed'].sum()
+            if 'climate_cost_absorbed' in round_data.columns:
+                financial_data['climate_cost_total'] += round_data['climate_cost_absorbed'].sum()
     
     # Add household consumption data
     household_file = os.path.join(simulation_path, 'panel_household_consumption.csv')
@@ -339,9 +339,9 @@ def collect_simulation_data(simulation_path, round_num, climate_framework):
         df = pd.read_csv(household_file)
         round_data = df[df['round'] == round_num]
         
-        # Add household debt to total (with prefixed name)
-        if 'consumption_debt' in round_data.columns:
-            financial_data['total_debt'] += round_data['consumption_debt'].sum()
+        # Add household debt to total 
+        if 'debt' in round_data.columns:
+            financial_data['total_debt'] += round_data['debt'].sum()
     
     # Collect wealth data by sector
     wealth_data = {
