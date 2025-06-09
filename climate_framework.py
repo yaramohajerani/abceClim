@@ -238,7 +238,6 @@ class ClimateFramework:
                     'agent_type': agent_type,
                     'agent_id': agent_id,
                     'continent': info['continent'],
-                    'vulnerability': info['vulnerability'],
                     'data_type': 'geographical_assignment'
                 })
         

@@ -1,8 +1,4 @@
 import abcEconomics as abce
-import random
-import sys
-import os
-
 
 class IntermediaryFirm(abce.Agent, abce.Firm):
     def init(self, config):
@@ -33,16 +29,8 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
         self.base_overhead = production_config['base_overhead']  # Fixed base overhead per round
         self.current_overhead = self.base_overhead  # Current overhead (increases with climate stress)
         
-        # Climate cost sharing parameters
-        climate_config = config['climate']
-        self.customer_share = climate_config['customer_cost_sharing']
-        self.producer_share = 1.0 - self.customer_share
-        
         # Financial tracking for dynamic pricing
         self.total_input_costs = 0
-        self.total_overhead_costs = 0  # Track overhead separately
-        self.overhead_absorbed = 0     # How much overhead firm absorbed this round
-        self.overhead_passed_to_customers = 0  # How much overhead passed to price
         self.revenue = 0
         self.profit = 0
         self.profit_margin = production_config['profit_margin']
@@ -82,58 +70,6 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
         self.inventory_at_start = self[self.output]
         self.debt_created_this_round = 0  # Track debt created for survival purchasing
     
-    def spend_money_with_debt(self, amount, description="expense"):
-        """
-        Spend money, creating debt if insufficient funds available.
-        
-        Args:
-            amount: Amount to spend
-            description: Description of the expense for logging
-            
-        Returns:
-            bool: True if expense was handled (with or without debt)
-        """
-        current_money = self['money']
-        
-        if current_money >= amount:
-            # Sufficient funds - pay normally
-            self.destroy('money', amount)
-            print(f"    {self.__class__.__name__} {self.id}: Paid ${amount:.2f} for {description}")
-            return True
-        else:
-            # Insufficient funds - pay what we can and create debt for the rest
-            debt_created = amount - current_money
-            
-            if current_money > 0:
-                self.destroy('money', current_money)
-                print(f"    {self.__class__.__name__} {self.id}: Paid ${current_money:.2f} for {description}")
-            
-            self.debt += debt_created
-            self.debt_created_this_round += debt_created
-            print(f"    {self.__class__.__name__} {self.id}: Created ${debt_created:.2f} debt for {description} (Total debt: ${self.debt:.2f})")
-            return True
-    
-    def receive_money_and_pay_debt(self, amount, source="income"):
-        """
-        Receive money and automatically use it to pay down debt first.
-        
-        Args:
-            amount: Amount of money received
-            source: Source of the money for logging
-        """
-        self.create('money', amount)
-        print(f"    {self.__class__.__name__} {self.id}: Received ${amount:.2f} from {source}")
-        
-        if self.debt > 0:
-            debt_payment = min(amount, self.debt)
-            self.debt -= debt_payment
-            self.destroy('money', debt_payment)
-            print(f"    {self.__class__.__name__} {self.id}: Paid ${debt_payment:.2f} toward debt (Remaining debt: ${self.debt:.2f})")
-    
-    def get_available_money(self):
-        """Get available money (current money minus any reserves if needed)"""
-        return self['money']
-
     def buy_inputs_optimally(self):
         """ Buy all inputs with optimal money allocation based on Cobb-Douglas exponents to maximize production """
         print(f"    Intermediary Firm {self.id}: Starting optimal input purchasing with ${self['money']:.2f}")
@@ -145,21 +81,7 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
         available_money = self['money']
         current_inventory = self[self.output]
         
-        # Remove minimum production quotas - let market dynamics work naturally
-        # minimum_production_needed = max(0, self.minimum_production_responsibility - current_inventory)
-        
         print(f"      Current inventory: {current_inventory:.2f}")
-        # print(f"      Minimum production responsibility: {self.minimum_production_responsibility:.2f}")
-        # print(f"      Additional production needed: {minimum_production_needed:.2f}")
-        
-        # Remove artificial minimum input requirements
-        # minimum_inputs_needed = {}
-        # if minimum_production_needed > 0:
-        #     required_input_level = minimum_production_needed / self.current_output_quantity
-        #     for input_good in self.inputs.keys():
-        #         minimum_inputs_needed[input_good] = required_input_level
-        
-        # print(f"      Minimum inputs needed: {minimum_inputs_needed}")
         
         # Calculate optimal budget allocation for total available money
         optimal_allocation = self.calculate_optimal_input_allocation(available_money, self.inputs)
@@ -170,9 +92,8 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
         labor_start = self['labor']
         commodities_start = self['commodity']
         total_spent = 0
-        survival_spending = 0
         
-        # Process commodity offers (pure market-based purchasing)
+        # Process commodity offers
         commodity_budget = optimal_allocation['commodity']
         commodity_spent = 0
         
@@ -257,7 +178,7 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
         commodities_end = self['commodity']
         self.labor_purchased = labor_end - labor_start
         self.commodities_purchased = commodities_end - commodities_start
-        self.total_input_costs = total_spent  # Track total costs for dynamic pricing
+        self.total_input_costs = total_spent + self.current_overhead  # Track total costs for dynamic pricing
         
         print(f"    Intermediary Firm {self.id}: Input purchasing complete:")
         print(f"      Total spent: ${total_spent:.2f}")
@@ -280,7 +201,6 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
         
         # Update production function with current output quantity (accounting for climate stress)
         self.pf = self.create_cobb_douglas(self.output, self.current_output_quantity, self.inputs)
-        print(f"      Production function created with multiplier: {self.current_output_quantity}, exponents: {self.inputs}")
         
         # Prepare actual input quantities (what we actually have available)
         actual_inputs = {}
@@ -289,13 +209,6 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
             print(f"      Available {input_good}: {actual_inputs[input_good]:.3f}")
         
         print(f"      Calling production function with actual inputs: {actual_inputs}")
-        
-        # Manual calculation of expected Cobb-Douglas output for verification
-        expected_output = self.current_output_quantity  # multiplier
-        for input_good, exponent in self.inputs.items():
-            available_quantity = actual_inputs[input_good]
-            expected_output *= (available_quantity ** exponent)
-        print(f"      Expected Cobb-Douglas output: {self.current_output_quantity} * {' * '.join([f'{actual_inputs[good]}^{exp}' for good, exp in self.inputs.items()])} = {expected_output:.3f}")
         
         try:
             self.produce(self.pf, actual_inputs)
@@ -319,36 +232,13 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
             # Calculate input cost per unit
             input_cost_per_unit = self.total_input_costs / self.production_this_round
             
-            # Calculate overhead cost per unit 
-            overhead_cost_per_unit = self.current_overhead / self.production_this_round
-            
-            # Split overhead according to customer_share parameter
-            overhead_to_customers = overhead_cost_per_unit * self.customer_share
-            overhead_absorbed_by_firm = overhead_cost_per_unit * self.producer_share
-            
-            # Track overhead costs for financial reporting
-            self.overhead_absorbed = overhead_absorbed_by_firm * self.production_this_round
-            self.overhead_passed_to_customers = overhead_to_customers * self.production_this_round
-            self.total_overhead_costs = self.current_overhead
-            
-            # Price = input costs + profit margin + customer's share of overhead
-            base_cost_per_unit = input_cost_per_unit + overhead_to_customers
-            target_price = base_cost_per_unit * (1 + self.profit_margin)
+            target_price = input_cost_per_unit * (1 + self.profit_margin)
             
             self.price[self.output] = target_price
             
-            # Deduct absorbed overhead costs from firm's money (with debt handling)
-            money_before = self['money']
-            self.spend_money_with_debt(self.overhead_absorbed, "overhead costs")
-            money_after = self['money']
-            
             print(f"    Dynamic pricing for Intermediary Firm {self.id}:")
             print(f"      Input cost per unit: ${input_cost_per_unit:.2f}")
-            print(f"      Overhead per unit: ${overhead_cost_per_unit:.2f} (total overhead: ${self.current_overhead:.2f})")
-            print(f"      Customer bears: ${overhead_to_customers:.2f}/unit ({self.customer_share:.1%})")
-            print(f"      Firm absorbs: ${overhead_absorbed_by_firm:.2f}/unit ({self.producer_share:.1%})")
             print(f"      New price: ${target_price:.2f}")
-            print(f"      💰 Overhead cost deducted: ${self.overhead_absorbed:.2f} (Money: ${money_before:.2f} → ${money_after:.2f})")
         else:
             print(f"    Intermediary Firm {self.id}: No production, keeping previous price")
 
@@ -391,7 +281,7 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
         
         # Calculate revenue and profit (including overhead absorption)
         self.revenue = self.sales_this_round * self.price[self.output]
-        self.profit = self.revenue - self.total_input_costs - self.overhead_absorbed
+        self.profit = self.revenue - self.total_input_costs
         if self.total_input_costs > 0:
             self.actual_margin = self.profit / self.total_input_costs
         else:
@@ -410,9 +300,6 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
             'debt_created_this_round': self.debt_created_this_round,
             'revenue': self.revenue,
             'input_costs': self.total_input_costs,
-            'overhead_total': self.total_overhead_costs,
-            'overhead_absorbed': self.overhead_absorbed,
-            'overhead_passed_to_customers': self.overhead_passed_to_customers,
             'profit': self.profit,
             'target_margin': self.profit_margin,
             'actual_margin': self.actual_margin,

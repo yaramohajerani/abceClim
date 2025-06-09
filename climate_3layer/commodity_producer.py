@@ -30,16 +30,8 @@ class CommodityProducer(abce.Agent, abce.Firm):
         self.base_overhead = production_config.get('base_overhead', 1.0)  # Fixed base overhead per round
         self.current_overhead = self.base_overhead  # Current overhead (increases with climate stress)
         
-        # Climate cost sharing parameters
-        climate_config = config['climate']
-        self.customer_share = climate_config['customer_cost_sharing']
-        self.producer_share = 1.0 - self.customer_share
-        
         # Financial tracking for dynamic pricing
         self.total_input_costs = 0
-        self.total_overhead_costs = 0  # Track overhead separately
-        self.overhead_absorbed = 0     # How much overhead firm absorbed this round
-        self.overhead_passed_to_customers = 0  # How much overhead passed to price
         self.revenue = 0
         self.profit = 0
         self.profit_margin = production_config['profit_margin']
@@ -78,9 +70,6 @@ class CommodityProducer(abce.Agent, abce.Firm):
         self.inventory_at_start = self[self.output]
         self.debt_created_this_round = 0  # Track debt created for survival purchasing
         self.total_input_costs = 0
-        self.total_overhead_costs = 0  # Track overhead separately
-        self.overhead_absorbed = 0     # How much overhead firm absorbed this round
-        self.overhead_passed_to_customers = 0  # How much overhead passed to price
         self.revenue = 0
         self.profit = 0
         self.climate_cost_burden = 0  # Track how much extra cost from climate we absorbed
@@ -203,7 +192,7 @@ class CommodityProducer(abce.Agent, abce.Firm):
         
         # Calculate revenue and profit (including overhead absorption)
         self.revenue = self.sales_this_round * self.price[self.output]
-        self.profit = self.revenue - self.total_input_costs - self.overhead_absorbed
+        self.profit = self.revenue - self.total_input_costs
         if self.total_input_costs > 0:
             self.actual_margin = self.profit / self.total_input_costs
         else:
