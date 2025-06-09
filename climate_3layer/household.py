@@ -85,6 +85,9 @@ class Household(abce.Agent):
         money_start = self['money']
         offers = self.get_offers(self.preferred_good)
         
+        # Sort offers by price (ascending - cheapest first)
+        offers.sort(key=lambda offer: offer.price)
+        
         # first check if there's enough money to get minimum consumption
         additional_inventory_needed = self.minimum_survival_consumption - final_goods_start
         print(f"    DEBUG: Household {self.id} has {final_goods_start}. inventory shortage: {additional_inventory_needed}")

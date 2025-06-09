@@ -78,6 +78,10 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         intermediate_goods_offers = self.get_offers("intermediate_good")
         labor_offers = self.get_offers("labor")
         
+        # Sort offers by price (ascending - cheapest first)
+        intermediate_goods_offers.sort(key=lambda offer: offer.price)
+        labor_offers.sort(key=lambda offer: offer.price)
+        
         available_money = self['money']
         current_inventory = self[self.output]
         

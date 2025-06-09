@@ -78,6 +78,10 @@ class IntermediaryFirm(abce.Agent, abce.Firm):
         commodity_offers = self.get_offers("commodity")
         labor_offers = self.get_offers("labor")
         
+        # Sort offers by price (ascending - cheapest first)
+        commodity_offers.sort(key=lambda offer: offer.price)
+        labor_offers.sort(key=lambda offer: offer.price)
+        
         available_money = self['money']
         current_inventory = self[self.output]
         

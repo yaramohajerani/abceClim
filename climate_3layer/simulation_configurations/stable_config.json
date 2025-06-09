@@ -3,7 +3,7 @@
     "name": "stable_economy_test",
     "trade_logging": "on",
     "random_seed": 42,
-    "rounds": 20,
+    "rounds": 10,
     "result_path": "result_stable_economy"
   },
   "logging": {
@@ -29,66 +29,66 @@
   },
   "agents": {
     "commodity_producer": {
-      "count": 4,
+      "count": 2,
       "initial_money": 100,
       "initial_inventory": {},
       "production": {
-        "base_output_quantity": 4,
+        "base_output_quantity": 0.9,
         "profit_margin": 0.0,
-        "base_overhead": 1.0,
+        "base_overhead": 0.05,
         "inputs": {
           "labor": 1
         },
         "output": "commodity"
       },
-      "geographical_distribution": ["Europe", "Asia", "Africa"]
+      "geographical_distribution": ["Africa", "Asia"]
     },
     "intermediary_firm": {
-      "count": 3,
-      "initial_money": 200,
+      "count": 2,
+      "initial_money": 100,
       "initial_inventory": {},
       "production": {
-        "base_output_quantity": 2.0,
+        "base_output_quantity": 1.5,
         "profit_margin": 0.0,
-        "base_overhead": 0.5,
+        "base_overhead": 0.05,
         "inputs": {
-          "labor": 0.5,
-          "commodity": 0.4
+          "labor": 0.4,
+          "commodity": 0.6
         },
         "output": "intermediate_good"
       },
-      "geographical_distribution": ["North America", "Europe"]
+      "geographical_distribution": ["Asia", "South America"]
     },
     "final_goods_firm": {
       "count": 2,
-      "initial_money": 200,
+      "initial_money": 100,
       "initial_inventory": {},
       "production": {
-        "base_output_quantity": 1.0,
+        "base_output_quantity": 3,
         "profit_margin": 0.0,
-        "base_overhead": 0.5,
+        "base_overhead": 0.05,
         "inputs": {
           "labor": 0.5,
           "intermediate_good": 0.5
         },
         "output": "final_good"
       },
-      "geographical_distribution": ["North America", "South America"]
+      "geographical_distribution": ["North America", "Europe"]
     },
     "household": {
-      "count": 20,
-      "initial_money": 50,
+      "count": 6,
+      "initial_money": 100,
       "initial_inventory": {
         "final_good": 0.1
       },
       "labor": {
         "endowment": 1,
-        "wage": 4
+        "wage": 10
       },
       "consumption": {
         "preference": "final_good",
-        "consumption_fraction": 0.5,
-        "minimum_survival_consumption": 2
+        "consumption_fraction": 0.51,
+        "minimum_survival_consumption": 0.5
       },
       "geographical_distribution": ["all"]
     }

@@ -1,4 +1,5 @@
 import abcEconomics as abce
+from abcEconomics.notenoughgoods import NotEnoughGoods
 
 
 class CommodityProducer(abce.Agent, abce.Firm):
@@ -80,11 +81,19 @@ class CommodityProducer(abce.Agent, abce.Firm):
         money_start = self['money']
         offers = self.get_offers("labor")
         
+        # Sort offers by price (ascending - cheapest first)
+        offers.sort(key=lambda offer: offer.price)
+        
         print(f"    Commodity Producer {self.id}: Has ${money_start:.2f}, received {len(offers)} labor offers")
         
         for offer in offers:
-            # abcEcon already takes care of full and partial acceptances based on how much money is available
-            self.accept(offer)
+            try:
+                # abcEcon already takes care of full and partial acceptances based on how much money is available
+                self.accept(offer)
+            except NotEnoughGoods as e:
+                # If we run out of money during the loop, skip remaining offers
+                print(f"    Commodity Producer {self.id}: Ran out of money, skipping remaining offers. Error: {e}")
+                break
         
         # Track labor purchased this round and costs
         labor_end = self['labor']
