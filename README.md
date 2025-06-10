@@ -6,7 +6,7 @@ This is a fork of [abcEconomics](https://github.com/AB-CE/abce) that updates som
 
 More importantly, this repo builds on the original framework to focus on climate risk propagation in an economic network. **This is work in progress and is by no means finished, so you may often see temporary placeholder values for various parameters and experimental methodologies. Therefore, do not use this code for any real study or application (yet).** If you have any thoughts or would like to contribute, please [reach out](mailto:yara@pluripotent.tech).
 
-For sample analyses and more information on the implemented climate framework, refer to (this post)[https://open.substack.com/pub/yaramo/p/introducing-an-agent-based-modelling?r=5gzbvr&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true].
+For sample analyses and more information on the implemented climate framework, refer to [this post](https://open.substack.com/pub/yaramo/p/introducing-an-agent-based-modelling?r=5gzbvr&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true).
 
 ## Overview
 
