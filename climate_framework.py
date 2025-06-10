@@ -29,15 +29,23 @@ class ClimateFramework:
                                     distribution_rules: Dict[str, List]):
         """
         Assign agents to continents and store the assignment plan.
+        If 'all' is specified in the configuration, agents are distributed across all continents.
         """
         for agent_type, agent_group in agent_groups.items():
             if agent_type in distribution_rules:
-                target_continents = distribution_rules[agent_type]
+                configured_continents = distribution_rules[agent_type]
             else:
+                configured_continents = copy(continent_list)
+            
+            # Handle "all" specification by expanding to all continents
+            if "all" in configured_continents:
                 target_continents = copy(continent_list)
+                print(f"  '{agent_type}' configured for 'all' continents - will distribute across {len(target_continents)} continents")
+            else:
+                target_continents = configured_continents
             
             num_agents = agent_group.num_agents
-            print(f"  Assigning {num_agents} {agent_type.replace('_', ' ')}s to continents...")
+            print(f"  Assigning {num_agents} {agent_type.replace('_', ' ')}s to continents: {target_continents}")
             
             # Store geographical assignments for later use
             self.geographical_assignments[agent_type] = {}

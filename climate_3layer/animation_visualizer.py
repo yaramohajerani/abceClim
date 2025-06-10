@@ -858,7 +858,7 @@ def create_animated_supply_chain(visualization_data, simulation_path):
                                   alpha=0.9, edgecolors='black', linewidth=1)
                         
                         # Add count label
-                        ax4.text(pos_x, pos_y - 0.15, str(counts[agent_type]), 
+                        ax4.text(pos_x, pos_y - 0.15, str(int(counts[agent_type])), 
                                ha='center', va='center', fontsize=6, fontweight='bold')
         
         # Add legend for agent types
