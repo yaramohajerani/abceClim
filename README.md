@@ -17,7 +17,7 @@ The Climate Framework provides a standardized way to:
 - **Generate visualizations** showing geographical networks, climate events, and economic impacts
 - **Export data** for further analysis
 
-## Key Features
+**Key Features include:**
 
 ### 🌍 Geographical Distribution
 - Automatically assigns agents to continents based on configurable rules
