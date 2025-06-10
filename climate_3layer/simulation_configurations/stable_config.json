@@ -3,7 +3,7 @@
     "name": "stable_economy_test",
     "trade_logging": "on",
     "random_seed": 42,
-    "rounds": 10,
+    "rounds": 20,
     "result_path": "result_stable_economy"
   },
   "logging": {

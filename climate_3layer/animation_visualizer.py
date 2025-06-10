@@ -513,7 +513,7 @@ def create_animated_supply_chain(visualization_data, simulation_path):
     # Layout: Network (big left), Production/Inventory (top right), Overhead/Pricing (middle right), 
     #         Geography (bottom left), Wealth (bottom right)
     fig = plt.figure(figsize=(16 , 15)) 
-    fig.suptitle('Climate 3-Layer Supply Chain Evolution (Animated)', fontsize=16, fontweight='bold')
+    fig.suptitle('Climate 3-Layer Supply Chain Evolution', fontsize=16, fontweight='bold')
     
     # Create custom subplot layout
     ax1 = plt.subplot2grid((3, 2), (0, 0), rowspan=2)  # Network plot (big, left side)
