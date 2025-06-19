@@ -14,7 +14,7 @@ from typing import Dict
 # Import the core climate framework
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from climate_framework import CONTINENTS
+from climate_framework import continent_list
 
 
 class SupplyChainVisualizer:
@@ -96,19 +96,11 @@ class SupplyChainVisualizer:
         filename = f'{model_name.lower().replace(" ", "_")}_supply_chain_analysis.png'
         save_path = os.path.join(simulation_path, filename)
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        #plt.show()
         plt.close()
         print(f"Supply chain analysis saved to '{save_path}'")
         
         # Create additional inventory-focused analysis
         self._create_inventory_analysis(economic_data, simulation_path, model_name)
-        
-        # Also create the core climate visualizations
-        self.climate_framework.create_simplified_visualizations(
-            self._convert_to_agent_groups_format(),
-            simulation_path=simulation_path,
-            model_name=model_name
-        )
     
     def _load_supply_chain_data(self, simulation_path: str) -> Dict[str, pd.DataFrame]:
         """Load and organize data specifically for supply chain analysis."""
@@ -473,8 +465,7 @@ class SupplyChainVisualizer:
         """Plot geographic distribution of supply chain impacts."""
         ax.set_title('Geographic Supply Chain Impact', fontweight='bold')
         
-        from climate_framework import CONTINENTS
-        continents = list(CONTINENTS.keys())
+        continents = continent_list
         layers = ['commodity_producer', 'intermediary_firm', 'final_goods_firm']
         
         impact_matrix = np.zeros((len(continents), len(layers)))
@@ -571,8 +562,7 @@ class SupplyChainVisualizer:
                         
                         # Get affected continents
                         if 'all' in event_continents:
-                            from climate_framework import CONTINENTS
-                            event_continents = list(CONTINENTS.keys())
+                            event_continents = continent_list
                         
                         affected_continents.update(event_continents)
                         affected_layers.update(event_agent_types)
@@ -618,8 +608,7 @@ class SupplyChainVisualizer:
                     if isinstance(event_data, dict) and 'continents' in event_data:
                         event_continents = event_data['continents']
                         if 'all' in event_continents:
-                            from climate_framework import CONTINENTS
-                            affected_continents.update(CONTINENTS.keys())
+                            event_continents = continent_list
                         else:
                             affected_continents.update(event_continents)
                     elif event_key in ['North America', 'Europe', 'Asia', 'South America', 'Africa']:
@@ -827,17 +816,6 @@ class SupplyChainVisualizer:
         ax.set_ylim(0, 1)
         ax.axis('off')
     
-    def _convert_to_agent_groups_format(self):
-        """Convert supply chain data for use with core climate framework."""
-        # This is a placeholder - in practice, you'd pass actual agent groups
-        # For now, we'll use the geographical assignments from the climate framework
-        return {
-            'commodity_producer': None,  # Placeholder
-            'intermediary_firm': None,
-            'final_goods_firm': None,
-            'household': None
-        } 
-
     def _create_inventory_analysis(self, economic_data: Dict[str, pd.DataFrame], simulation_path: str, model_name: str):
         """Create additional inventory-focused analysis."""
         print("🏭 Creating inventory analysis...")

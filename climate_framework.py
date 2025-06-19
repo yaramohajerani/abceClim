@@ -409,6 +409,7 @@ class ClimateFramework:
                         'continent': continent,
                         'data_type': 'climate_shock',
                         'event_name': event_key,
+                        'agent_types': ','.join(event_data['agent_types']) if 'agent_types' in event_data else '',
                         'productivity_stress_factor': event_data['productivity_stress_factor'],
                         'overhead_stress_factor': event_data['overhead_stress_factor']
                     })

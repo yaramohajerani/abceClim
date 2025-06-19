@@ -91,14 +91,15 @@ def load_climate_events(simulation_path):
                         first_row = event_rows.iloc[0]
                         continents_affected = list(event_rows['continent'].unique())
                         
-                        # Extract agent types from the data_type field (which contains the rule name)
-                        # The agent types affected are implicit from which agents are in the targeted continents
-                        agent_types = []  # We'll determine this from the geographical assignments
+                        # Extract agent types from the agent_types field
+                        agent_types = []
+                        if 'agent_types' in first_row and pd.notna(first_row['agent_types']) and first_row['agent_types'] != '':
+                            agent_types = first_row['agent_types'].split(',')
                         
                         events_dict[event_name] = {
                             'type': 'configurable_shock',
                             'rule_name': first_row['data_type'],
-                            'agent_types': agent_types,  # Will be filled later
+                            'agent_types': agent_types,
                             'continents': continents_affected,
                             'productivity_stress_factor': float(first_row['productivity_stress_factor']),
                             'overhead_stress_factor': float(first_row['overhead_stress_factor']),
@@ -287,6 +288,11 @@ def is_agent_climate_stressed(agent_type, agent_id, climate_events, climate_fram
         if isinstance(event_data, dict):
             # New configurable shock format
             affected_continents = event_data['continents']
+            affected_agent_types = event_data.get('agent_types', [])
+            
+            # Check if this agent's type is affected
+            if agent_type not in affected_agent_types:
+                continue  # Skip this event if agent type is not affected
             
             # Check if this agent's continent is affected
             if 'all' in affected_continents:
@@ -298,6 +304,7 @@ def is_agent_climate_stressed(agent_type, agent_id, climate_events, climate_fram
         
         elif event_key in ['North America', 'Europe', 'Asia', 'South America', 'Africa']:
             # Old format where event key is continent name
+            # This format doesn't specify agent types, so we assume it affects all agent types
             agent_continent = get_agent_continent(agent_type, agent_id, climate_framework)
             if agent_continent == event_key:
                 return True
