@@ -30,10 +30,6 @@ class AgentCharacteristics:
     # Geographic adaptation (varies by continent)
     geographic_adaptation: Dict[str, float] = None
     
-    # Learning and adaptation
-    adaptation_rate: float = 0.1  # How quickly agent adapts to climate changes
-    memory_length: int = 5  # How many rounds of history to remember
-    
     def __post_init__(self):
         if self.geographic_adaptation is None:
             self.geographic_adaptation = {}
@@ -98,14 +94,6 @@ class HeterogeneityGenerator:
         # Generate geographic adaptation factors
         characteristics.geographic_adaptation = self._generate_geographic_adaptation(
             continent, heterogeneity_config
-        )
-        
-        # Generate learning characteristics
-        characteristics.adaptation_rate = self._generate_adaptation_rate(
-            heterogeneity_config
-        )
-        characteristics.memory_length = self._generate_memory_length(
-            heterogeneity_config
         )
         
         return characteristics
@@ -192,22 +180,6 @@ class HeterogeneityGenerator:
             adaptations[climate_type] = base_adaptation * variation
         
         return adaptations
-    
-    def _generate_adaptation_rate(self, config: Dict) -> float:
-        """Generate learning/adaptation rate"""
-        base_rate = config.get('adaptation_rate_base', 0.1)
-        variation = config.get('adaptation_rate_variation', 0.05)
-        
-        rate = np.random.normal(base_rate, variation)
-        return max(0.01, min(0.3, rate))
-    
-    def _generate_memory_length(self, config: Dict) -> int:
-        """Generate memory length for historical learning"""
-        base_length = config.get('memory_length_base', 5)
-        variation = config.get('memory_length_variation', 2)
-        
-        length = int(np.random.normal(base_length, variation))
-        return max(1, min(10, length))
 
 
 class HeterogeneityManager:
@@ -309,8 +281,8 @@ class HeterogeneityManager:
             
             # Trim history to memory length
             characteristics = self.get_agent_characteristics(agent_type, agent_id)
-            if characteristics and len(self.agent_histories[agent_key]) > characteristics.memory_length:
-                self.agent_histories[agent_key] = self.agent_histories[agent_key][-characteristics.memory_length:]
+            if characteristics and len(self.agent_histories[agent_key]) > 5:
+                self.agent_histories[agent_key] = self.agent_histories[agent_key][-5:]
     
     def export_heterogeneity_data(self, filename: str = "agent_heterogeneity.csv"):
         """Export agent characteristics for analysis"""
@@ -328,17 +300,12 @@ class HeterogeneityManager:
                     'production_efficiency': characteristics.production_efficiency,
                     'risk_tolerance': characteristics.risk_tolerance,
                     'debt_willingness': characteristics.debt_willingness,
-                    'consumption_preference': characteristics.consumption_preference,
-                    'adaptation_rate': characteristics.adaptation_rate,
-                    'memory_length': characteristics.memory_length
+                    'consumption_preference': characteristics.consumption_preference
                 }
-                
                 # Add geographic adaptations
                 for climate_type, adaptation in characteristics.geographic_adaptation.items():
                     row[f'adaptation_{climate_type}'] = adaptation
-                
                 data.append(row)
-            
             if data:
                 df = pd.DataFrame(data)
                 df.to_csv(filename, index=False)
@@ -347,7 +314,6 @@ class HeterogeneityManager:
             else:
                 print("No heterogeneity data to export")
                 return None
-                
         except ImportError:
             # Fallback to CSV export without pandas
             print("Pandas not available, using basic CSV export...")
@@ -356,7 +322,6 @@ class HeterogeneityManager:
     def _export_heterogeneity_data_basic(self, filename: str):
         """Basic CSV export without pandas dependency"""
         import csv
-        
         data = []
         for (agent_type, agent_id), characteristics in self.agent_characteristics.items():
             row = {
@@ -368,24 +333,18 @@ class HeterogeneityManager:
                 'production_efficiency': characteristics.production_efficiency,
                 'risk_tolerance': characteristics.risk_tolerance,
                 'debt_willingness': characteristics.debt_willingness,
-                'consumption_preference': characteristics.consumption_preference,
-                'adaptation_rate': characteristics.adaptation_rate,
-                'memory_length': characteristics.memory_length
+                'consumption_preference': characteristics.consumption_preference
             }
-            
             # Add geographic adaptations
             for climate_type, adaptation in characteristics.geographic_adaptation.items():
                 row[f'adaptation_{climate_type}'] = adaptation
-            
             data.append(row)
-        
         if data:
             with open(filename, 'w', newline='') as csvfile:
                 fieldnames = data[0].keys()
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 writer.writeheader()
                 writer.writerows(data)
-            
             print(f"Agent heterogeneity data exported to '{filename}' (basic CSV)")
             return data
         else:

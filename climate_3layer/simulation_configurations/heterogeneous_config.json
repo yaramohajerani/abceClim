@@ -87,11 +87,7 @@
     "debt_willingness_base": 1.0,
     "debt_willingness_variation": 0.5,
     "consumption_preference_base": 1.0,
-    "consumption_preference_variation": 0.3,
-    "adaptation_rate_base": 0.1,
-    "adaptation_rate_variation": 0.05,
-    "memory_length_base": 5,
-    "memory_length_variation": 2
+    "consumption_preference_variation": 0.3
   },
   "agents": {
     "commodity_producer": {
