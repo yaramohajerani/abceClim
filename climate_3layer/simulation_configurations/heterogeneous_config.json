@@ -1,0 +1,175 @@
+{
+  "simulation": {
+    "name": "heterogeneous_economy_test",
+    "trade_logging": "on",
+    "random_seed": 42,
+    "rounds": 20,
+    "result_path": "result_heterogeneous_economy"
+  },
+  "logging": {
+    "agent_activity_logging": true,
+    "console_level": "WARNING",
+    "detailed_agent_actions": true,
+    "log_filename": "simulation_detailed_log.txt",
+    "agent_keywords": [
+      "Household", "Producer", "Firm", "Commodity", "Intermediary", "Final",
+      "buy", "sell", "production", "consumption", "labor", "market",
+      "money", "trade", "offer", "accepted", "spent", "received"
+    ],
+    "climate_keywords": [
+      "Climate", "stress", "shock", "CLIMATE", "Weather", "Event",
+      "Disruption", "Impact", "Crisis", "reset", "applied", "cleared"
+    ]
+  },
+  "climate": {
+    "stress_enabled": true,
+    "geographical_effects": true,
+    "heterogeneity_enabled": true,
+    "chronic_rules": [
+      {
+        "name": "gradual_warming",
+        "agent_types": ["commodity_producer", "intermediary_firm", "final_goods_firm"],
+        "continents": ["all"],
+        "productivity_stress_factor": 0.95,
+        "overhead_stress_factor": 1.05
+      }
+    ],
+    "shock_rules": [
+      {
+        "name": "heat_wave",
+        "probability": 0.3,
+        "agent_types": ["commodity_producer"],
+        "continents": ["Africa", "Asia"],
+        "productivity_stress_factor": 0.7,
+        "overhead_stress_factor": 1.3
+      },
+      {
+        "name": "supply_chain_disruption",
+        "probability": 0.2,
+        "agent_types": ["intermediary_firm", "final_goods_firm"],
+        "continents": ["all"],
+        "productivity_stress_factor": 0.8,
+        "overhead_stress_factor": 1.2
+      }
+    ]
+  },
+  "heterogeneity": {
+    "climate_vulnerability_productivity": {
+      "commodity_producer": 1.3,
+      "intermediary_firm": 1.1,
+      "final_goods_firm": 0.9,
+      "household": 1.0,
+      "Africa": 1.2,
+      "Asia": 1.1,
+      "South America": 1.1,
+      "North America": 0.9,
+      "Europe": 0.8,
+      "Oceania": 1.0
+    },
+    "climate_vulnerability_overhead": {
+      "commodity_producer": 1.2,
+      "intermediary_firm": 1.0,
+      "final_goods_firm": 0.9,
+      "household": 1.0,
+      "Africa": 1.3,
+      "Asia": 1.1,
+      "South America": 1.1,
+      "North America": 0.9,
+      "Europe": 0.8,
+      "Oceania": 1.0
+    },
+    "overhead_efficiency_base": 1.0,
+    "overhead_efficiency_variation": 0.3,
+    "production_efficiency_base": 1.0,
+    "production_efficiency_variation": 0.2,
+    "risk_tolerance_base": 1.0,
+    "risk_tolerance_variation": 0.4,
+    "debt_willingness_base": 1.0,
+    "debt_willingness_variation": 0.5,
+    "consumption_preference_base": 1.0,
+    "consumption_preference_variation": 0.3,
+    "adaptation_rate_base": 0.1,
+    "adaptation_rate_variation": 0.05,
+    "memory_length_base": 5,
+    "memory_length_variation": 2
+  },
+  "agents": {
+    "commodity_producer": {
+      "count": 3,
+      "initial_money": 10,
+      "initial_inventory": {},
+      "production": {
+        "base_output_quantity": 0.9,
+        "profit_margin": 0.1,
+        "base_overhead": 0.05,
+        "inputs": {
+          "labor": 1
+        },
+        "output": "commodity"
+      },
+      "geographical_distribution": ["Africa", "Asia", "South America"]
+    },
+    "intermediary_firm": {
+      "count": 3,
+      "initial_money": 10,
+      "initial_inventory": {},
+      "production": {
+        "base_output_quantity": 1.5,
+        "profit_margin": 0.1,
+        "base_overhead": 0.05,
+        "inputs": {
+          "labor": 0.4,
+          "commodity": 0.6
+        },
+        "output": "intermediate_good"
+      },
+      "geographical_distribution": ["Asia", "South America", "North America"]
+    },
+    "final_goods_firm": {
+      "count": 3,
+      "initial_money": 10,
+      "initial_inventory": {},
+      "production": {
+        "base_output_quantity": 3,
+        "profit_margin": 0.1,
+        "base_overhead": 0.05,
+        "inputs": {
+          "labor": 0.5,
+          "intermediate_good": 0.5
+        },
+        "output": "final_good"
+      },
+      "geographical_distribution": ["North America", "Europe", "Oceania"]
+    },
+    "household": {
+      "count": 9,
+      "initial_money": 5,
+      "initial_inventory": {
+        "final_good": 0.1
+      },
+      "labor": {
+        "endowment": 1,
+        "wage": 10
+      },
+      "consumption": {
+        "preference": "final_good",
+        "consumption_fraction": 0.51,
+        "minimum_survival_consumption": 0.5
+      },
+      "geographical_distribution": ["all"]
+    }
+  },
+  "data_collection": {
+    "track_goods": {
+      "commodity_producer": ["commodity"],
+      "intermediary_firm": ["intermediate_good"],
+      "final_goods_firm": ["final_good"],
+      "household": ["final_good"]
+    }
+  },
+  "visualization": {
+    "create_visualizations": true,
+    "create_dynamic_visualization": true,
+    "save_climate_summary": true
+  }
+} 

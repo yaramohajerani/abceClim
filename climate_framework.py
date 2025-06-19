@@ -23,6 +23,16 @@ class ClimateFramework:
         self.geographical_assignments = {}
         self.agent_climate_data: Dict[tuple, Dict[str, float]] = {}
         
+        # Initialize heterogeneity manager if available
+        self.heterogeneity_manager = None
+        if 'heterogeneity_enabled' in simulation_parameters and simulation_parameters['heterogeneity_enabled']:
+            try:
+                from climate_3layer.agent_heterogeneity import HeterogeneityManager
+                self.heterogeneity_manager = HeterogeneityManager(simulation_parameters)
+                print("Heterogeneity system enabled")
+            except ImportError:
+                print("Warning: Heterogeneity system not available")
+        
         print(f"Climate Framework initialized")
     
     def assign_geographical_locations(self, agent_groups: Dict[str, List], 
@@ -55,7 +65,15 @@ class ClimateFramework:
                 
                 self.geographical_assignments[agent_type][i] = {'continent': continent}
                 
-                print(f"    {agent_type.replace('_', ' ').title()} {i} assigned to {continent}.")
+                # Initialize heterogeneity for this agent if enabled
+                if self.heterogeneity_manager:
+                    characteristics = self.heterogeneity_manager.initialize_agent(agent_type, i, continent)
+                    print(f"    {agent_type.replace('_', ' ').title()} {i} assigned to {continent}.")
+                    print(f"      Climate vulnerability: productivity={characteristics.climate_vulnerability_productivity:.2f}, overhead={characteristics.climate_vulnerability_overhead:.2f}")
+                    print(f"      Efficiency: production={characteristics.production_efficiency:.2f}, overhead={characteristics.overhead_efficiency:.2f}")
+                    print(f"      Behavior: risk_tolerance={characteristics.risk_tolerance:.2f}, debt_willingness={characteristics.debt_willingness:.2f}")
+                else:
+                    print(f"    {agent_type.replace('_', ' ').title()} {i} assigned to {continent}.")
             
             print(f"    Geographical assignment completed for {agent_type}")
     
@@ -209,10 +227,15 @@ class ClimateFramework:
                         # Fallback to the Action object approach if direct access fails
                         real_agent = agent_group[i]
                     
+                    # Check if agent is in target continent
+                    agent_continent = self.geographical_assignments.get(agent_type, {}).get(i, {}).get('continent')
+                    if agent_continent not in target_continents:
+                        continue
+                    
                     # Initialize climate capabilities if not present
                     self._initialize_agent_climate_capabilities(agent_type, i, real_agent)
                     
-                    # Apply stress
+                    # Apply stress with heterogeneity if enabled
                     if stress_type == 'chronic':
                         self._apply_chronic_stress_to_agent(agent_type, i, real_agent, stress_factor, stress_target)
                     else:
@@ -245,6 +268,14 @@ class ClimateFramework:
                 else:
                     base_overhead = 0.0  # Default fallback
                 
+                # Apply heterogeneity modifications if enabled
+                if self.heterogeneity_manager:
+                    modified_overhead, modified_production = self.heterogeneity_manager.apply_cost_modifications(
+                        agent_type, agent_id, base_overhead, base_output
+                    )
+                    base_overhead = modified_overhead
+                    base_output = modified_production
+                
                 self.agent_climate_data[agent_key] = {
                     'base_output_quantity': base_output,
                     'base_overhead': base_overhead,
@@ -263,6 +294,14 @@ class ClimateFramework:
         agent_key = (agent_type, agent_id)
         if agent_key not in self.agent_climate_data:
             return
+        
+        # Apply heterogeneity modifications if enabled
+        if self.heterogeneity_manager:
+            modified_stress_factor = self.heterogeneity_manager.apply_climate_stress_with_heterogeneity(
+                agent_type, agent_id, stress_factor, stress_target
+            )
+        else:
+            modified_stress_factor = stress_factor
             
         climate_data = self.agent_climate_data[agent_key]
         climate_data['climate_stressed'] = True
@@ -270,20 +309,28 @@ class ClimateFramework:
         if stress_target == 'productivity':
             base_output = climate_data['base_output_quantity']
             chronic_accumulated = climate_data['chronic_productivity_stress_accumulated']
-            new_output = base_output * float(stress_factor) * chronic_accumulated
+            new_output = base_output * float(modified_stress_factor) * chronic_accumulated
             
             # Apply to agent - crash if it fails so we can see the error
             agent.current_output_quantity = new_output
-            print(f"      {agent_type} {agent_id}: CLIMATE STRESS! Production: {base_output:.2f} -> {new_output:.2f}")
+            
+            if modified_stress_factor != stress_factor:
+                print(f"      {agent_type} {agent_id}: CLIMATE STRESS! Production: {base_output:.2f} -> {new_output:.2f} (modified factor: {modified_stress_factor:.2f})")
+            else:
+                print(f"      {agent_type} {agent_id}: CLIMATE STRESS! Production: {base_output:.2f} -> {new_output:.2f}")
                 
         elif stress_target == 'overhead':
             if hasattr(agent, 'current_overhead'):
                 base_overhead = climate_data['base_overhead']
                 chronic_accumulated = climate_data['chronic_overhead_stress_accumulated']
-                new_overhead = base_overhead * float(stress_factor) * chronic_accumulated
+                new_overhead = base_overhead * float(modified_stress_factor) * chronic_accumulated
                 
                 agent.current_overhead = new_overhead
-                print(f"      {agent_type} {agent_id}: CLIMATE STRESS! Overhead: {base_overhead:.2f} -> {new_overhead:.2f}")
+                
+                if modified_stress_factor != stress_factor:
+                    print(f"      {agent_type} {agent_id}: CLIMATE STRESS! Overhead: {base_overhead:.2f} -> {new_overhead:.2f} (modified factor: {modified_stress_factor:.2f})")
+                else:
+                    print(f"      {agent_type} {agent_id}: CLIMATE STRESS! Overhead: {base_overhead:.2f} -> {new_overhead:.2f}")
             else:
                 print(f"      {agent_type} {agent_id}: No overhead attribute to apply stress to")
 
@@ -292,27 +339,43 @@ class ClimateFramework:
         agent_key = (agent_type, agent_id)
         if agent_key not in self.agent_climate_data:
             return
+        
+        # Apply heterogeneity modifications if enabled
+        if self.heterogeneity_manager:
+            modified_stress_factor = self.heterogeneity_manager.apply_climate_stress_with_heterogeneity(
+                agent_type, agent_id, stress_factor, stress_target
+            )
+        else:
+            modified_stress_factor = stress_factor
             
         climate_data = self.agent_climate_data[agent_key]
         
         if stress_target == 'productivity':
-            climate_data['chronic_productivity_stress_accumulated'] *= stress_factor
+            climate_data['chronic_productivity_stress_accumulated'] *= modified_stress_factor
             
             # Apply to agent's actual attributes if possible
             if hasattr(agent, 'current_output_quantity'):
                 base_output = climate_data['base_output_quantity']
                 chronic_stress = climate_data['chronic_productivity_stress_accumulated']
                 agent.current_output_quantity = base_output * chronic_stress
-                print(f"      {agent_type} {agent_id}: Chronic productivity stress applied (factor: {stress_factor:.2f})")
+                
+                if modified_stress_factor != stress_factor:
+                    print(f"      {agent_type} {agent_id}: Chronic productivity stress applied (factor: {modified_stress_factor:.2f})")
+                else:
+                    print(f"      {agent_type} {agent_id}: Chronic productivity stress applied (factor: {stress_factor:.2f})")
                     
         elif stress_target == 'overhead':
-            climate_data['chronic_overhead_stress_accumulated'] *= stress_factor
+            climate_data['chronic_overhead_stress_accumulated'] *= modified_stress_factor
             
             if hasattr(agent, 'current_overhead'):
                 base_overhead = climate_data['base_overhead']
                 chronic_stress = climate_data['chronic_overhead_stress_accumulated']
                 agent.current_overhead = base_overhead * chronic_stress
-                print(f"      {agent_type} {agent_id}: Chronic overhead stress applied (factor: {stress_factor:.2f})")
+                
+                if modified_stress_factor != stress_factor:
+                    print(f"      {agent_type} {agent_id}: Chronic overhead stress applied (factor: {modified_stress_factor:.2f})")
+                else:
+                    print(f"      {agent_type} {agent_id}: Chronic overhead stress applied (factor: {stress_factor:.2f})")
 
     def export_climate_summary(self, simulation_path: str = None, filename: str = "climate_summary.csv"):
         """Export a summary of climate events and geographical assignments."""
@@ -362,6 +425,16 @@ class ClimateFramework:
                 
             df.to_csv(save_path, index=False)
             print(f"Climate summary exported to '{save_path}'")
+            
+            # Also export heterogeneity data if available
+            if self.heterogeneity_manager:
+                heterogeneity_filename = filename.replace('.csv', '_heterogeneity.csv')
+                if simulation_path:
+                    heterogeneity_path = os.path.join(simulation_path, heterogeneity_filename)
+                else:
+                    heterogeneity_path = heterogeneity_filename
+                self.heterogeneity_manager.export_heterogeneity_data(heterogeneity_path)
+            
             return df
         else:
             print("No climate data to export")

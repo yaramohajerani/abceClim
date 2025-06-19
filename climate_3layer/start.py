@@ -170,6 +170,33 @@ def main(config_file_path):
     distribution_rules = config_loader.get_geographical_distribution_rules()
     climate_framework.assign_geographical_locations(agent_groups, distribution_rules)
     
+    # Set individual agent characteristics if heterogeneity is enabled
+    if simulation_parameters.get('heterogeneity_enabled', False):
+        print("Setting individual agent characteristics...")
+        for agent_type, agent_group in agent_groups.items():
+            agent_count = agent_group.num_agents
+            print(f"  Setting characteristics for {agent_count} {agent_type.replace('_', ' ')}s...")
+            
+            for i in range(agent_count):
+                agent = agent_group[i]
+                
+                # Get the agent's continent from the climate framework
+                agent_continent = climate_framework.geographical_assignments.get(agent_type, {}).get(i, {}).get('continent', 'Unknown')
+                
+                # Get characteristics from the heterogeneity manager
+                if climate_framework.heterogeneity_manager:
+                    characteristics = climate_framework.heterogeneity_manager.get_agent_characteristics(agent_type, i)
+                    if characteristics:
+                        # Set the characteristics on the agent
+                        if hasattr(agent, 'set_heterogeneity_characteristics'):
+                            agent.set_heterogeneity_characteristics(characteristics)
+                        else:
+                            print(f"      WARNING: {agent.__class__.__name__} {agent.id} missing set_heterogeneity_characteristics method")
+            
+            print(f"  ✓ {agent_count} {agent_type.replace('_', ' ')}s characteristics set")
+    else:
+        print("Heterogeneity system disabled - all agents will have identical characteristics")
+    
     print(f"\nStarting climate 3-layer geographical simulation with:")
     print(f"  {commodity_producers.num_agents} commodity producers")
     print(f"  {intermediary_firms.num_agents} intermediary firms") 
@@ -177,6 +204,8 @@ def main(config_file_path):
     print(f"  {households.num_agents} households")
     print(f"  All agents ready for simplified climate framework")
     print(f"  Distributed across continents according to configuration")
+    if simulation_parameters.get('heterogeneity_enabled', False):
+        print(f"  Individual agent characteristics enabled")
 
     # Set up data collection using configuration
     goods_to_track = config_loader.get_goods_to_track()

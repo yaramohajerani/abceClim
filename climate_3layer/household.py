@@ -53,12 +53,23 @@ class Household(abce.Agent):
         # get labor allocation per firm (equal labor contribution to each firm)
         self.labor_allocation = self.labor_endowment / total_firms
         
+        # Initialize heterogeneity characteristics (will be set by climate framework)
+        self.heterogeneity_characteristics = None
+        
         print(f"Household {self.id} initialized:")
         print(f"  Initial money: ${initial_money}")
         print(f"  Labor endowment: {self.labor_endowment}")
         print(f"  Wage: ${self.wage}")
         print(f"  Minimum survival consumption: {self.minimum_survival_consumption}")
         print(f"  Will distribute labor to {total_firms} firms")
+
+    def set_heterogeneity_characteristics(self, characteristics):
+        """Set individual characteristics for this household"""
+        self.heterogeneity_characteristics = characteristics
+        if characteristics:
+            print(f"  Household {self.id} heterogeneity set:")
+            print(f"    Climate vulnerability: productivity={characteristics.climate_vulnerability_productivity:.2f}, overhead={characteristics.climate_vulnerability_overhead:.2f}")
+            print(f"    Behavior: risk_tolerance={characteristics.risk_tolerance:.2f}, debt_willingness={characteristics.debt_willingness:.2f}, consumption_preference={characteristics.consumption_preference:.2f}")
 
     def start_round(self):
         """Called at the start of each round to reset tracking variables"""
@@ -80,13 +91,20 @@ class Household(abce.Agent):
             self.sell(('final_goods_firm', firm_id), 'labor', self.labor_allocation, self.wage)
 
     def buy_final_goods(self):
-        """ Buy final goods based on total available resources - simple and market-responsive """
+        """ Buy final goods based on total available resources - with heterogeneity in debt willingness """
         final_goods_start = self[self.preferred_good]
         money_start = self['money']
         offers = self.get_offers(self.preferred_good)
         
         # Sort offers by price (ascending - cheapest first)
         offers.sort(key=lambda offer: offer.price)
+        
+        # Get behavioral modifiers from heterogeneity
+        debt_willingness = 1.0
+        consumption_preference = 1.0
+        if self.heterogeneity_characteristics:
+            debt_willingness = self.heterogeneity_characteristics.debt_willingness
+            consumption_preference = self.heterogeneity_characteristics.consumption_preference
         
         # first check if there's enough money to get minimum consumption
         additional_inventory_needed = self.minimum_survival_consumption - final_goods_start
@@ -106,16 +124,27 @@ class Household(abce.Agent):
             print(f"    DEBUG: Household {self.id} needs {debt_neeeded} more money")
 
             if debt_neeeded > 0:
-                print(f"    DEBUG: Household {self.id} created {debt_neeeded} more debt")
-                # Insufficient funds - create money for the shortfall via debt
-                self.create('money', debt_neeeded)
+                # Apply debt willingness modifier
+                modified_debt_needed = debt_neeeded * debt_willingness
+                print(f"    DEBUG: Household {self.id} debt willingness: {debt_willingness:.2f}")
+                print(f"    DEBUG: Household {self.id} modified debt needed: {modified_debt_needed:.2f}")
                 
-                # Track the debt
-                self.debt += debt_neeeded
-                self.debt_created_this_round += debt_neeeded
+                if modified_debt_needed > 0:
+                    print(f"    DEBUG: Household {self.id} created {modified_debt_needed} more debt")
+                    # Insufficient funds - create money for the shortfall via debt
+                    self.create('money', modified_debt_needed)
+                    
+                    # Track the debt
+                    self.debt += modified_debt_needed
+                    self.debt_created_this_round += modified_debt_needed
         
-        # now buy goods
+        # now buy goods with consumption preference modifier
         for offer in offers:
+            # Apply consumption preference to buying behavior
+            if consumption_preference > 1.0:
+                # More spendthrift households might buy more aggressively
+                # This could be implemented by adjusting the acceptance logic
+                pass
             # abcEcon already takes care of full and partial acceptances based on how much money is available
             self.accept(offer)
 
@@ -128,23 +157,39 @@ class Household(abce.Agent):
 
     def pay_debts(self):
         """
-        Use available money to pay debts
+        Use available money to pay debts - with heterogeneity in debt management
         """
         if self.debt > 0:
-            # get the minimum of money and debt to may debts 
-            payable_debt = min(self.debt, self['money'])
+            # Get behavioral modifiers
+            debt_willingness = 1.0
+            if self.heterogeneity_characteristics:
+                debt_willingness = self.heterogeneity_characteristics.debt_willingness
+            
+            # More debt-averse households pay more aggressively
+            payment_multiplier = 1.0 / debt_willingness  # Inverse relationship
+            payment_multiplier = max(0.5, min(2.0, payment_multiplier))  # Reasonable bounds
+            
+            # get the minimum of money and debt to pay debts 
+            payable_debt = min(self.debt, self['money'] * payment_multiplier)
             self.debt -= payable_debt
             self.destroy('money', payable_debt)
-            print(f"    Household {self.id}: Paid ${payable_debt:.2f} toward debt (Remaining debt: ${self.debt:.2f})")
+            print(f"    Household {self.id}: Paid ${payable_debt:.2f} toward debt (Remaining debt: ${self.debt:.2f}, payment multiplier: {payment_multiplier:.2f})")
 
     def consumption(self):
-        """ Consume final goods """
+        """ Consume final goods - with heterogeneity in consumption preferences """
         available_goods = self[self.preferred_good]
         
         print(f"    Household {self.id}: Has {available_goods:.2f} {self.preferred_good}s available for consumption")
 
+        # Get consumption preference modifier
+        consumption_preference = 1.0
+        if self.heterogeneity_characteristics:
+            consumption_preference = self.heterogeneity_characteristics.consumption_preference
+
         # choose consumption amount as max of consumption fraction or min consumption
-        normal_consumption = available_goods * self.consumption_fraction
+        # Apply consumption preference modifier
+        modified_consumption_fraction = self.consumption_fraction * consumption_preference
+        normal_consumption = available_goods * modified_consumption_fraction
         
         intended_consumption = max(self.minimum_survival_consumption, normal_consumption)
 
@@ -152,6 +197,8 @@ class Household(abce.Agent):
         consumption_amount = min(intended_consumption, available_goods)  # Cannot exceed actual inventory
         
         print(f"      Normal consumption (fraction of inventory): {normal_consumption:.2f}")
+        print(f"      Consumption preference modifier: {consumption_preference:.2f}")
+        print(f"      Modified consumption fraction: {modified_consumption_fraction:.2f}")
         print(f"      Minimum survival consumption required: {self.minimum_survival_consumption:.2f}")
         print(f"      Intended consumption: {intended_consumption:.2f}")
         print(f"      Actual consumption (limited by inventory): {consumption_amount:.2f}")
@@ -174,8 +221,19 @@ class Household(abce.Agent):
         # Check if minimum consumption requirement is met
         minimum_consumption_met = self.consumption_this_round >= self.minimum_survival_consumption
         
+        # Get heterogeneity data for logging
+        heterogeneity_data = {}
+        if self.heterogeneity_characteristics:
+            heterogeneity_data = {
+                'climate_vulnerability_productivity': self.heterogeneity_characteristics.climate_vulnerability_productivity,
+                'climate_vulnerability_overhead': self.heterogeneity_characteristics.climate_vulnerability_overhead,
+                'risk_tolerance': self.heterogeneity_characteristics.risk_tolerance,
+                'debt_willingness': self.heterogeneity_characteristics.debt_willingness,
+                'consumption_preference': self.heterogeneity_characteristics.consumption_preference
+            }
+        
         # Log the data using abcEconomics logging - NOW INCLUDING DEBT DATA
-        self.log('consumption', {
+        log_data = {
             'consumption': self.consumption_this_round,
             'purchases': self.purchases_this_round,
             'inventory_change': inventory_change,
@@ -185,8 +243,15 @@ class Household(abce.Agent):
             'debt_created_this_round': self.debt_created_this_round,  # Add debt creation tracking
             'minimum_survival_consumption': self.minimum_survival_consumption,
             'minimum_consumption_met': minimum_consumption_met
-        })
+        }
+        
+        # Add heterogeneity data if available
+        log_data.update(heterogeneity_data)
+        
+        self.log('consumption', log_data)
         
         print(f"    Household {self.id}: Logged - Consumption: {self.consumption_this_round:.2f}, Purchases: {self.purchases_this_round:.2f}")
         print(f"      Inventory: {cumulative_inventory:.2f}, Money: ${current_money:.2f}, Debt: ${self.debt:.2f}")
         print(f"      Minimum consumption met: {minimum_consumption_met} (consumed {self.consumption_this_round:.2f}, required {self.minimum_survival_consumption:.2f})")
+        if self.heterogeneity_characteristics:
+            print(f"      Heterogeneity: debt_willingness={self.heterogeneity_characteristics.debt_willingness:.2f}, consumption_preference={self.heterogeneity_characteristics.consumption_preference:.2f}")

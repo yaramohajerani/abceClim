@@ -56,10 +56,35 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         # Store household count for distribution
         self.num_households = config['household_count']
         
+        # Initialize heterogeneity characteristics (will be set by climate framework)
+        self.heterogeneity_characteristics = None
+        
         print(f"Final Goods Firm {self.id} initialized:")
         print(f"  Initial money: ${initial_money}")
         print(f"  Production capacity: {self.base_output_quantity}")
         print(f"  Will distribute to {self.num_households} households")
+
+    def set_heterogeneity_characteristics(self, characteristics):
+        """Set individual characteristics for this firm"""
+        self.heterogeneity_characteristics = characteristics
+        if characteristics:
+            # Apply efficiency modifications to base values
+            modified_overhead = self.base_overhead * characteristics.overhead_efficiency
+            modified_production = self.base_output_quantity * characteristics.production_efficiency
+            
+            self.base_overhead = modified_overhead
+            self.current_overhead = modified_overhead
+            self.base_output_quantity = modified_production
+            self.current_output_quantity = modified_production
+            
+            # Update production function with new capacity
+            self.pf = self.create_cobb_douglas(self.output, self.current_output_quantity, self.inputs)
+            
+            print(f"  Final Goods Firm {self.id} heterogeneity set:")
+            print(f"    Climate vulnerability: productivity={characteristics.climate_vulnerability_productivity:.2f}, overhead={characteristics.climate_vulnerability_overhead:.2f}")
+            print(f"    Efficiency: production={characteristics.production_efficiency:.2f}, overhead={characteristics.overhead_efficiency:.2f}")
+            print(f"    Behavior: risk_tolerance={characteristics.risk_tolerance:.2f}, debt_willingness={characteristics.debt_willingness:.2f}")
+            print(f"    Modified base overhead: {modified_overhead:.2f}, base production: {modified_production:.2f}")
 
     def start_round(self):
         """Called at the start of each round to reset tracking variables"""
@@ -71,8 +96,17 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         self.debt_created_this_round = 0  # Track debt created for survival purchasing
 
     def buy_inputs_optimally(self):
-        """ Buy all inputs with optimal money allocation based on Cobb-Douglas exponents to maximize production """
+        """ Buy all inputs with optimal money allocation based on Cobb-Douglas exponents to maximize production - with heterogeneity in risk tolerance """
         print(f"    Final Goods Firm {self.id}: Starting optimal input purchasing with ${self['money']:.2f}")
+        
+        # Get behavioral modifiers from heterogeneity
+        risk_tolerance = 1.0
+        debt_willingness = 1.0
+        if self.heterogeneity_characteristics:
+            risk_tolerance = self.heterogeneity_characteristics.risk_tolerance
+            debt_willingness = self.heterogeneity_characteristics.debt_willingness
+        
+        print(f"      Risk tolerance: {risk_tolerance:.2f}, Debt willingness: {debt_willingness:.2f}")
         
         # Get all input offers (only call this once!)
         intermediate_goods_offers = self.get_offers("intermediate_good")
@@ -85,10 +119,14 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         available_money = self['money']
         current_inventory = self[self.output]
         
+        # Apply risk tolerance to available budget
+        risk_adjusted_money = available_money * risk_tolerance
+        
         print(f"      Current inventory: {current_inventory:.2f}")
+        print(f"      Risk-adjusted budget: ${risk_adjusted_money:.2f} (original: ${available_money:.2f})")
         
         # Calculate optimal budget allocation for total available money
-        optimal_allocation = self.calculate_optimal_input_allocation(available_money, self.inputs)
+        optimal_allocation = self.calculate_optimal_input_allocation(risk_adjusted_money, self.inputs)
         
         print(f"      Optimal allocation (total budget): Labor: ${optimal_allocation['labor']:.2f}, Intermediate goods: ${optimal_allocation['intermediate_good']:.2f}")
         
@@ -252,13 +290,11 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         final_goods_stock = self[self.output]
         self.inventory_before_sales = final_goods_stock  # Track inventory before creating offers
         
-        print(f"    Final Goods Firm {self.id}: Has {final_goods_stock:.2f} {self.output}s to sell")
+        print(f"    Final Goods Firm {self.id}: Has {final_goods_stock:.2f} {self.output}s to sell at ${self.price[self.output]:.2f}")
         if final_goods_stock > 0:
-            # Distribute sales among households - get actual household count dynamically
-            # Use the household count from configuration (no fallback since config is required)
-            num_households = self.num_households
-            quantity_per_household = final_goods_stock / num_households
-            for household_id in range(num_households):
+            # Distribute sales among households
+            quantity_per_household = final_goods_stock / self.num_households  # Assuming evenly distributed
+            for household_id in range(self.num_households):
                 if quantity_per_household > 0:
                     print(f"      Offering {quantity_per_household:.2f} {self.output}s to household {household_id} at price {self.price[self.output]}")
                     self.sell(('household', household_id), self.output, 
@@ -277,7 +313,7 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
             print(f"    Final Goods Firm {self.id}: No sales tracking data available")
 
     def log_round_data(self):
-        """Log production, sales, and inventory data for this round"""
+        """Log comprehensive production, sales, and financial data"""
         # Calculate inventory change and cumulative inventory
         inventory_change = self.production_this_round - self.sales_this_round
         cumulative_inventory = self[self.output]
@@ -285,14 +321,26 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
         
         # Calculate revenue and profit (including overhead absorption)
         self.revenue = self.sales_this_round * self.price[self.output]
-        self.profit = self.revenue - self.total_input_costs 
+        self.profit = self.revenue - self.total_input_costs
         if self.total_input_costs > 0:
             self.actual_margin = self.profit / self.total_input_costs
         else:
             self.actual_margin = 0
         
+        # Get heterogeneity data for logging
+        heterogeneity_data = {}
+        if self.heterogeneity_characteristics:
+            heterogeneity_data = {
+                'climate_vulnerability_productivity': self.heterogeneity_characteristics.climate_vulnerability_productivity,
+                'climate_vulnerability_overhead': self.heterogeneity_characteristics.climate_vulnerability_overhead,
+                'overhead_efficiency': self.heterogeneity_characteristics.overhead_efficiency,
+                'production_efficiency': self.heterogeneity_characteristics.production_efficiency,
+                'risk_tolerance': self.heterogeneity_characteristics.risk_tolerance,
+                'debt_willingness': self.heterogeneity_characteristics.debt_willingness
+            }
+        
         # Log the data using abcEconomics logging
-        self.log('production', {
+        log_data = {
             'production': self.production_this_round,
             'sales': self.sales_this_round,
             'inventory_change': inventory_change,
@@ -310,11 +358,16 @@ class FinalGoodsFirm(abce.Agent, abce.Firm):
             'base_overhead': self.base_overhead,
             'current_overhead': self.current_overhead,
             'price': self.price[self.output]
-        })
+        }
         
-        print(f"    Final Goods Firm {self.id}: Logged - Production: {self.production_this_round:.2f}, Sales: {self.sales_this_round:.2f}, Labor: {self.labor_purchased:.2f}, Intermediate goods: {self.intermediate_goods_purchased:.2f}, Inventory: {cumulative_inventory:.2f}, Money: ${current_money:.2f}, Price: ${self.price[self.output]:.2f}, Overhead: ${self.current_overhead:.2f}, Profit: ${self.profit:.2f}, Debt: ${self.debt:.2f}, Debt created this round: ${self.debt_created_this_round:.2f}")
-
-
+        # Add heterogeneity data if available
+        log_data.update(heterogeneity_data)
+        
+        self.log('production', log_data)
+        
+        print(f"    Final Goods Firm {self.id}: Logged - Production: {self.production_this_round:.2f}, Sales: {self.sales_this_round:.2f}, Labor purchased: {self.labor_purchased:.2f}, Intermediate goods purchased: {self.intermediate_goods_purchased:.2f}, Inventory: {cumulative_inventory:.2f}, Money: ${current_money:.2f}, Price: ${self.price[self.output]:.2f}, Overhead: ${self.current_overhead:.2f}, Profit: ${self.profit:.2f}, Debt: ${self.debt:.2f}, Debt created this round: ${self.debt_created_this_round:.2f}")
+        if self.heterogeneity_characteristics:
+            print(f"      Heterogeneity: risk_tolerance={self.heterogeneity_characteristics.risk_tolerance:.2f}, debt_willingness={self.heterogeneity_characteristics.debt_willingness:.2f}, production_efficiency={self.heterogeneity_characteristics.production_efficiency:.2f}")
 
     def _collect_agent_data(self, round_num, agent_type):
         """ Collect agent data for visualization (called by abcEconomics group system) """
