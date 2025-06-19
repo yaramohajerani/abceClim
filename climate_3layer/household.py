@@ -170,10 +170,19 @@ class Household(abce.Agent):
             payment_multiplier = max(0.5, min(2.0, payment_multiplier))  # Reasonable bounds
             
             # get the minimum of money and debt to pay debts 
-            payable_debt = min(self.debt, self['money'] * payment_multiplier)
-            self.debt -= payable_debt
-            self.destroy('money', payable_debt)
-            print(f"    Household {self.id}: Paid ${payable_debt:.2f} toward debt (Remaining debt: ${self.debt:.2f}, payment multiplier: {payment_multiplier:.2f})")
+            available_money = self['money']
+            max_payment = available_money * payment_multiplier
+            payable_debt = min(self.debt, max_payment)
+            
+            # Ensure payable_debt is non-negative
+            payable_debt = max(0.0, payable_debt)
+            
+            if payable_debt > 0:
+                self.debt -= payable_debt
+                self.destroy('money', payable_debt)
+                print(f"    Household {self.id}: Paid ${payable_debt:.2f} toward debt (Remaining debt: ${self.debt:.2f}, payment multiplier: {payment_multiplier:.2f})")
+            else:
+                print(f"    Household {self.id}: No money available to pay debt (debt: ${self.debt:.2f}, money: ${available_money:.2f})")
 
     def consumption(self):
         """ Consume final goods - with heterogeneity in consumption preferences """
