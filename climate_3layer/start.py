@@ -38,7 +38,7 @@ from abcEconomics.logger import create_simulation_logger, replace_agent_prints_w
 
 def main(config_file_path):
     """
-    Main simulation function that now uses configuration files.
+    Main simulation function that runs both baseline and climate simulations.
     
     Args:
         config_file_path: Path to the JSON configuration file. If None, uses default "model_config.json"
@@ -48,6 +48,50 @@ def main(config_file_path):
     
     # Get simulation parameters from configuration
     simulation_parameters = config_loader.get_simulation_parameters()
+    
+    # Create a parent results directory for this experiment
+    experiment_name = simulation_parameters.get('result_path', 'climate_3layer_experiment')
+    parent_results_dir = os.path.join('results', experiment_name)
+    os.makedirs(parent_results_dir, exist_ok=True)
+    
+    # Run baseline simulation first (no climate effects)
+    print("\n" + "="*80)
+    print("🌱 RUNNING BASELINE SIMULATION (No Climate Effects)")
+    print("="*80)
+    
+    baseline_parameters = simulation_parameters.copy()
+    baseline_parameters['climate_stress_enabled'] = False
+    baseline_parameters['result_path'] = os.path.join(parent_results_dir, 'baseline')
+    
+    baseline_framework = run_single_simulation(config_loader, baseline_parameters, "Baseline")
+    
+    # Run climate simulation (with climate effects)
+    print("\n" + "="*80)
+    print("🌪️ RUNNING CLIMATE SIMULATION (With Climate Effects)")
+    print("="*80)
+    
+    climate_parameters = simulation_parameters.copy()
+    climate_parameters['climate_stress_enabled'] = True
+    climate_parameters['result_path'] = os.path.join(parent_results_dir, 'stressed')
+    
+    climate_framework = run_single_simulation(config_loader, climate_parameters, "Climate")
+    
+    return climate_framework, baseline_framework
+
+
+def run_single_simulation(config_loader, simulation_parameters, simulation_type):
+    """
+    Run a single simulation (either baseline or climate).
+    
+    Args:
+        config_loader: Configuration loader instance
+        simulation_parameters: Simulation parameters dictionary
+        simulation_type: String indicating simulation type ("Baseline" or "Climate")
+    
+    Returns:
+        ClimateFramework instance
+    """
+    print(f"🔧 Running {simulation_type} simulation...")
     
     # Set up simulation path
     simulation_path = simulation_parameters.get('result_path', 'result_climate_3_layer')
@@ -72,7 +116,7 @@ def main(config_file_path):
     sim_logger = create_simulation_logger(
         config=config_loader.config,
         simulation_path=actual_simulation_path,
-        simulation_name="Climate 3-Layer Economic Simulation",
+        simulation_name=f"{simulation_type} 3-Layer Economic Simulation",
         agent_keywords=climate_agent_keywords,
         climate_keywords=climate_event_keywords
     )
@@ -140,6 +184,7 @@ def main(config_file_path):
     
     # Create the climate framework
     climate_framework = create_climate_framework(simulation_parameters)
+    climate_framework.simulation_path = actual_simulation_path  # Store path for later use
     
     # Organize agents into groups for the framework
     agent_groups = {
@@ -197,7 +242,7 @@ def main(config_file_path):
     else:
         print("Heterogeneity system disabled - all agents will have identical characteristics")
     
-    print(f"\nStarting climate 3-layer geographical simulation with:")
+    print(f"\nStarting {simulation_type.lower()} 3-layer geographical simulation with:")
     print(f"  {commodity_producers.num_agents} commodity producers")
     print(f"  {intermediary_firms.num_agents} intermediary firms") 
     print(f"  {final_goods_firms.num_agents} final goods firms")
@@ -206,6 +251,7 @@ def main(config_file_path):
     print(f"  Distributed across continents according to configuration")
     if simulation_parameters.get('heterogeneity_enabled', False):
         print(f"  Individual agent characteristics enabled")
+    print(f"  Climate stress: {'ENABLED' if simulation_parameters['climate_stress_enabled'] else 'DISABLED'}")
 
     # Set up data collection using configuration
     goods_to_track = config_loader.get_goods_to_track()
@@ -299,7 +345,7 @@ def main(config_file_path):
     
     print("\nFinalizing simulation...")
     w.finalize()
-    print("Simulation completed!")
+    print(f"{simulation_type} simulation completed!")
     print(f"Results saved to: {actual_simulation_path}")
     
     # Log simulation end
@@ -308,7 +354,8 @@ def main(config_file_path):
             "Total rounds": simulation_parameters['rounds'],
             "Climate events": len([e for events in climate_framework.climate_events_history for e in events]),
             "Agent types": len(agent_groups),
-            "Output directory": actual_simulation_path
+            "Output directory": actual_simulation_path,
+            "Simulation type": simulation_type
         }
         sim_logger.log_simulation_end(summary_stats)
     
@@ -329,7 +376,7 @@ def main(config_file_path):
         # Create comprehensive supply chain analysis
         supply_chain_viz.create_comprehensive_supply_chain_analysis(
             simulation_path=actual_simulation_path,
-            model_name="Climate 3-Layer Supply Chain Model"
+            model_name=f"{simulation_type} 3-Layer Supply Chain Model"
         )
         
         print("Specialized supply chain visualizations completed!")
@@ -361,7 +408,7 @@ def main(config_file_path):
     
     # Print summary
     total_climate_events = sum(len(events) for events in climate_framework.climate_events_history)
-    print(f"\nSummary: Successfully completed {len(climate_framework.climate_events_history)} rounds")
+    print(f"\n{simulation_type} Summary: Successfully completed {len(climate_framework.climate_events_history)} rounds")
     print(f"Total climate events occurred: {total_climate_events}")
     print(f"Geographical assignments: {len(climate_framework.geographical_assignments)} agent types")
     
@@ -382,4 +429,4 @@ if __name__ == '__main__':
     print("=" * 60)
     
     results = main(config_file)
-    print(f"\n Final result summary: {len(results.climate_events_history)} rounds completed")
+    print(f"\n Final result summary: {len(results[0].climate_events_history)} rounds completed")

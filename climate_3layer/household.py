@@ -139,14 +139,36 @@ class Household(abce.Agent):
                     self.debt_created_this_round += modified_debt_needed
         
         # now buy goods with consumption preference modifier
+        # Use a try-catch to handle any remaining money issues gracefully
         for offer in offers:
-            # Apply consumption preference to buying behavior
-            if consumption_preference > 1.0:
-                # More spendthrift households might buy more aggressively
-                # This could be implemented by adjusting the acceptance logic
-                pass
-            # abcEcon already takes care of full and partial acceptances based on how much money is available
-            self.accept(offer)
+            try:
+                # Apply consumption preference to buying behavior
+                if consumption_preference > 1.0:
+                    # More spendthrift households might buy more aggressively
+                    # This could be implemented by adjusting the acceptance logic
+                    pass
+                # abcEcon already takes care of full and partial acceptances based on how much money is available
+                self.accept(offer)
+            except Exception as e:
+                # If we still don't have enough money, create more debt
+                print(f"    DEBUG: Household {self.id} still needs money for offer: {e}")
+                try:
+                    # Create additional debt to cover this offer
+                    additional_debt = offer.quantity * offer.price
+                    modified_additional_debt = additional_debt * debt_willingness
+                    
+                    if modified_additional_debt > 0:
+                        self.create('money', modified_additional_debt)
+                        self.debt += modified_additional_debt
+                        self.debt_created_this_round += modified_additional_debt
+                        print(f"    DEBUG: Household {self.id} created additional debt: {modified_additional_debt}")
+                        
+                        # Try to accept the offer again
+                        self.accept(offer)
+                except Exception as e2:
+                    print(f"    WARNING: Household {self.id} could not purchase offer even with debt creation: {e2}")
+                    # Skip this offer and continue with the next one
+                    continue
 
         final_goods_end = self[self.preferred_good]
         total_purchased = final_goods_end - final_goods_start

@@ -316,7 +316,7 @@ def get_agent_continent(agent_type, agent_id, climate_framework):
     assignments = climate_framework.geographical_assignments[agent_type]
     return assignments[agent_id]['continent']
 
-def create_time_evolution_visualization(visualization_data, simulation_path):
+def create_time_evolution_visualization(visualization_data, simulation_path, baseline_data=None):
     """Create time-evolving visualization from simulation data."""
     
     print("Creating time-evolving visualization from simulation data...")
@@ -357,14 +357,59 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     household_debt = safe_extract(visualization_data['debt'], 'households')
     firm_debt = safe_extract(visualization_data['debt'], 'firms')
     
+    # Extract baseline data if available
+    baseline_commodity_production = None
+    baseline_intermediary_production = None
+    baseline_final_goods_production = None
+    baseline_commodity_inventory = None
+    baseline_intermediary_inventory = None
+    baseline_final_goods_inventory = None
+    baseline_commodity_wealth = None
+    baseline_intermediary_wealth = None
+    baseline_final_goods_wealth = None
+    baseline_household_wealth = None
+    baseline_commodity_overhead = None
+    baseline_intermediary_overhead = None
+    baseline_final_goods_overhead = None
+    baseline_commodity_price = None
+    baseline_intermediary_price = None
+    baseline_final_goods_price = None
+    baseline_household_debt = None
+    baseline_firm_debt = None
+    
+    if baseline_data:
+        try:
+            baseline_commodity_production = safe_extract(baseline_data['production_data'], 'commodity')
+            baseline_intermediary_production = safe_extract(baseline_data['production_data'], 'intermediary')
+            baseline_final_goods_production = safe_extract(baseline_data['production_data'], 'final_goods')
+            baseline_commodity_inventory = safe_extract(baseline_data['inventories'], 'commodity')
+            baseline_intermediary_inventory = safe_extract(baseline_data['inventories'], 'intermediary')
+            baseline_final_goods_inventory = safe_extract(baseline_data['inventories'], 'final_goods')
+            baseline_commodity_wealth = safe_extract(baseline_data['wealth_data'], 'commodity')
+            baseline_intermediary_wealth = safe_extract(baseline_data['wealth_data'], 'intermediary')
+            baseline_final_goods_wealth = safe_extract(baseline_data['wealth_data'], 'final_goods')
+            baseline_household_wealth = safe_extract(baseline_data['wealth_data'], 'households')
+            baseline_commodity_overhead = safe_extract(baseline_data['overhead_costs'], 'commodity')
+            baseline_intermediary_overhead = safe_extract(baseline_data['overhead_costs'], 'intermediary')
+            baseline_final_goods_overhead = safe_extract(baseline_data['overhead_costs'], 'final_goods')
+            baseline_commodity_price = safe_extract(baseline_data['pricing'], 'commodity')
+            baseline_intermediary_price = safe_extract(baseline_data['pricing'], 'intermediary')
+            baseline_final_goods_price = safe_extract(baseline_data['pricing'], 'final_goods')
+            baseline_household_debt = safe_extract(baseline_data['debt'], 'households')
+            baseline_firm_debt = safe_extract(baseline_data['debt'], 'firms')
+            print("Baseline data extracted successfully")
+        except Exception as e:
+            print(f"Warning: Could not extract baseline data: {e}")
+            baseline_data = None
+    
     # Count climate events by round
     climate_stress_counts = []
     for round_agents in visualization_data['agent_data']:
         stress_count = sum([1 for agent in round_agents if agent['climate_stressed']])
         climate_stress_counts.append(stress_count)
     
-    # Create comprehensive time evolution plot with 2x4 grid
-    fig, ((ax1, ax2, ax3, ax4), (ax5, ax6, ax7, ax8)) = plt.subplots(2, 4, figsize=(24, 12))
+    # Create comprehensive time evolution plot with 3x3 grid (separated dual y-axis plot)
+    fig, ((ax1, ax2, ax3), (ax4, ax5, ax6), (ax7, ax8, ax9)) = plt.subplots(3, 3, figsize=(24, 18))
     fig.suptitle('Climate 3-Layer Supply Chain: Time Evolution Analysis', fontsize=18, fontweight='bold')
     
     # Helper function to add climate shock indicators
@@ -410,9 +455,14 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
                     climate_shock_legend_added = True
     
     # Plot 1: Production evolution over time
-    ax1.plot(rounds, commodity_production, 'o-', label='Commodity Production', color='#8B4513', linewidth=2, markersize=4)
-    ax1.plot(rounds, intermediary_production, 's-', label='Intermediary Production', color='#DAA520', linewidth=2, markersize=4)
-    ax1.plot(rounds, final_goods_production, '^-', label='Final Goods Production', color='#00FF00', linewidth=2, markersize=4)
+    if baseline_data:
+        ax1.plot(rounds, baseline_commodity_production, 'o--', label='Baseline Commodity', color='#8B4513', linewidth=1, markersize=3, alpha=0.6)
+        ax1.plot(rounds, baseline_intermediary_production, 's--', label='Baseline Intermediary', color='#DAA520', linewidth=1, markersize=3, alpha=0.6)
+        ax1.plot(rounds, baseline_final_goods_production, '^--', label='Baseline Final Goods', color='#00FF00', linewidth=1, markersize=3, alpha=0.6)
+    
+    ax1.plot(rounds, commodity_production, 'o-', label='Climate Commodity', color='#8B4513', linewidth=2, markersize=4)
+    ax1.plot(rounds, intermediary_production, 's-', label='Climate Intermediary', color='#DAA520', linewidth=2, markersize=4)
+    ax1.plot(rounds, final_goods_production, '^-', label='Climate Final Goods', color='#00FF00', linewidth=2, markersize=4)
     add_climate_shocks(ax1)
     ax1.set_title('Production Levels Over Time', fontweight='bold')
     ax1.set_xlabel('Round')
@@ -421,9 +471,14 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     ax1.grid(True, alpha=0.3)
     
     # Plot 2: Inventory evolution over time
-    ax2.plot(rounds, commodity_inventory, 'o-', label='Commodity Inventory', color='#8B4513', linewidth=2, markersize=4)
-    ax2.plot(rounds, intermediary_inventory, 's-', label='Intermediary Inventory', color='#DAA520', linewidth=2, markersize=4)
-    ax2.plot(rounds, final_goods_inventory, '^-', label='Final Goods Inventory', color='#00FF00', linewidth=2, markersize=4)
+    if baseline_data:
+        ax2.plot(rounds, baseline_commodity_inventory, 'o--', label='Baseline Commodity', color='#8B4513', linewidth=1, markersize=3, alpha=0.6)
+        ax2.plot(rounds, baseline_intermediary_inventory, 's--', label='Baseline Intermediary', color='#DAA520', linewidth=1, markersize=3, alpha=0.6)
+        ax2.plot(rounds, baseline_final_goods_inventory, '^--', label='Baseline Final Goods', color='#00FF00', linewidth=1, markersize=3, alpha=0.6)
+    
+    ax2.plot(rounds, commodity_inventory, 'o-', label='Climate Commodity', color='#8B4513', linewidth=2, markersize=4)
+    ax2.plot(rounds, intermediary_inventory, 's-', label='Climate Intermediary', color='#DAA520', linewidth=2, markersize=4)
+    ax2.plot(rounds, final_goods_inventory, '^-', label='Climate Final Goods', color='#00FF00', linewidth=2, markersize=4)
     add_climate_shocks(ax2)
     ax2.set_title('Inventory Levels Over Time', fontweight='bold')
     ax2.set_xlabel('Round')
@@ -432,9 +487,14 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     ax2.grid(True, alpha=0.3)
     
     # Plot 3: Overhead Costs evolution over time
-    ax3.plot(rounds, commodity_overhead, 'o-', label='Commodity Overhead', color='#8B4513', linewidth=2, markersize=4)
-    ax3.plot(rounds, intermediary_overhead, 's-', label='Intermediary Overhead', color='#DAA520', linewidth=2, markersize=4)
-    ax3.plot(rounds, final_goods_overhead, '^-', label='Final Goods Overhead', color='#00FF00', linewidth=2, markersize=4)
+    if baseline_data:
+        ax3.plot(rounds, baseline_commodity_overhead, 'o--', label='Baseline Commodity', color='#8B4513', linewidth=1, markersize=3, alpha=0.6)
+        ax3.plot(rounds, baseline_intermediary_overhead, 's--', label='Baseline Intermediary', color='#DAA520', linewidth=1, markersize=3, alpha=0.6)
+        ax3.plot(rounds, baseline_final_goods_overhead, '^--', label='Baseline Final Goods', color='#00FF00', linewidth=1, markersize=3, alpha=0.6)
+    
+    ax3.plot(rounds, commodity_overhead, 'o-', label='Climate Commodity', color='#8B4513', linewidth=2, markersize=4)
+    ax3.plot(rounds, intermediary_overhead, 's-', label='Climate Intermediary', color='#DAA520', linewidth=2, markersize=4)
+    ax3.plot(rounds, final_goods_overhead, '^-', label='Climate Final Goods', color='#00FF00', linewidth=2, markersize=4)
     add_climate_shocks(ax3)
     ax3.set_title('Overhead Costs Over Time', fontweight='bold')
     ax3.set_xlabel('Round')
@@ -443,9 +503,14 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     ax3.grid(True, alpha=0.3)
     
     # Plot 4: Pricing evolution over time
-    ax4.plot(rounds, commodity_price, 'o-', label='Commodity Price', color='#8B4513', linewidth=2, markersize=4)
-    ax4.plot(rounds, intermediary_price, 's-', label='Intermediary Price', color='#DAA520', linewidth=2, markersize=4)
-    ax4.plot(rounds, final_goods_price, '^-', label='Final Goods Price', color='#00FF00', linewidth=2, markersize=4)
+    if baseline_data:
+        ax4.plot(rounds, baseline_commodity_price, 'o--', label='Baseline Commodity', color='#8B4513', linewidth=1, markersize=3, alpha=0.6)
+        ax4.plot(rounds, baseline_intermediary_price, 's--', label='Baseline Intermediary', color='#DAA520', linewidth=1, markersize=3, alpha=0.6)
+        ax4.plot(rounds, baseline_final_goods_price, '^--', label='Baseline Final Goods', color='#00FF00', linewidth=1, markersize=3, alpha=0.6)
+    
+    ax4.plot(rounds, commodity_price, 'o-', label='Climate Commodity', color='#8B4513', linewidth=2, markersize=4)
+    ax4.plot(rounds, intermediary_price, 's-', label='Climate Intermediary', color='#DAA520', linewidth=2, markersize=4)
+    ax4.plot(rounds, final_goods_price, '^-', label='Climate Final Goods', color='#00FF00', linewidth=2, markersize=4)
     add_climate_shocks(ax4)
     ax4.set_title('Pricing Evolution Over Time', fontweight='bold')
     ax4.set_xlabel('Round')
@@ -454,10 +519,16 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     ax4.grid(True, alpha=0.3)
     
     # Plot 5: Wealth evolution by sector (including debt)
-    ax5.plot(rounds, commodity_wealth, 'o-', label='Commodity Wealth', color='#8B4513', linewidth=2, markersize=4)
-    ax5.plot(rounds, intermediary_wealth, 's-', label='Intermediary Wealth', color='#DAA520', linewidth=2, markersize=4)
-    ax5.plot(rounds, final_goods_wealth, '^-', label='Final Goods Wealth', color='#00FF00', linewidth=2, markersize=4)
-    ax5.plot(rounds, household_wealth, 'd-', label='Household Wealth', color='#4169E1', linewidth=2, markersize=4)
+    if baseline_data:
+        ax5.plot(rounds, baseline_commodity_wealth, 'o--', label='Baseline Commodity', color='#8B4513', linewidth=1, markersize=3, alpha=0.6)
+        ax5.plot(rounds, baseline_intermediary_wealth, 's--', label='Baseline Intermediary', color='#DAA520', linewidth=1, markersize=3, alpha=0.6)
+        ax5.plot(rounds, baseline_final_goods_wealth, '^--', label='Baseline Final Goods', color='#00FF00', linewidth=1, markersize=3, alpha=0.6)
+        ax5.plot(rounds, baseline_household_wealth, 'd--', label='Baseline Household', color='#4169E1', linewidth=1, markersize=3, alpha=0.6)
+    
+    ax5.plot(rounds, commodity_wealth, 'o-', label='Climate Commodity', color='#8B4513', linewidth=2, markersize=4)
+    ax5.plot(rounds, intermediary_wealth, 's-', label='Climate Intermediary', color='#DAA520', linewidth=2, markersize=4)
+    ax5.plot(rounds, final_goods_wealth, '^-', label='Climate Final Goods', color='#00FF00', linewidth=2, markersize=4)
+    ax5.plot(rounds, household_wealth, 'd-', label='Climate Household', color='#4169E1', linewidth=2, markersize=4)
     add_climate_shocks(ax5)
     ax5.set_title('Wealth Evolution by Sector', fontweight='bold')
     ax5.set_xlabel('Round')
@@ -466,8 +537,12 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     ax5.grid(True, alpha=0.3)
     
     # Plot 6: Debt evolution
-    ax6.plot(rounds, household_debt, 'd--', label='Household Debt', color='#4169E1', linewidth=2, markersize=4, alpha=0.6)
-    ax6.plot(rounds, firm_debt, 's--', label='All Firms Debt', color='#666666', linewidth=2, markersize=4, alpha=0.6)
+    if baseline_data:
+        ax6.plot(rounds, baseline_household_debt, 'd--', label='Baseline Household Debt', color='#4169E1', linewidth=1, markersize=3, alpha=0.6)
+        ax6.plot(rounds, baseline_firm_debt, 's--', label='Baseline All Firms Debt', color='#666666', linewidth=1, markersize=3, alpha=0.6)
+    
+    ax6.plot(rounds, household_debt, 'd-', label='Climate Household Debt', color='#4169E1', linewidth=2, markersize=4, alpha=0.8)
+    ax6.plot(rounds, firm_debt, 's-', label='Climate All Firms Debt', color='#666666', linewidth=2, markersize=4, alpha=0.8)
     add_climate_shocks(ax6)
     ax6.set_title('Debt Levels Over Time', fontweight='bold')
     ax6.set_xlabel('Round')
@@ -483,24 +558,38 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     ax7.legend(loc='upper right', fontsize=8)
     ax7.grid(True, alpha=0.3)
     
-    # Plot 8: Summary statistics with overhead and pricing on twin axis
+    # Plot 8: Total Production (separated from dual y-axis)
     total_production = [c + i + f for c, i, f in zip(commodity_production, intermediary_production, final_goods_production)]
+    if baseline_data:
+        baseline_total_production = [c + i + f for c, i, f in zip(baseline_commodity_production, baseline_intermediary_production, baseline_final_goods_production)]
+        ax8.plot(rounds, baseline_total_production, 'g--', label='Baseline Total Production', linewidth=2, alpha=0.6)
+    
+    ax8.plot(rounds, total_production, 'g-', label='Climate Total Production', linewidth=3, alpha=0.8)
+    add_climate_shocks(ax8)
+    ax8.set_title('Total Production', fontweight='bold')
+    ax8.set_xlabel('Round')
+    ax8.set_ylabel('Total Production')
+    ax8.legend(loc='upper right', fontsize=8)
+    ax8.grid(True, alpha=0.3)
+    
+    # Plot 9: Total Overhead and Average Price (separated from dual y-axis)
     total_overhead = [c + i + f for c, i, f in zip(commodity_overhead, intermediary_overhead, final_goods_overhead)]
     avg_price = [(c + i + f) / 3 for c, i, f in zip(commodity_price, intermediary_price, final_goods_price)]
     
-    ax8.plot(rounds, total_production, 'g-', label='Total Production', linewidth=3, alpha=0.8)
-    ax8_twin = ax8.twinx()
-    ax8_twin.plot(rounds, total_overhead, 'r--', label='Total Overhead', linewidth=2, alpha=0.8)
-    ax8_twin.plot(rounds, avg_price, 'b:', label='Avg Price', linewidth=2, alpha=0.8)
+    if baseline_data:
+        baseline_total_overhead = [c + i + f for c, i, f in zip(baseline_commodity_overhead, baseline_intermediary_overhead, baseline_final_goods_overhead)]
+        baseline_avg_price = [(c + i + f) / 3 for c, i, f in zip(baseline_commodity_price, baseline_intermediary_price, baseline_final_goods_price)]
+        ax9.plot(rounds, baseline_total_overhead, 'r--', label='Baseline Total Overhead', linewidth=1, alpha=0.6)
+        ax9.plot(rounds, baseline_avg_price, 'b--', label='Baseline Average Price', linewidth=1, alpha=0.6)
     
-    add_climate_shocks(ax8)
-    ax8.set_title('Economic Summary', fontweight='bold')
-    ax8.set_xlabel('Round')
-    ax8.set_ylabel('Production', color='green')
-    ax8_twin.set_ylabel('Overhead ($) & Price ($)', color='red')
-    ax8.legend(loc='upper left', fontsize=8)
-    ax8_twin.legend(loc='upper right', fontsize=8)
-    ax8.grid(True, alpha=0.3)
+    ax9.plot(rounds, total_overhead, 'r-', label='Climate Total Overhead', linewidth=2, alpha=0.8)
+    ax9.plot(rounds, avg_price, 'b-', label='Climate Average Price', linewidth=2, alpha=0.8)
+    add_climate_shocks(ax9)
+    ax9.set_title('Total Overhead & Average Price', fontweight='bold')
+    ax9.set_xlabel('Round')
+    ax9.set_ylabel('Cost/Price ($)')
+    ax9.legend(loc='upper right', fontsize=8)
+    ax9.grid(True, alpha=0.3)
     
     # Save the time evolution plot
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -511,57 +600,43 @@ def create_time_evolution_visualization(visualization_data, simulation_path):
     plt.close()
     return filename
 
-def create_animated_supply_chain(visualization_data, simulation_path):
+def create_animated_supply_chain(visualization_data, simulation_path, baseline_data=None):
     """Create animated GIF showing supply chain evolution over time."""
-    
     print("Creating animated supply chain visualization...")
     
-    # Set up the animation plot with 5 subplots in a custom layout
-    # Layout: Network (big left), Production/Inventory (top right), Overhead/Pricing (middle right), 
-    #         Geography (bottom left), Wealth (bottom right)
-    fig = plt.figure(figsize=(16 , 15)) 
+    fig = plt.figure(figsize=(18 , 14)) 
     fig.suptitle('Climate 3-Layer Supply Chain Evolution', fontsize=16, fontweight='bold')
     
     # Create custom subplot layout
-    ax1 = plt.subplot2grid((3, 2), (0, 0), rowspan=2)  # Network plot (big, left side)
-    ax2 = plt.subplot2grid((3, 2), (0, 1))             # Production/Inventory (top right)
-    ax3 = plt.subplot2grid((3, 2), (1, 1))             # Overhead/Pricing (middle right)
-    ax4 = plt.subplot2grid((3, 2), (2, 0))             # Geography (bottom left)
-    ax5 = plt.subplot2grid((3, 2), (2, 1))             # Wealth (bottom right)
+    ax1 = plt.subplot2grid((3, 3), (0, 0), rowspan=2)  # Network plot (big, left side)
+    ax2 = plt.subplot2grid((3, 3), (0, 1))             # Production 
+    ax3 = plt.subplot2grid((3, 3), (0, 2))             # Inventory 
+    ax4 = plt.subplot2grid((3, 3), (1, 1))             # Pricing 
+    ax5 = plt.subplot2grid((3, 3), (1, 2))             # Production
+    ax6 = plt.subplot2grid((3, 3), (2, 0))             # Geography 
+    ax7 = plt.subplot2grid((3, 3), (2, 1))             # Wealth 
+    ax8 = plt.subplot2grid((3, 3), (2, 2))             # debt
     
-    # Create the twin axis outside the animate function to avoid overlapping axes
-    ax3_twin = ax3.twinx()
-    
-    # Define continent positions for the world map (simplified layout)
-    continent_positions = {
-        'North America': (0.5, 3, 1.5, 1.5),
-        'South America': (0.5, 1, 1.5, 1.5),
-        'Europe': (3, 3.5, 1, 1),
-        'Asia': (4.5, 3, 1.5, 1.5),
-        'Africa': (3, 1.5, 1, 1.5),
-        'Oceania': (5.5, 0.5, 1, 1)
-    }
+    num_frames = len(visualization_data['rounds'])
+
     def animate(frame):
         # Clear all subplots
-        for ax in [ax1, ax2, ax3, ax4, ax5]:
+        for ax in [ax1, ax2, ax3, ax4, ax5, ax6, ax7, ax8]:
             ax.clear()
-        # Clear the twin axis as well
-        ax3_twin.clear()
         
         if frame >= len(visualization_data['rounds']):
             return
         
         round_num = visualization_data['rounds'][frame]
         agent_data = visualization_data['agent_data'][frame]
-        production_data = visualization_data['production_data'][frame]
-        wealth_data = visualization_data['wealth_data'][frame]
-        climate_events = visualization_data['climate_events'][frame]
         
-        # Plot 1: Agent network with stress status
-        ax1.set_title(f'Supply Chain Network - Round {round_num}')
+        ###################################################
+        # NETWORK PLOT Agent network with stress status
+        ###################################################
+        ax1.set_title(f'Supply Chain Network - Round {round_num}', fontweight='bold')
         ax1.set_xlim(0, 8)
         ax1.set_ylim(0, 6)
-        
+         
         # Count actual agents by type from data
         agent_counts = {}
         for agent in agent_data:
@@ -628,17 +703,17 @@ def create_animated_supply_chain(visualization_data, simulation_path):
             return positions
         
         agent_positions = create_agent_positions(agent_counts)
-        
+
         agent_type_colors = {
             'commodity_producer': '#8B4513',
             'intermediary_firm': '#DAA520',
             'final_goods_firm': '#00FF00',
             'household': '#4169E1'
         }
-        
+
         # Plot each agent using data and dynamic positions
         pos_idx = {'commodity_producer': 0, 'intermediary_firm': 0, 'final_goods_firm': 0, 'household': 0}
-        
+
         for agent in agent_data:
             agent_type = agent['type']
             if agent_type in agent_positions and pos_idx[agent_type] < len(agent_positions[agent_type]):
@@ -696,7 +771,7 @@ def create_animated_supply_chain(visualization_data, simulation_path):
         if 'household' in agent_counts:
             ax1.text(7, 5.2, f'Households\n({agent_counts["household"]})', ha='center', fontsize=10, fontweight='bold')
         
-        # Add legend for network plot indicators
+        # Add legend for network plot indicators - positioned to avoid blocking content
         legend_elements = []
         legend_elements.append(plt.Line2D([0], [0], marker='o', color='w', 
                                         markerfacecolor='#8B4513', markersize=8, 
@@ -708,90 +783,209 @@ def create_animated_supply_chain(visualization_data, simulation_path):
                                         markerfacecolor='#8B4513', markersize=8, 
                                         label='Agent in Debt', markeredgecolor='#FFA500', markeredgewidth=2))
         
-        ax1.legend(handles=legend_elements, loc='upper right', fontsize=8, 
-                  title='Agent Status', title_fontsize=9, framealpha=0.8)
+        ax1.legend(handles=legend_elements, loc='upper left', fontsize=7, 
+                  title='Agent Status', title_fontsize=8, framealpha=0.8, bbox_to_anchor=(0.8, 1))
         
-        # Plot 2: Production & Inventory Levels Over Time
-        ax2.set_title('Production & Inventory Levels Over Time')
-        rounds_so_far = visualization_data['rounds'][:frame+1]
+        ax1.axis('off')
         
+        ###################################################
+        # PRODUCTION PLOT
+        ###################################################
+        ax2.set_title('Production Levels', fontweight='bold')
+        ax2.set_ylabel('Production')
+        
+        # Get data up to current frame
+        current_rounds = visualization_data['rounds'][:frame+1]
+        
+        # Stressed production data
         commodity_prod = [visualization_data['production_data'][i].get('commodity', 0) for i in range(frame+1)]
         intermediary_prod = [visualization_data['production_data'][i].get('intermediary', 0) for i in range(frame+1)]
         final_goods_prod = [visualization_data['production_data'][i].get('final_goods', 0) for i in range(frame+1)]
         
-        # Add inventory data
-        commodity_inventory = [visualization_data['inventories'][i].get('commodity', 0) for i in range(frame+1)]
-        intermediary_inventory = [visualization_data['inventories'][i].get('intermediary', 0) for i in range(frame+1)]
-        final_goods_inventory = [visualization_data['inventories'][i].get('final_goods', 0) for i in range(frame+1)]
+        ax2.plot(current_rounds, commodity_prod, 'o-', color='#8B4513', label='Stressed Commodity', linewidth=2)
+        ax2.plot(current_rounds, intermediary_prod, 's-', color='#DAA520', label='Stressed Intermediary', linewidth=2)
+        ax2.plot(current_rounds, final_goods_prod, '^-', color='#00FF00', label='Stressed Final Goods', linewidth=2)
         
-        # Plot production (solid lines)
-        ax2.plot(rounds_so_far, commodity_prod, 'o-', label='Commodity Prod', color='#8B4513', linewidth=2, markersize=3)
-        ax2.plot(rounds_so_far, intermediary_prod, 's-', label='Intermediary Prod', color='#DAA520', linewidth=2, markersize=3)
-        ax2.plot(rounds_so_far, final_goods_prod, '^-', label='Final Goods Prod', color='#00FF00', linewidth=2, markersize=3)
+        # Baseline production data
+        if baseline_data:
+            baseline_commodity_prod = [baseline_data['production_data'][i].get('commodity', 0) for i in range(frame+1)]
+            baseline_intermediary_prod = [baseline_data['production_data'][i].get('intermediary', 0) for i in range(frame+1)]
+            baseline_final_goods_prod = [baseline_data['production_data'][i].get('final_goods', 0) for i in range(frame+1)]
+            
+            ax2.plot(current_rounds, baseline_commodity_prod, 'o--', color='#8B4513', alpha=0.5, label='Baseline Commodity')
+            ax2.plot(current_rounds, baseline_intermediary_prod, 's--', color='#DAA520', alpha=0.5, label='Baseline Intermediary')
+            ax2.plot(current_rounds, baseline_final_goods_prod, '^--', color='#00FF00', alpha=0.5, label='Baseline Final Goods')
         
-        # Plot inventory (dashed lines)
-        ax2.plot(rounds_so_far, commodity_inventory, 'o--', label='Commodity Inv', color='#8B4513', linewidth=1, alpha=0.7, markersize=2)
-        ax2.plot(rounds_so_far, intermediary_inventory, 's--', label='Intermediary Inv', color='#DAA520', linewidth=1, alpha=0.7, markersize=2)
-        ax2.plot(rounds_so_far, final_goods_inventory, '^--', label='Final Goods Inv', color='#00FF00', linewidth=1, alpha=0.7, markersize=2)
-        
-        ax2.set_ylabel('Production & Inventory', color='black')
-        ax2.legend(fontsize=8)
-        ax2.set_xlabel('Round')
+        ax2.legend(fontsize=7)
         ax2.grid(True, alpha=0.3)
+        ax2.set_xlim(0, num_frames)
         
-        # Add climate shock indicators
-        for shock_round in range(frame + 1):
-            if shock_round < len(visualization_data['climate_events']):
-                events = visualization_data['climate_events'][shock_round]
-                if events:
-                    ax2.axvline(x=shock_round, color='red', linestyle='--', alpha=0.6, linewidth=1)
+        ###################################################
+        # Overhead plot
+        ###################################################
+        ax4.set_title('Overhead Costs', fontweight='bold')
+        ax4.set_xlabel('Round')
+        ax4.set_ylabel('Overhead ($)')
         
-        # Plot 3: Overhead Costs & Pricing Over Time
-        ax3.set_title('Overhead Costs & Pricing Over Time')
-        
-        # Get overhead and pricing data
+        # Stressed overhead data
         commodity_overhead = [visualization_data['overhead_costs'][i].get('commodity', 0) for i in range(frame+1)]
         intermediary_overhead = [visualization_data['overhead_costs'][i].get('intermediary', 0) for i in range(frame+1)]
         final_goods_overhead = [visualization_data['overhead_costs'][i].get('final_goods', 0) for i in range(frame+1)]
         
+        ax4.plot(current_rounds, commodity_overhead, 'o-', color='#8B4513', label='Stressed Commodity', linewidth=2)
+        ax4.plot(current_rounds, intermediary_overhead, 's-', color='#DAA520', label='Stressed Intermediary', linewidth=2)
+        ax4.plot(current_rounds, final_goods_overhead, '^-', color='#00FF00', label='Stressed Final Goods', linewidth=2)
+        
+        # Baseline overhead data
+        if baseline_data:
+            baseline_commodity_overhead = [baseline_data['overhead_costs'][i].get('commodity', 0) for i in range(frame+1)]
+            baseline_intermediary_overhead = [baseline_data['overhead_costs'][i].get('intermediary', 0) for i in range(frame+1)]
+            baseline_final_goods_overhead = [baseline_data['overhead_costs'][i].get('final_goods', 0) for i in range(frame+1)]
+            
+            ax4.plot(current_rounds, baseline_commodity_overhead, 'o--', color='#8B4513', alpha=0.5, label='Baseline Commodity')
+            ax4.plot(current_rounds, baseline_intermediary_overhead, 's--', color='#DAA520', alpha=0.5, label='Baseline Intermediary')
+            ax4.plot(current_rounds, baseline_final_goods_overhead, '^--', color='#00FF00', alpha=0.5, label='Baseline Final Goods')
+        
+        ax4.legend(fontsize=7)
+        ax4.grid(True, alpha=0.3)
+        ax4.set_xlim(0, num_frames)
+        
+        ###################################################
+        # WEALTH PLOT 
+        ###################################################
+        ax7.set_title('Average Wealth', fontweight='bold')
+        ax7.set_xlabel('Round')
+        ax7.set_ylabel('Wealth ($)')
+        
+        # Stressed wealth data
+        household_wealth = [visualization_data['wealth_data'][i].get('households', 0) for i in range(frame+1)]
+        firm_wealth = [visualization_data['wealth_data'][i].get('commodity', 0) + 
+                      visualization_data['wealth_data'][i].get('intermediary', 0) + 
+                      visualization_data['wealth_data'][i].get('final_goods', 0) for i in range(frame+1)]
+        
+        ax7.plot(current_rounds, household_wealth, 'o-', color='blue', label='Stressed Households', linewidth=2)
+        ax7.plot(current_rounds, firm_wealth, 's-', color='green', label='Stressed Firms', linewidth=2)
+        
+        # Baseline wealth data
+        if baseline_data:
+            baseline_household_wealth = [baseline_data['wealth_data'][i].get('households', 0) for i in range(frame+1)]
+            baseline_firm_wealth = [baseline_data['wealth_data'][i].get('commodity', 0) + 
+                                  baseline_data['wealth_data'][i].get('intermediary', 0) + 
+                                  baseline_data['wealth_data'][i].get('final_goods', 0) for i in range(frame+1)]
+            
+            ax7.plot(current_rounds, baseline_household_wealth, 'o--', color='blue', alpha=0.5, label='Baseline Households')
+            ax7.plot(current_rounds, baseline_firm_wealth, 's--', color='green', alpha=0.5, label='Baseline Firms')
+        
+        ax7.legend(fontsize=7)
+        ax7.grid(True, alpha=0.3)
+        ax7.set_xlim(0, num_frames)
+        
+        ###################################################
+        # INVENTORY PLOT
+        ###################################################
+        ax3.set_title('Inventory Levels', fontweight='bold')
+        ax3.set_ylabel('Inventory')
+        
+        # Stressed inventory data
+        commodity_inv = [visualization_data['inventories'][i].get('commodity', 0) for i in range(frame+1)]
+        intermediary_inv = [visualization_data['inventories'][i].get('intermediary', 0) for i in range(frame+1)]
+        final_goods_inv = [visualization_data['inventories'][i].get('final_goods', 0) for i in range(frame+1)]
+        
+        ax3.plot(current_rounds, commodity_inv, 'o-', color='#8B4513', label='Stressed Commodity', linewidth=2)
+        ax3.plot(current_rounds, intermediary_inv, 's-', color='#DAA520', label='Stressed Intermediary', linewidth=2)
+        ax3.plot(current_rounds, final_goods_inv, '^-', color='#00FF00', label='Stressed Final Goods', linewidth=2)
+        
+        # Baseline inventory data
+        if baseline_data:
+            baseline_commodity_inv = [baseline_data['inventories'][i].get('commodity', 0) for i in range(frame+1)]
+            baseline_intermediary_inv = [baseline_data['inventories'][i].get('intermediary', 0) for i in range(frame+1)]
+            baseline_final_goods_inv = [baseline_data['inventories'][i].get('final_goods', 0) for i in range(frame+1)]
+            
+            ax3.plot(current_rounds, baseline_commodity_inv, 'o--', color='#8B4513', alpha=0.5, label='Baseline Commodity')
+            ax3.plot(current_rounds, baseline_intermediary_inv, 's--', color='#DAA520', alpha=0.5, label='Baseline Intermediary')
+            ax3.plot(current_rounds, baseline_final_goods_inv, '^--', color='#00FF00', alpha=0.5, label='Baseline Final Goods')
+        
+        ax3.legend(fontsize=7)
+        ax3.grid(True, alpha=0.3)
+        ax3.set_xlim(0, num_frames)
+        
+        ###################################################
+        # PRICE PLOT
+        ###################################################
+        ax5.set_title('Average Prices', fontweight='bold') 
+        ax5.set_ylabel('Price ($)')
+        
+        # Stressed price data
         commodity_price = [visualization_data['pricing'][i].get('commodity', 0) for i in range(frame+1)]
         intermediary_price = [visualization_data['pricing'][i].get('intermediary', 0) for i in range(frame+1)]
         final_goods_price = [visualization_data['pricing'][i].get('final_goods', 0) for i in range(frame+1)]
         
-        # Plot overhead (solid lines) - LEFT Y-AXIS
-        ax3.plot(rounds_so_far, commodity_overhead, 'o-', label='Commodity Overhead', color='#8B4513', linewidth=2, markersize=3)
-        ax3.plot(rounds_so_far, intermediary_overhead, 's-', label='Intermediary Overhead', color='#DAA520', linewidth=2, markersize=3)
-        ax3.plot(rounds_so_far, final_goods_overhead, '^-', label='Final Goods Overhead', color='#00FF00', linewidth=2, markersize=3)
-        ax3.set_ylabel('Overhead Costs ($)', color='black')
+        ax5.plot(current_rounds, commodity_price, 'o-', color='#8B4513', label='Stressed Commodity', linewidth=2)
+        ax5.plot(current_rounds, intermediary_price, 's-', color='#DAA520', label='Stressed Intermediary', linewidth=2)
+        ax5.plot(current_rounds, final_goods_price, '^-', color='#00FF00', label='Stressed Final Goods', linewidth=2)
         
-        # Plot pricing (dashed lines) - RIGHT Y-AXIS using the pre-created twin axis
-        ax3_twin.plot(rounds_so_far, commodity_price, 'o--', label='Commodity Price', color='#8B4513', alpha=0.7, linewidth=1, markersize=2)
-        ax3_twin.plot(rounds_so_far, intermediary_price, 's--', label='Intermediary Price', color='#DAA520', alpha=0.7, linewidth=1, markersize=2)
-        ax3_twin.plot(rounds_so_far, final_goods_price, '^--', label='Final Goods Price', color='#00FF00', alpha=0.7, linewidth=1, markersize=2)
-        ax3_twin.set_ylabel('Prices ($)', color='gray')
-        ax3_twin.tick_params(axis='y', labelcolor='gray')
-        ax3_twin.yaxis.set_label_position('right')
+        # Baseline price data
+        if baseline_data:
+            baseline_commodity_price = [baseline_data['pricing'][i].get('commodity', 0) for i in range(frame+1)]
+            baseline_intermediary_price = [baseline_data['pricing'][i].get('intermediary', 0) for i in range(frame+1)]
+            baseline_final_goods_price = [baseline_data['pricing'][i].get('final_goods', 0) for i in range(frame+1)]
+            
+            ax5.plot(current_rounds, baseline_commodity_price, 'o--', color='#8B4513', alpha=0.5, label='Baseline Commodity')
+            ax5.plot(current_rounds, baseline_intermediary_price, 's--', color='#DAA520', alpha=0.5, label='Baseline Intermediary')
+            ax5.plot(current_rounds, baseline_final_goods_price, '^--', color='#00FF00', alpha=0.5, label='Baseline Final Goods')
         
-        # Add climate shock indicators
-        for shock_round in range(frame + 1):
-            if shock_round < len(visualization_data['climate_events']):
-                events = visualization_data['climate_events'][shock_round]
-                if events:
-                    ax3.axvline(x=shock_round, color='red', linestyle='--', alpha=0.6, linewidth=1)
+        ax5.legend(fontsize=7)
+        ax5.grid(True, alpha=0.3)
+        ax5.set_xlim(0, num_frames)
         
-        # Combine legends
-        lines1, labels1 = ax3.get_legend_handles_labels()
-        lines2, labels2 = ax3_twin.get_legend_handles_labels()
-        ax3.legend(lines1 + lines2, labels1 + labels2, fontsize=8)
+        ###################################################
+        # DEBT PLOT 
+        ###################################################
+        ax8.set_title('Total Debt', fontweight='bold')
+        ax8.set_xlabel('Round')
+        ax8.set_ylabel('Debt ($)')
         
-        ax3.set_xlabel('Round')
-        ax3.grid(True, alpha=0.3)
+        # Stressed debt data
+        household_debt = [visualization_data['debt'][i].get('households', 0) for i in range(frame+1)]
+        firm_debt = [visualization_data['debt'][i].get('firms', 0) for i in range(frame+1)]
         
-        # Plot 4: Geographical Distribution World Map
-        ax4.set_title(f'Global Climate Impact Map - Round {round_num}')
-        ax4.set_xlim(0, 7)
-        ax4.set_ylim(0, 5)
-        ax4.set_aspect('equal')
+        ax8.plot(current_rounds, household_debt, 'o-', color='red', label='Stressed Households', linewidth=2)
+        ax8.plot(current_rounds, firm_debt, 's-', color='orange', label='Stressed Firms', linewidth=2)
+        
+        # Baseline debt data
+        if baseline_data:
+            baseline_household_debt = [baseline_data['debt'][i].get('households', 0) for i in range(frame+1)]
+            baseline_firm_debt = [baseline_data['debt'][i].get('firms', 0) for i in range(frame+1)]
+            
+            ax8.plot(current_rounds, baseline_household_debt, 'o--', color='red', alpha=0.5, label='Baseline Households')
+            ax8.plot(current_rounds, baseline_firm_debt, 's--', color='orange', alpha=0.5, label='Baseline Firms')
+        
+        ax8.legend(fontsize=7)
+        ax8.grid(True, alpha=0.3)
+        ax8.set_xlim(0, num_frames)
+        
+        ###################################################
+        # GEOGRAPHY PLOT
+        ###################################################
+        ax6.set_title('Geographical Distribution', fontweight='bold')
+        ax6.set_xlim(0, 7)
+        ax6.set_ylim(0, 5)
+        ax6.set_aspect('equal')
+        
+        # Define continent positions for the world map (simplified layout)
+        continent_positions = {
+            'North America': (1, 3.5, 1.5, 1),
+            'South America': (1, 1, 1.5, 1.5),
+            'Europe': (3, 3.5, 1, 1),
+            'Asia': (4.5, 3, 1.5, 1.5),
+            'Africa': (3, 1.5, 1, 1.5),
+            'Oceania': (5.5, 0.5, 1, 1)
+        }
+        
+        # Get climate events for current round
+        climate_events = {}
+        if round_num < len(visualization_data['climate_events']):
+            climate_events = visualization_data['climate_events'][round_num]
         
         # Draw continent shapes (simplified rectangles)
         continent_colors = {}
@@ -800,9 +994,12 @@ def create_animated_supply_chain(visualization_data, simulation_path):
             base_color = '#90EE90'  # Light green for normal
             
             # Check if this continent has climate stress
-            if climate_events and continent in climate_events:
-                if 'stress' in str(climate_events[continent]):
-                    base_color = '#FF6B6B'  # Red for climate stress
+            if climate_events:
+                for event_name, event_data in climate_events.items():
+                    if isinstance(event_data, dict) and 'continents' in event_data:
+                        if continent in event_data['continents'] or 'all' in event_data['continents']:
+                            base_color = '#FF6B6B'  # Red for climate stress
+                            break
             
             continent_colors[continent] = base_color
             
@@ -812,12 +1009,12 @@ def create_animated_supply_chain(visualization_data, simulation_path):
                                          facecolor=base_color, 
                                          edgecolor='black', 
                                          alpha=0.6)
-            ax4.add_patch(continent_rect)
+            ax6.add_patch(continent_rect)
             
             # Add continent label
-            ax4.text(x + width/2, y + height/2, continent.replace(' ', '\n'), 
+            ax6.text(x + width/2, y + height/2, continent.replace(' ', '\n'), 
                     ha='center', va='center', fontsize=8, fontweight='bold')
-        
+
         # Place agents on their continents
         agent_counts_by_continent = {}
         for agent in agent_data:
@@ -861,132 +1058,96 @@ def create_animated_supply_chain(visualization_data, simulation_path):
                         color = '#FF0000' if stressed_agents else agent_colors[i]
                         size = 150 if stressed_agents else 80
                         
-                        ax4.scatter(pos_x, pos_y, c=color, s=size, marker=agent_symbols[i], 
+                        ax6.scatter(pos_x, pos_y, c=color, s=size, marker=agent_symbols[i], 
                                   alpha=0.9, edgecolors='black', linewidth=1)
                         
                         # Add count label
-                        ax4.text(pos_x, pos_y - 0.15, str(int(counts[agent_type])), 
+                        ax6.text(pos_x, pos_y - 0.15, str(int(counts[agent_type])), 
                                ha='center', va='center', fontsize=6, fontweight='bold')
         
-        # Add legend for agent types
+        # Add legend for agent types - positioned to avoid blocking content
         legend_elements = []
-        agent_type_names = ['Commodity Producers', 'Intermediary Firms', 'Final Goods Firms', 'Households']
+        agent_type_names = ['Commodity', 'Intermediary', 'Final Goods', 'Households']
         legend_agent_colors = ['#8B4513', '#DAA520', '#00FF00', '#4169E1']
         agent_symbols = ['o', 's', '^', 'D']
-        
+
         for i, (name, color, symbol) in enumerate(zip(agent_type_names, legend_agent_colors, agent_symbols)):
             legend_elements.append(plt.Line2D([0], [0], marker=symbol, color='w', 
-                                            markerfacecolor=color, markersize=8, 
+                                            markerfacecolor=color, markersize=6, 
                                             label=name, markeredgecolor='black', markeredgewidth=0.5))
         
         # Add stress indicator to legend
         legend_elements.append(plt.Line2D([0], [0], marker='o', color='w', 
-                                        markerfacecolor='#FF0000', markersize=10, 
-                                        label='Climate Stressed', markeredgecolor='black', markeredgewidth=0.5))
+                                        markerfacecolor='#FF0000', markersize=8, 
+                                        label='Stressed', markeredgecolor='black', markeredgewidth=0.5))
         
-        ax4.legend(handles=legend_elements, loc='lower center', fontsize=8, 
-                  title='Agent Types', title_fontsize=9, framealpha=0.8)
+        ax6.legend(handles=legend_elements, loc='upper right', fontsize=6, 
+                  title='Agent Types', title_fontsize=7, framealpha=0.8, bbox_to_anchor=(0.5, 0 ))
          
-        ax4.axis('off')  # Remove axes for cleaner world map look
+        ax6.axis('off')  # Remove axes for cleaner world map look
         
-        # Plot 5: Wealth time-series by sector
-        ax5.set_title('Wealth Evolution by Sector')
-        
-        # Collect wealth data over time up to current frame
-        commodity_wealth_series = [visualization_data['wealth_data'][i].get('commodity', 0) for i in range(frame+1)]
-        intermediary_wealth_series = [visualization_data['wealth_data'][i].get('intermediary', 0) for i in range(frame+1)]
-        final_goods_wealth_series = [visualization_data['wealth_data'][i].get('final_goods', 0) for i in range(frame+1)]
-        household_wealth_series = [visualization_data['wealth_data'][i].get('households', 0) for i in range(frame+1)]
-        
-        # Collect debt data over time up to current frame
-        household_debt_series = [visualization_data['debt'][i].get('households', 0) for i in range(frame+1)]
-        firm_debt_series = [visualization_data['debt'][i].get('firms', 0) for i in range(frame+1)]
-        
-        # Define consistent colors for agent types
-        agent_colors = {
-            'commodity': '#8B4513',
-            'intermediary': '#DAA520', 
-            'final_goods': '#00FF00',
-            'households': '#4169E1'
-        }
-        
-        # Plot wealth time-series lines (solid lines)
-        ax5.plot(rounds_so_far, commodity_wealth_series, 'o-', label='Commodity Wealth', 
-                color=agent_colors['commodity'], linewidth=2, markersize=4)
-        ax5.plot(rounds_so_far, intermediary_wealth_series, 's-', label='Intermediary Wealth', 
-                color=agent_colors['intermediary'], linewidth=2, markersize=4)
-        ax5.plot(rounds_so_far, final_goods_wealth_series, '^-', label='Final Goods Wealth', 
-                color=agent_colors['final_goods'], linewidth=2, markersize=4)
-        ax5.plot(rounds_so_far, household_wealth_series, 'd-', label='Household Wealth', 
-                color=agent_colors['households'], linewidth=2, markersize=4)
-        
-        # Plot debt lines (dashed lines with same colors but lighter alpha)
-        ax5.plot(rounds_so_far, household_debt_series, 'd--', label='Household Debt', 
-                color=agent_colors['households'], linewidth=2, markersize=4, alpha=0.6)
-        
-        # Calculate and plot total firm debt (combination of all firm types)
-        ax5.plot(rounds_so_far, firm_debt_series, 's--', label='All Firms Debt', 
-                color='#666666', linewidth=2, markersize=4, alpha=0.6)
-        
-        ax5.set_xlabel('Round')
-        ax5.set_ylabel('Total Wealth ($)')
-        ax5.legend(fontsize=8)
-        ax5.grid(True, alpha=0.3)
-        
-        plt.tight_layout()
-    
     # Create animation
-    num_frames = len(visualization_data['rounds'])
-    anim = animation.FuncAnimation(fig, animate, frames=num_frames, interval=1500, repeat=True)
+    anim = animation.FuncAnimation(fig, animate, frames=num_frames, interval=800, repeat=True)
     
     # Save animation
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{simulation_path}/climate_3layer_animation_{timestamp}.gif"
-    
+    filename = os.path.join(simulation_path, f"climate_3layer_animation_{timestamp}.gif")
     print(f"Saving animation as {filename}...")
     anim.save(filename, writer='pillow', fps=1.5, dpi=72)
+    plt.close()
     print(f"SUCCESS: Animation saved: {filename}")
-    
-    plt.close()  # Clean up memory
-    
     return filename
 
 def collect_all_visualization_data(simulation_path, climate_framework, num_rounds):
-    """Collect visualization data for all rounds from the simulation CSV files."""
+    """Collect all visualization data from simulation output."""
     
-    print("Collecting visualization data from simulation results...")
+    # If num_rounds is None, detect it from CSV files
+    if num_rounds is None:
+        production_file = os.path.join(simulation_path, 'panel_commodity_producer_production.csv')
+        if not os.path.exists(production_file):
+            print(f"ERROR: Simulation output not found in: {simulation_path}")
+            return None
+        
+        try:
+            df = pd.read_csv(production_file)
+            num_rounds = df['round'].max() + 1
+            print(f"Detected {num_rounds} rounds in simulation output")
+        except Exception as e:
+            print(f"ERROR: Error reading simulation data: {e}")
+            return None
+    
+    print(f"Collecting visualization data for {num_rounds} rounds...")
+    
     visualization_data = {
         'rounds': [],
         'agent_data': [],
-        'climate_events': [],
         'production_data': [],
-        'wealth_data': [],
         'inventories': [],
+        'wealth_data': [],
         'overhead_costs': [],
         'pricing': [],
-        'debt': []
+        'debt': [],
+        'climate_events': []
     }
     
-    # Read data for each round from the CSV files
-    for r in range(num_rounds):
-        round_data = collect_simulation_data(simulation_path, r, climate_framework)
+    for round_num in range(num_rounds):
+        print(f"  Processing round {round_num}...")
         
-        visualization_data['rounds'].append(r)
+        # Collect data for this round
+        round_data = collect_simulation_data(simulation_path, round_num, climate_framework)
+        
+        # Store in visualization data structure
+        visualization_data['rounds'].append(round_num)
         visualization_data['agent_data'].append(round_data['agents'])
-        visualization_data['climate_events'].append(round_data['climate'])
         visualization_data['production_data'].append(round_data['production'])
-        visualization_data['wealth_data'].append(round_data['wealth'])
         visualization_data['inventories'].append(round_data['inventories'])
+        visualization_data['wealth_data'].append(round_data['wealth'])
         visualization_data['overhead_costs'].append(round_data['overhead_costs'])
         visualization_data['pricing'].append(round_data['pricing'])
         visualization_data['debt'].append(round_data['debt'])
-        
-        # Add debug info
-        total_production = sum(round_data['production'].values())
-        total_inventory = sum(round_data['inventories'].values())
-        print(f"    Round {r}: Production = {total_production:.2f}, Inventory = {total_inventory:.2f}")
+        visualization_data['climate_events'].append(round_data['climate'])
     
-    print("SUCCESS: Visualization data collection completed!")
+    print(f"SUCCESS: Collected visualization data for {num_rounds} rounds")
     return visualization_data
 
 def run_animation_visualizations(simulation_path):
@@ -1010,6 +1171,29 @@ def run_animation_visualizations(simulation_path):
         print(f"ERROR: Error reading simulation data: {e}")
         return
     
+    # Check if this is a climate simulation and look for baseline
+    baseline_path = None
+    is_climate_simulation = False
+    
+    # Check if this path contains "climate" in the name
+    if "climate" in os.path.basename(simulation_path):
+        is_climate_simulation = True
+        # Look for baseline simulation in the same directory
+        parent_dir = os.path.dirname(simulation_path)
+        base_name = os.path.basename(simulation_path).replace("climate", "baseline")
+        potential_baseline = os.path.join(parent_dir, base_name)
+        
+        if os.path.exists(potential_baseline):
+            baseline_path = potential_baseline
+            print(f"Found baseline simulation: {baseline_path}")
+        else:
+            # Try alternative naming patterns
+            for item in os.listdir(parent_dir):
+                if "baseline" in item and os.path.isdir(os.path.join(parent_dir, item)):
+                    baseline_path = os.path.join(parent_dir, item)
+                    print(f"Found baseline simulation: {baseline_path}")
+                    break
+    
     # Load geographical assignments and climate events from CSV files
     print("Loading geographical assignments from simulation data...")
     geographical_assignments = load_geographical_assignments(simulation_path)
@@ -1024,7 +1208,7 @@ def run_animation_visualizations(simulation_path):
     # Create simple climate framework
     climate_framework = ClimateFrameworkFromData(geographical_assignments, climate_events_history)
     
-    # Collect visualization data
+    # Collect visualization data for current simulation
     visualization_data = collect_all_visualization_data(
         simulation_path, climate_framework, num_rounds
     )
@@ -1033,17 +1217,38 @@ def run_animation_visualizations(simulation_path):
         print("ERROR: No visualization data collected!")
         return
     
+    # If we found a baseline simulation, collect its data too
+    baseline_data = None
+    if baseline_path and is_climate_simulation:
+        print("Collecting baseline simulation data for comparison...")
+        try:
+            baseline_geo = load_geographical_assignments(baseline_path)
+            baseline_climate = load_climate_events(baseline_path)
+            baseline_framework = ClimateFrameworkFromData(baseline_geo, baseline_climate)
+            
+            # Ensure baseline has enough rounds
+            while len(baseline_climate) < num_rounds:
+                baseline_climate.append({})
+            
+            baseline_data = collect_all_visualization_data(
+                baseline_path, baseline_framework, num_rounds
+            )
+            print("Baseline data collected successfully")
+        except Exception as e:
+            print(f"Warning: Could not collect baseline data: {e}")
+            baseline_data = None
+    
     # Create visualizations
     print("\nCreating time-evolving visualizations...")
     
-    # Create time evolution plot
+    # Create time evolution plot (with baseline if available)
     time_plot_file = create_time_evolution_visualization(
-        visualization_data, simulation_path
+        visualization_data, simulation_path, baseline_data
     )
     
-    # Create animated visualization
+    # Create animated visualization (with baseline if available)
     animation_file = create_animated_supply_chain(
-        visualization_data, simulation_path
+        visualization_data, simulation_path, baseline_data
     )
     
     print(f"\nAnimation visualizations completed!")
@@ -1056,27 +1261,344 @@ def run_animation_visualizations(simulation_path):
         'visualization_data': visualization_data
     }
 
-def main():
-    """Command line interface for the animation visualizer."""
+def run_comparison_visualizations(baseline_path, climate_path):
+    """
+    Create comparison visualizations between baseline and climate simulations.
     
-    if len(sys.argv) < 1:
-        print("Usage: python animation_visualizer.py <simulation_path>")
-        print("  simulation_path: Path to the simulation output directory")
-        sys.exit(1)
+    Args:
+        baseline_path: Path to baseline simulation results
+        climate_path: Path to climate simulation results
     
-    simulation_path = sys.argv[1]
+    Returns:
+        Dictionary with paths to created visualizations
+    """
+    print("🔔 Starting Comparison Visualizer for Baseline vs Climate Simulations")
+    print("    ============================================================")
     
-    if not os.path.exists(simulation_path):
-        print(f"ERROR: Simulation path does not exist: {simulation_path}")
-        sys.exit(1)
-    
-    results = run_animation_visualizations(simulation_path)
-    
-    if results:
-        print("\nSUCCESS: Animation visualization completed successfully!")
-    else:
-        print("\nERROR: Animation visualization failed!")
-        sys.exit(1)
+    try:
+        # Load data from both simulations
+        print("Loading baseline simulation data...")
+        baseline_geo = load_geographical_assignments(baseline_path)
+        baseline_climate = load_climate_events(baseline_path)
+        baseline_framework = ClimateFrameworkFromData(baseline_geo, baseline_climate)
+        
+        print("Loading climate simulation data...")
+        climate_geo = load_geographical_assignments(climate_path)
+        climate_climate = load_climate_events(climate_path)
+        climate_framework = ClimateFrameworkFromData(climate_geo, climate_climate)
+        
+        # Determine number of rounds (use the shorter simulation)
+        baseline_rounds = len(baseline_climate)
+        climate_rounds = len(climate_climate)
+        num_rounds = min(baseline_rounds, climate_rounds)
+        
+        print(f"Detected {num_rounds} rounds in both simulations")
+        
+        # Collect data from both simulations
+        print("Collecting baseline simulation data...")
+        baseline_data = collect_all_visualization_data(baseline_path, baseline_framework, num_rounds)
+        
+        print("Collecting climate simulation data...")
+        climate_data = collect_all_visualization_data(climate_path, climate_framework, num_rounds)
+        
+        # Create comparison visualizations
+        print("Creating comparison visualizations...")
+        
+        # Create time evolution comparison
+        time_plot_path = create_comparison_time_evolution(
+            baseline_data, climate_data, baseline_path, climate_path, climate_framework
+        )
+        
+        # Create comparison animation
+        animation_path = create_comparison_animation(
+            baseline_data, climate_data, baseline_path, climate_path
+        )
+        
+        return {
+            'time_plot': time_plot_path,
+            'animation': animation_path
+        }
+        
+    except Exception as e:
+        print(f"ERROR: Failed to create comparison visualizations: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
 
-if __name__ == '__main__':
+
+def create_comparison_time_evolution(baseline_data, climate_data, baseline_path, climate_path, climate_framework=None):
+    """Create time evolution comparison plot showing baseline vs climate effects."""
+    
+    # Create a large figure with multiple subplots
+    fig, axes = plt.subplots(3, 2, figsize=(20, 15))
+    fig.suptitle('Baseline vs Climate Simulation Comparison', fontsize=16, fontweight='bold')
+    
+    # Plot 1: Total Production (separate plot to avoid clutter)
+    ax1 = axes[0, 0]
+    rounds = list(range(len(baseline_data)))
+    
+    # Extract production data
+    baseline_production = [safe_extract(baseline_data, 'total_production')[i] for i in rounds]
+    climate_production = [safe_extract(climate_data, 'total_production')[i] for i in rounds]
+    
+    ax1.plot(rounds, baseline_production, 'b--', linewidth=2, label='Baseline', alpha=0.8)
+    ax1.plot(rounds, climate_production, 'b-', linewidth=3, label='Climate Stressed', alpha=0.9)
+    ax1.set_title('Total Production Over Time', fontweight='bold')
+    ax1.set_xlabel('Round')
+    ax1.set_ylabel('Total Production')
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+    
+    # Add climate events to production plot
+    if climate_framework:
+        add_climate_shocks_to_comparison(ax1, climate_framework, "Production")
+    
+    # Plot 2: Total Inventory (separate plot)
+    ax2 = axes[0, 1]
+    baseline_inventory = [safe_extract(baseline_data, 'total_inventory')[i] for i in rounds]
+    climate_inventory = [safe_extract(climate_data, 'total_inventory')[i] for i in rounds]
+    
+    ax2.plot(rounds, baseline_inventory, 'g--', linewidth=2, label='Baseline', alpha=0.8)
+    ax2.plot(rounds, climate_inventory, 'g-', linewidth=3, label='Climate Stressed', alpha=0.9)
+    ax2.set_title('Total Inventory Over Time', fontweight='bold')
+    ax2.set_xlabel('Round')
+    ax2.set_ylabel('Total Inventory')
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
+    
+    if climate_framework:
+        add_climate_shocks_to_comparison(ax2, climate_framework, "Inventory")
+    
+    # Plot 3: Average Wealth (separate plot)
+    ax3 = axes[1, 0]
+    baseline_wealth = [safe_extract(baseline_data, 'avg_wealth')[i] for i in rounds]
+    climate_wealth = [safe_extract(climate_data, 'avg_wealth')[i] for i in rounds]
+    
+    ax3.plot(rounds, baseline_wealth, 'orange', linestyle='--', linewidth=2, label='Baseline', alpha=0.8)
+    ax3.plot(rounds, climate_wealth, 'orange', linestyle='-', linewidth=3, label='Climate Stressed', alpha=0.9)
+    ax3.set_title('Average Household Wealth', fontweight='bold')
+    ax3.set_xlabel('Round')
+    ax3.set_ylabel('Average Wealth ($)')
+    ax3.legend()
+    ax3.grid(True, alpha=0.3)
+    
+    if climate_framework:
+        add_climate_shocks_to_comparison(ax3, climate_framework, "Wealth")
+    
+    # Plot 4: Total Debt (separate plot)
+    ax4 = axes[1, 1]
+    baseline_debt = [safe_extract(baseline_data, 'total_debt')[i] for i in rounds]
+    climate_debt = [safe_extract(climate_data, 'total_debt')[i] for i in rounds]
+    
+    ax4.plot(rounds, baseline_debt, 'red', linestyle='--', linewidth=2, label='Baseline', alpha=0.8)
+    ax4.plot(rounds, climate_debt, 'red', linestyle='-', linewidth=3, label='Climate Stressed', alpha=0.9)
+    ax4.set_title('Total Household Debt', fontweight='bold')
+    ax4.set_xlabel('Round')
+    ax4.set_ylabel('Total Debt ($)')
+    ax4.legend()
+    ax4.grid(True, alpha=0.3)
+    
+    if climate_framework:
+        add_climate_shocks_to_comparison(ax4, climate_framework, "Debt")
+    
+    # Plot 5: Average Overhead Costs (separate plot)
+    ax5 = axes[2, 0]
+    baseline_overhead = [safe_extract(baseline_data, 'avg_overhead')[i] for i in rounds]
+    climate_overhead = [safe_extract(climate_data, 'avg_overhead')[i] for i in rounds]
+    
+    ax5.plot(rounds, baseline_overhead, 'purple', linestyle='--', linewidth=2, label='Baseline', alpha=0.8)
+    ax5.plot(rounds, climate_overhead, 'purple', linestyle='-', linewidth=3, label='Climate Stressed', alpha=0.9)
+    ax5.set_title('Average Firm Overhead Costs', fontweight='bold')
+    ax5.set_xlabel('Round')
+    ax5.set_ylabel('Average Overhead ($)')
+    ax5.legend()
+    ax5.grid(True, alpha=0.3)
+    
+    if climate_framework:
+        add_climate_shocks_to_comparison(ax5, climate_framework, "Overhead")
+    
+    # Plot 6: Average Prices (separate plot)
+    ax6 = axes[2, 1]
+    baseline_prices = [safe_extract(baseline_data, 'avg_prices')[i] for i in rounds]
+    climate_prices = [safe_extract(climate_data, 'avg_prices')[i] for i in rounds]
+    
+    ax6.plot(rounds, baseline_prices, 'brown', linestyle='--', linewidth=2, label='Baseline', alpha=0.8)
+    ax6.plot(rounds, climate_prices, 'brown', linestyle='-', linewidth=3, label='Climate Stressed', alpha=0.9)
+    ax6.set_title('Average Prices', fontweight='bold')
+    ax6.set_xlabel('Round')
+    ax6.set_ylabel('Average Price ($)')
+    ax6.legend()
+    ax6.grid(True, alpha=0.3)
+    
+    if climate_framework:
+        add_climate_shocks_to_comparison(ax6, climate_framework, "Prices")
+    
+    plt.tight_layout()
+    
+    # Save the comparison plot
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f'baseline_vs_climate_comparison_{timestamp}.png'
+    save_path = os.path.join(os.path.dirname(climate_path), filename)
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    print(f"🔔 SUCCESS: Time evolution comparison saved: {save_path}")
+    return save_path
+
+
+def create_comparison_animation(baseline_data, climate_data, baseline_path, climate_path):
+    """Create animated comparison showing baseline vs climate effects over time."""
+    
+    # Create figure with subplots
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
+    fig.suptitle('Baseline vs Climate Simulation Animation', fontsize=16, fontweight='bold')
+    
+    # Set up the animation
+    num_rounds = len(baseline_data)
+    
+    def animate(frame):
+        # Clear all subplots
+        ax1.clear()
+        ax2.clear()
+        ax3.clear()
+        ax4.clear()
+        
+        # Plot 1: Production comparison
+        rounds = list(range(frame + 1))
+        baseline_prod = [safe_extract(baseline_data, 'total_production')[i] for i in range(frame+1)]
+        climate_prod = [safe_extract(climate_data, 'total_production')[i] for i in range(frame+1)]
+        
+        ax1.plot(rounds, baseline_prod, 'b--', linewidth=2, label='Baseline', alpha=0.8)
+        ax1.plot(rounds, climate_prod, 'b-', linewidth=3, label='Climate Stressed', alpha=0.9)
+        ax1.set_title('Total Production', fontweight='bold')
+        ax1.set_xlabel('Round')
+        ax1.set_ylabel('Production')
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+        ax1.set_xlim(0, num_rounds - 1)
+        
+        # Plot 2: Wealth comparison
+        baseline_wealth = [safe_extract(baseline_data, 'avg_wealth')[i] for i in range(frame+1)]
+        climate_wealth = [safe_extract(climate_data, 'avg_wealth')[i] for i in range(frame+1)]
+        
+        ax2.plot(rounds, baseline_wealth, 'orange', linestyle='--', linewidth=2, label='Baseline', alpha=0.8)
+        ax2.plot(rounds, climate_wealth, 'orange', linestyle='-', linewidth=3, label='Climate Stressed', alpha=0.9)
+        ax2.set_title('Average Wealth', fontweight='bold')
+        ax2.set_xlabel('Round')
+        ax2.set_ylabel('Wealth ($)')
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+        ax2.set_xlim(0, num_rounds - 1)
+        
+        # Plot 3: Debt comparison
+        baseline_debt = [safe_extract(baseline_data, 'total_debt')[i] for i in range(frame+1)]
+        climate_debt = [safe_extract(climate_data, 'total_debt')[i] for i in range(frame+1)]
+        
+        ax3.plot(rounds, baseline_debt, 'red', linestyle='--', linewidth=2, label='Baseline', alpha=0.8)
+        ax3.plot(rounds, climate_debt, 'red', linestyle='-', linewidth=3, label='Climate Stressed', alpha=0.9)
+        ax3.set_title('Total Debt', fontweight='bold')
+        ax3.set_xlabel('Round')
+        ax3.set_ylabel('Debt ($)')
+        ax3.legend()
+        ax3.grid(True, alpha=0.3)
+        ax3.set_xlim(0, num_rounds - 1)
+        
+        # Plot 4: Inventory comparison
+        baseline_inv = [safe_extract(baseline_data, 'total_inventory')[i] for i in range(frame+1)]
+        climate_inv = [safe_extract(climate_data, 'total_inventory')[i] for i in range(frame+1)]
+        
+        ax4.plot(rounds, baseline_inv, 'g--', linewidth=2, label='Baseline', alpha=0.8)
+        ax4.plot(rounds, climate_inv, 'g-', linewidth=3, label='Climate Stressed', alpha=0.9)
+        ax4.set_title('Total Inventory', fontweight='bold')
+        ax4.set_xlabel('Round')
+        ax4.set_ylabel('Inventory')
+        ax4.legend()
+        ax4.grid(True, alpha=0.3)
+        ax4.set_xlim(0, num_rounds - 1)
+        
+        # Add round indicator
+        fig.text(0.5, 0.02, f'Round {frame + 1} / {num_rounds}', ha='center', va='bottom', fontsize=14, fontweight='bold')
+    
+    # Create animation
+    anim = animation.FuncAnimation(fig, animate, frames=num_rounds, interval=500, repeat=True)
+    
+    # Save animation
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f'baseline_vs_climate_animation_{timestamp}.gif'
+    save_path = os.path.join(os.path.dirname(climate_path), filename)
+    
+    print(f"🔔 Saving comparison animation as {save_path}...")
+    anim.save(save_path, writer='pillow', fps=2)
+    plt.close()
+    
+    print(f"🔔 SUCCESS: Comparison animation saved: {save_path}")
+    return save_path
+
+
+def add_climate_shocks_to_comparison(ax, climate_framework, plot_type):
+    """Add climate shock indicators to comparison plots."""
+    if not climate_framework or not climate_framework.climate_events_history:
+        return
+        
+    for round_num, round_events in enumerate(climate_framework.climate_events_history):
+        if round_events:  # If there are any events in this round
+            # Add vertical line for climate events
+            ax.axvline(x=round_num, color='red', linestyle='--', alpha=0.7, linewidth=1)
+            
+            # Add text label for first few events to avoid clutter
+            if round_num < 5:  # Only label first 5 events
+                ax.text(round_num, ax.get_ylim()[1] * 0.95, '🌪️', 
+                       ha='center', va='top', fontsize=10, color='red')
+
+
+def safe_extract(data_list, key):
+    """Safely extract data from a list of dictionaries."""
+    try:
+        return [data.get(key, 0) for data in data_list]
+    except (KeyError, IndexError, AttributeError):
+        return [0] * len(data_list)
+
+
+def main():
+    """Main function to run animation visualizations from command line."""
+    import sys
+    
+    if len(sys.argv) < 2:
+        print("Usage: python animation_visualizer.py <results_parent_dir>")
+        print("Example: python animation_visualizer.py results/expname/")
+        return
+    
+    parent_dir = sys.argv[1]
+    baseline_path = os.path.join(parent_dir, 'baseline')
+    stressed_path = os.path.join(parent_dir, 'stressed')
+    
+    if not os.path.exists(baseline_path):
+        print(f"ERROR: Baseline path does not exist: {baseline_path}")
+        return
+    if not os.path.exists(stressed_path):
+        print(f"ERROR: Stressed path does not exist: {stressed_path}")
+        return
+    
+    # Load climate framework and data for both runs
+    print(f"Loading baseline data from: {baseline_path}")
+    baseline_geo = load_geographical_assignments(baseline_path)
+    baseline_climate = load_climate_events(baseline_path)
+    baseline_framework = ClimateFrameworkFromData(baseline_geo, baseline_climate)
+    baseline_data = collect_all_visualization_data(baseline_path, baseline_framework, num_rounds=None)
+    
+    print(f"Loading stressed data from: {stressed_path}")
+    stressed_geo = load_geographical_assignments(stressed_path)
+    stressed_climate = load_climate_events(stressed_path)
+    stressed_framework = ClimateFrameworkFromData(stressed_geo, stressed_climate)
+    stressed_data = collect_all_visualization_data(stressed_path, stressed_framework, num_rounds=None)
+    
+    # Run the animation visualizations with both datasets
+    print("\nCreating combined animation with baseline and stressed data...")
+    animation_file = create_animated_supply_chain(stressed_data, parent_dir, baseline_data=baseline_data)
+    print(f"\n🎉 Animation created: {animation_file}")
+
+# Update the animation layout to 3 rows × 4 columns, with the last column for inventory, prices, and debt
+# (The rest of the create_animated_supply_chain function should be updated accordingly, see previous edits)
+
+if __name__ == "__main__":
     main()
