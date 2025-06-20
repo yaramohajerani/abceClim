@@ -316,11 +316,12 @@ def get_agent_continent(agent_type, agent_id, climate_framework):
     assignments = climate_framework.geographical_assignments[agent_type]
     return assignments[agent_id]['continent']
 
-def create_time_evolution_visualization(visualization_data, simulation_path, baseline_data=None):
-    """Create time-evolving visualization from simulation data."""
+def extract_time_series_data(visualization_data, baseline_data=None):
+    """Extract all time series data from visualization_data and baseline_data.
     
-    print("Creating time-evolving visualization from simulation data...")
-    
+    Returns:
+        dict: Dictionary containing all extracted time series data
+    """
     rounds = visualization_data['rounds']
     
     # Extract time series data - no defaults, crash if missing
@@ -357,6 +358,11 @@ def create_time_evolution_visualization(visualization_data, simulation_path, bas
     household_debt = safe_extract(visualization_data['debt'], 'households')
     firm_debt = safe_extract(visualization_data['debt'], 'firms')
     
+    # Individual firm debt data for animation
+    commodity_debt = safe_extract(visualization_data['debt'], 'commodity_firms')
+    intermediary_debt = safe_extract(visualization_data['debt'], 'intermediary_firms')
+    final_goods_debt = safe_extract(visualization_data['debt'], 'final_goods_firms')
+    
     # Extract baseline data if available
     baseline_commodity_production = None
     baseline_intermediary_production = None
@@ -376,6 +382,9 @@ def create_time_evolution_visualization(visualization_data, simulation_path, bas
     baseline_final_goods_price = None
     baseline_household_debt = None
     baseline_firm_debt = None
+    baseline_commodity_debt = None
+    baseline_intermediary_debt = None
+    baseline_final_goods_debt = None
     
     if baseline_data:
         try:
@@ -397,6 +406,9 @@ def create_time_evolution_visualization(visualization_data, simulation_path, bas
             baseline_final_goods_price = safe_extract(baseline_data['pricing'], 'final_goods')
             baseline_household_debt = safe_extract(baseline_data['debt'], 'households')
             baseline_firm_debt = safe_extract(baseline_data['debt'], 'firms')
+            baseline_commodity_debt = safe_extract(baseline_data['debt'], 'commodity_firms')
+            baseline_intermediary_debt = safe_extract(baseline_data['debt'], 'intermediary_firms')
+            baseline_final_goods_debt = safe_extract(baseline_data['debt'], 'final_goods_firms')
             print("Baseline data extracted successfully")
         except Exception as e:
             print(f"Warning: Could not extract baseline data: {e}")
@@ -407,6 +419,155 @@ def create_time_evolution_visualization(visualization_data, simulation_path, bas
     for round_agents in visualization_data['agent_data']:
         stress_count = sum([1 for agent in round_agents if agent['climate_stressed']])
         climate_stress_counts.append(stress_count)
+    
+    return {
+        'rounds': rounds,
+        'climate_stress_counts': climate_stress_counts,
+        'production': {
+            'commodity': commodity_production,
+            'intermediary': intermediary_production,
+            'final_goods': final_goods_production
+        },
+        'inventory': {
+            'commodity': commodity_inventory,
+            'intermediary': intermediary_inventory,
+            'final_goods': final_goods_inventory
+        },
+        'wealth': {
+            'commodity': commodity_wealth,
+            'intermediary': intermediary_wealth,
+            'final_goods': final_goods_wealth,
+            'households': household_wealth
+        },
+        'overhead': {
+            'commodity': commodity_overhead,
+            'intermediary': intermediary_overhead,
+            'final_goods': final_goods_overhead
+        },
+        'pricing': {
+            'commodity': commodity_price,
+            'intermediary': intermediary_price,
+            'final_goods': final_goods_price
+        },
+        'debt': {
+            'households': household_debt,
+            'firms': firm_debt,
+            'commodity_firms': commodity_debt,
+            'intermediary_firms': intermediary_debt,
+            'final_goods_firms': final_goods_debt
+        },
+        'baseline': {
+            'production': {
+                'commodity': baseline_commodity_production,
+                'intermediary': baseline_intermediary_production,
+                'final_goods': baseline_final_goods_production
+            },
+            'inventory': {
+                'commodity': baseline_commodity_inventory,
+                'intermediary': baseline_intermediary_inventory,
+                'final_goods': baseline_final_goods_inventory
+            },
+            'wealth': {
+                'commodity': baseline_commodity_wealth,
+                'intermediary': baseline_intermediary_wealth,
+                'final_goods': baseline_final_goods_wealth,
+                'households': baseline_household_wealth
+            },
+            'overhead': {
+                'commodity': baseline_commodity_overhead,
+                'intermediary': baseline_intermediary_overhead,
+                'final_goods': baseline_final_goods_overhead
+            },
+            'pricing': {
+                'commodity': baseline_commodity_price,
+                'intermediary': baseline_intermediary_price,
+                'final_goods': baseline_final_goods_price
+            },
+            'debt': {
+                'households': baseline_household_debt,
+                'firms': baseline_firm_debt,
+                'commodity_firms': baseline_commodity_debt,
+                'intermediary_firms': baseline_intermediary_debt,
+                'final_goods_firms': baseline_final_goods_debt
+            }
+        } if baseline_data else None
+    }
+
+def create_time_evolution_visualization(visualization_data, simulation_path, baseline_data=None):
+    """Create time-evolving visualization from simulation data."""
+    
+    print("Creating time-evolving visualization from simulation data...")
+    
+    # Extract all time series data once using the shared function
+    time_series_data = extract_time_series_data(visualization_data, baseline_data)
+    
+    rounds = time_series_data['rounds']
+    climate_stress_counts = time_series_data['climate_stress_counts']
+    
+    # Extract data from the organized structure
+    commodity_production = time_series_data['production']['commodity']
+    intermediary_production = time_series_data['production']['intermediary']
+    final_goods_production = time_series_data['production']['final_goods']
+    
+    commodity_inventory = time_series_data['inventory']['commodity']
+    intermediary_inventory = time_series_data['inventory']['intermediary']
+    final_goods_inventory = time_series_data['inventory']['final_goods']
+    
+    commodity_wealth = time_series_data['wealth']['commodity']
+    intermediary_wealth = time_series_data['wealth']['intermediary']
+    final_goods_wealth = time_series_data['wealth']['final_goods']
+    household_wealth = time_series_data['wealth']['households']
+    
+    commodity_overhead = time_series_data['overhead']['commodity']
+    intermediary_overhead = time_series_data['overhead']['intermediary']
+    final_goods_overhead = time_series_data['overhead']['final_goods']
+    
+    commodity_price = time_series_data['pricing']['commodity']
+    intermediary_price = time_series_data['pricing']['intermediary']
+    final_goods_price = time_series_data['pricing']['final_goods']
+    
+    household_debt = time_series_data['debt']['households']
+    firm_debt = time_series_data['debt']['firms']
+    
+    # Extract baseline data if available
+    baseline_commodity_production = None
+    baseline_intermediary_production = None
+    baseline_final_goods_production = None
+    baseline_commodity_inventory = None
+    baseline_intermediary_inventory = None
+    baseline_final_goods_inventory = None
+    baseline_commodity_wealth = None
+    baseline_intermediary_wealth = None
+    baseline_final_goods_wealth = None
+    baseline_household_wealth = None
+    baseline_commodity_overhead = None
+    baseline_intermediary_overhead = None
+    baseline_final_goods_overhead = None
+    baseline_commodity_price = None
+    baseline_intermediary_price = None
+    baseline_final_goods_price = None
+    baseline_household_debt = None
+    baseline_firm_debt = None
+    
+    if time_series_data['baseline']:
+        baseline_commodity_production = time_series_data['baseline']['production']['commodity']
+        baseline_intermediary_production = time_series_data['baseline']['production']['intermediary']
+        baseline_final_goods_production = time_series_data['baseline']['production']['final_goods']
+        baseline_commodity_inventory = time_series_data['baseline']['inventory']['commodity']
+        baseline_intermediary_inventory = time_series_data['baseline']['inventory']['intermediary']
+        baseline_final_goods_inventory = time_series_data['baseline']['inventory']['final_goods']
+        baseline_commodity_wealth = time_series_data['baseline']['wealth']['commodity']
+        baseline_intermediary_wealth = time_series_data['baseline']['wealth']['intermediary']
+        baseline_final_goods_wealth = time_series_data['baseline']['wealth']['final_goods']
+        baseline_household_wealth = time_series_data['baseline']['wealth']['households']
+        baseline_commodity_overhead = time_series_data['baseline']['overhead']['commodity']
+        baseline_intermediary_overhead = time_series_data['baseline']['overhead']['intermediary']
+        baseline_final_goods_overhead = time_series_data['baseline']['overhead']['final_goods']
+        baseline_commodity_price = time_series_data['baseline']['pricing']['commodity']
+        baseline_intermediary_price = time_series_data['baseline']['pricing']['intermediary']
+        baseline_final_goods_price = time_series_data['baseline']['pricing']['final_goods']
+        baseline_household_debt = time_series_data['baseline']['debt']['households']
+        baseline_firm_debt = time_series_data['baseline']['debt']['firms']
     
     # Create comprehensive time evolution plot with 3x3 grid (separated dual y-axis plot)
     fig, ((ax1, ax2, ax3), (ax4, ax5, ax6), (ax7, ax8, ax9)) = plt.subplots(3, 3, figsize=(24, 18))
@@ -455,7 +616,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path, bas
                     climate_shock_legend_added = True
     
     # Plot 1: Production evolution over time
-    if baseline_data:
+    if time_series_data['baseline']:
         ax1.plot(rounds, baseline_commodity_production, 'o--', label='Baseline Commodity', color='#8B4513', linewidth=1, markersize=3, alpha=0.6)
         ax1.plot(rounds, baseline_intermediary_production, 's--', label='Baseline Intermediary', color='#DAA520', linewidth=1, markersize=3, alpha=0.6)
         ax1.plot(rounds, baseline_final_goods_production, '^--', label='Baseline Final Goods', color='#00FF00', linewidth=1, markersize=3, alpha=0.6)
@@ -471,7 +632,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path, bas
     ax1.grid(True, alpha=0.3)
     
     # Plot 2: Inventory evolution over time
-    if baseline_data:
+    if time_series_data['baseline']:
         ax2.plot(rounds, baseline_commodity_inventory, 'o--', label='Baseline Commodity', color='#8B4513', linewidth=1, markersize=3, alpha=0.6)
         ax2.plot(rounds, baseline_intermediary_inventory, 's--', label='Baseline Intermediary', color='#DAA520', linewidth=1, markersize=3, alpha=0.6)
         ax2.plot(rounds, baseline_final_goods_inventory, '^--', label='Baseline Final Goods', color='#00FF00', linewidth=1, markersize=3, alpha=0.6)
@@ -487,7 +648,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path, bas
     ax2.grid(True, alpha=0.3)
     
     # Plot 3: Overhead Costs evolution over time
-    if baseline_data:
+    if time_series_data['baseline']:
         ax3.plot(rounds, baseline_commodity_overhead, 'o--', label='Baseline Commodity', color='#8B4513', linewidth=1, markersize=3, alpha=0.6)
         ax3.plot(rounds, baseline_intermediary_overhead, 's--', label='Baseline Intermediary', color='#DAA520', linewidth=1, markersize=3, alpha=0.6)
         ax3.plot(rounds, baseline_final_goods_overhead, '^--', label='Baseline Final Goods', color='#00FF00', linewidth=1, markersize=3, alpha=0.6)
@@ -503,7 +664,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path, bas
     ax3.grid(True, alpha=0.3)
     
     # Plot 4: Pricing evolution over time
-    if baseline_data:
+    if time_series_data['baseline']:
         ax4.plot(rounds, baseline_commodity_price, 'o--', label='Baseline Commodity', color='#8B4513', linewidth=1, markersize=3, alpha=0.6)
         ax4.plot(rounds, baseline_intermediary_price, 's--', label='Baseline Intermediary', color='#DAA520', linewidth=1, markersize=3, alpha=0.6)
         ax4.plot(rounds, baseline_final_goods_price, '^--', label='Baseline Final Goods', color='#00FF00', linewidth=1, markersize=3, alpha=0.6)
@@ -519,7 +680,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path, bas
     ax4.grid(True, alpha=0.3)
     
     # Plot 5: Wealth evolution by sector (including debt)
-    if baseline_data:
+    if time_series_data['baseline']:
         ax5.plot(rounds, baseline_commodity_wealth, 'o--', label='Baseline Commodity', color='#8B4513', linewidth=1, markersize=3, alpha=0.6)
         ax5.plot(rounds, baseline_intermediary_wealth, 's--', label='Baseline Intermediary', color='#DAA520', linewidth=1, markersize=3, alpha=0.6)
         ax5.plot(rounds, baseline_final_goods_wealth, '^--', label='Baseline Final Goods', color='#00FF00', linewidth=1, markersize=3, alpha=0.6)
@@ -537,7 +698,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path, bas
     ax5.grid(True, alpha=0.3)
     
     # Plot 6: Debt evolution
-    if baseline_data:
+    if time_series_data['baseline']:
         ax6.plot(rounds, baseline_household_debt, 'd--', label='Baseline Household Debt', color='#4169E1', linewidth=1, markersize=3, alpha=0.6)
         ax6.plot(rounds, baseline_firm_debt, 's--', label='Baseline All Firms Debt', color='#666666', linewidth=1, markersize=3, alpha=0.6)
     
@@ -560,7 +721,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path, bas
     
     # Plot 8: Total Production (separated from dual y-axis)
     total_production = [c + i + f for c, i, f in zip(commodity_production, intermediary_production, final_goods_production)]
-    if baseline_data:
+    if time_series_data['baseline']:
         baseline_total_production = [c + i + f for c, i, f in zip(baseline_commodity_production, baseline_intermediary_production, baseline_final_goods_production)]
         ax8.plot(rounds, baseline_total_production, 'g--', label='Baseline Total Production', linewidth=2, alpha=0.6)
     
@@ -576,7 +737,7 @@ def create_time_evolution_visualization(visualization_data, simulation_path, bas
     total_overhead = [c + i + f for c, i, f in zip(commodity_overhead, intermediary_overhead, final_goods_overhead)]
     avg_price = [(c + i + f) / 3 for c, i, f in zip(commodity_price, intermediary_price, final_goods_price)]
     
-    if baseline_data:
+    if time_series_data['baseline']:
         baseline_total_overhead = [c + i + f for c, i, f in zip(baseline_commodity_overhead, baseline_intermediary_overhead, baseline_final_goods_overhead)]
         baseline_avg_price = [(c + i + f) / 3 for c, i, f in zip(baseline_commodity_price, baseline_intermediary_price, baseline_final_goods_price)]
         ax9.plot(rounds, baseline_total_overhead, 'r--', label='Baseline Total Overhead', linewidth=1, alpha=0.6)
@@ -604,7 +765,7 @@ def create_animated_supply_chain(visualization_data, simulation_path, baseline_d
     """Create animated GIF showing supply chain evolution over time."""
     print("Creating animated supply chain visualization...")
     
-    fig = plt.figure(figsize=(18 , 14)) 
+    fig = plt.figure(figsize=(19 , 14)) 
     fig.suptitle('Climate 3-Layer Supply Chain Evolution', fontsize=16, fontweight='bold')
     
     # Create custom subplot layout
@@ -618,6 +779,80 @@ def create_animated_supply_chain(visualization_data, simulation_path, baseline_d
     ax8 = plt.subplot2grid((3, 3), (2, 2))             # debt
     
     num_frames = len(visualization_data['rounds'])
+    
+    # Extract all time series data once using the shared function
+    time_series_data = extract_time_series_data(visualization_data, baseline_data)
+    
+    # Get the pre-calculated data
+    commodity_prod = time_series_data['production']['commodity']
+    intermediary_prod = time_series_data['production']['intermediary']
+    final_goods_prod = time_series_data['production']['final_goods']
+    
+    commodity_inv = time_series_data['inventory']['commodity']
+    intermediary_inv = time_series_data['inventory']['intermediary']
+    final_goods_inv = time_series_data['inventory']['final_goods']
+    
+    commodity_overhead = time_series_data['overhead']['commodity']
+    intermediary_overhead = time_series_data['overhead']['intermediary']
+    final_goods_overhead = time_series_data['overhead']['final_goods']
+    
+    commodity_wealth = time_series_data['wealth']['commodity']
+    intermediary_wealth = time_series_data['wealth']['intermediary']
+    final_goods_wealth = time_series_data['wealth']['final_goods']
+    household_wealth = time_series_data['wealth']['households']
+    
+    commodity_price = time_series_data['pricing']['commodity']
+    intermediary_price = time_series_data['pricing']['intermediary']
+    final_goods_price = time_series_data['pricing']['final_goods']
+    
+    commodity_debt = time_series_data['debt']['commodity_firms']
+    intermediary_debt = time_series_data['debt']['intermediary_firms']
+    final_goods_debt = time_series_data['debt']['final_goods_firms']
+    household_debt = time_series_data['debt']['households']
+    
+    # Get baseline data if available
+    baseline_commodity_prod = None
+    baseline_intermediary_prod = None
+    baseline_final_goods_prod = None
+    baseline_commodity_inv = None
+    baseline_intermediary_inv = None
+    baseline_final_goods_inv = None
+    baseline_commodity_overhead = None
+    baseline_intermediary_overhead = None
+    baseline_final_goods_overhead = None
+    baseline_commodity_wealth = None
+    baseline_intermediary_wealth = None
+    baseline_final_goods_wealth = None
+    baseline_household_wealth = None
+    baseline_commodity_price = None
+    baseline_intermediary_price = None
+    baseline_final_goods_price = None
+    baseline_commodity_debt = None
+    baseline_intermediary_debt = None
+    baseline_final_goods_debt = None
+    baseline_household_debt = None
+    
+    if time_series_data['baseline']:
+        baseline_commodity_prod = time_series_data['baseline']['production']['commodity']
+        baseline_intermediary_prod = time_series_data['baseline']['production']['intermediary']
+        baseline_final_goods_prod = time_series_data['baseline']['production']['final_goods']
+        baseline_commodity_inv = time_series_data['baseline']['inventory']['commodity']
+        baseline_intermediary_inv = time_series_data['baseline']['inventory']['intermediary']
+        baseline_final_goods_inv = time_series_data['baseline']['inventory']['final_goods']
+        baseline_commodity_overhead = time_series_data['baseline']['overhead']['commodity']
+        baseline_intermediary_overhead = time_series_data['baseline']['overhead']['intermediary']
+        baseline_final_goods_overhead = time_series_data['baseline']['overhead']['final_goods']
+        baseline_commodity_wealth = time_series_data['baseline']['wealth']['commodity']
+        baseline_intermediary_wealth = time_series_data['baseline']['wealth']['intermediary']
+        baseline_final_goods_wealth = time_series_data['baseline']['wealth']['final_goods']
+        baseline_household_wealth = time_series_data['baseline']['wealth']['households']
+        baseline_commodity_price = time_series_data['baseline']['pricing']['commodity']
+        baseline_intermediary_price = time_series_data['baseline']['pricing']['intermediary']
+        baseline_final_goods_price = time_series_data['baseline']['pricing']['final_goods']
+        baseline_commodity_debt = time_series_data['baseline']['debt']['commodity_firms']
+        baseline_intermediary_debt = time_series_data['baseline']['debt']['intermediary_firms']
+        baseline_final_goods_debt = time_series_data['baseline']['debt']['final_goods_firms']
+        baseline_household_debt = time_series_data['baseline']['debt']['households']
 
     def animate(frame):
         # Clear all subplots
@@ -696,10 +931,9 @@ def create_animated_supply_chain(visualization_data, simulation_path, baseline_d
                         for i in range(count):
                             col = i // rows_per_col
                             row = i % rows_per_col
-                            x = household_x + col * 0.3  # Slightly offset columns
+                            x = household_x + col * 0.6 
                             y = 0.5 + row * (5.0 / rows_per_col)
                             positions[agent_type].append((x, y))
-            
             return positions
         
         agent_positions = create_agent_positions(agent_counts)
@@ -752,24 +986,24 @@ def create_animated_supply_chain(visualization_data, simulation_path, baseline_d
         
         # Add supply chain flow arrows (dynamic positioning)
         if 'commodity_producer' in agent_counts and 'intermediary_firm' in agent_counts:
-            ax1.annotate('', xy=(2.8, 2.5), xytext=(1.2, 2.5), 
+            ax1.annotate('', xy=(2.5, 2.5), xytext=(1.5, 2.5), 
                         arrowprops=dict(arrowstyle='->', lw=2, color='gray'))
         if 'intermediary_firm' in agent_counts and 'final_goods_firm' in agent_counts:
-            ax1.annotate('', xy=(4.8, 2.5), xytext=(3.2, 2.5), 
+            ax1.annotate('', xy=(4.5, 2.5), xytext=(3.5, 2.5), 
                         arrowprops=dict(arrowstyle='->', lw=2, color='gray'))
         if 'final_goods_firm' in agent_counts and 'household' in agent_counts:
-            ax1.annotate('', xy=(6.8, 2.5), xytext=(5.2, 2.5), 
+            ax1.annotate('', xy=(6.5, 2.5), xytext=(5.5, 2.5), 
                         arrowprops=dict(arrowstyle='->', lw=2, color='gray'))
         
         # Add layer labels with actual counts
         if 'commodity_producer' in agent_counts:
-            ax1.text(1, 5.2, f'Layer 1\nCommodity\n({agent_counts["commodity_producer"]})', ha='center', fontsize=10, fontweight='bold')
+            ax1.text(1, 5.2, f'L1\n({agent_counts["commodity_producer"]})', ha='center', fontsize=10)
         if 'intermediary_firm' in agent_counts:
-            ax1.text(3, 5.2, f'Layer 2\nIntermediary\n({agent_counts["intermediary_firm"]})', ha='center', fontsize=10, fontweight='bold')
+            ax1.text(3, 5.2, f'L2\n({agent_counts["intermediary_firm"]})', ha='center', fontsize=10)
         if 'final_goods_firm' in agent_counts:
-            ax1.text(5, 5.2, f'Layer 3\nFinal Goods\n({agent_counts["final_goods_firm"]})', ha='center', fontsize=10, fontweight='bold')
+            ax1.text(5, 5.2, f'L3\n({agent_counts["final_goods_firm"]})', ha='center', fontsize=10)
         if 'household' in agent_counts:
-            ax1.text(7, 5.2, f'Households\n({agent_counts["household"]})', ha='center', fontsize=10, fontweight='bold')
+            ax1.text(7, 5.2, f'Households\n({agent_counts["household"]})', ha='center', fontsize=8)
         
         # Add legend for network plot indicators - positioned to avoid blocking content
         legend_elements = []
@@ -787,34 +1021,32 @@ def create_animated_supply_chain(visualization_data, simulation_path, baseline_d
                   title='Agent Status', title_fontsize=8, framealpha=0.8, bbox_to_anchor=(0.8, 1))
         
         ax1.axis('off')
-        
+
         ###################################################
         # PRODUCTION PLOT
         ###################################################
         ax2.set_title('Production Levels', fontweight='bold')
         ax2.set_ylabel('Production')
         
-        # Get data up to current frame
+        # Use pre-calculated data - just slice to current frame
         current_rounds = visualization_data['rounds'][:frame+1]
+        current_commodity_prod = commodity_prod[:frame+1]
+        current_intermediary_prod = intermediary_prod[:frame+1]
+        current_final_goods_prod = final_goods_prod[:frame+1]
         
-        # Stressed production data
-        commodity_prod = [visualization_data['production_data'][i].get('commodity', 0) for i in range(frame+1)]
-        intermediary_prod = [visualization_data['production_data'][i].get('intermediary', 0) for i in range(frame+1)]
-        final_goods_prod = [visualization_data['production_data'][i].get('final_goods', 0) for i in range(frame+1)]
-        
-        ax2.plot(current_rounds, commodity_prod, 'o-', color='#8B4513', label='Stressed Commodity', linewidth=2)
-        ax2.plot(current_rounds, intermediary_prod, 's-', color='#DAA520', label='Stressed Intermediary', linewidth=2)
-        ax2.plot(current_rounds, final_goods_prod, '^-', color='#00FF00', label='Stressed Final Goods', linewidth=2)
+        ax2.plot(current_rounds, current_commodity_prod, 'o-', color='#8B4513', label='Stressed Commodity', linewidth=2)
+        ax2.plot(current_rounds, current_intermediary_prod, 's-', color='#DAA520', label='Stressed Intermediary', linewidth=2)
+        ax2.plot(current_rounds, current_final_goods_prod, '^-', color='#00FF00', label='Stressed Final Goods', linewidth=2)
         
         # Baseline production data
-        if baseline_data:
-            baseline_commodity_prod = [baseline_data['production_data'][i].get('commodity', 0) for i in range(frame+1)]
-            baseline_intermediary_prod = [baseline_data['production_data'][i].get('intermediary', 0) for i in range(frame+1)]
-            baseline_final_goods_prod = [baseline_data['production_data'][i].get('final_goods', 0) for i in range(frame+1)]
+        if time_series_data['baseline']:
+            current_baseline_commodity_prod = baseline_commodity_prod[:frame+1]
+            current_baseline_intermediary_prod = baseline_intermediary_prod[:frame+1]
+            current_baseline_final_goods_prod = baseline_final_goods_prod[:frame+1]
             
-            ax2.plot(current_rounds, baseline_commodity_prod, 'o--', color='#8B4513', alpha=0.5, label='Baseline Commodity')
-            ax2.plot(current_rounds, baseline_intermediary_prod, 's--', color='#DAA520', alpha=0.5, label='Baseline Intermediary')
-            ax2.plot(current_rounds, baseline_final_goods_prod, '^--', color='#00FF00', alpha=0.5, label='Baseline Final Goods')
+            ax2.plot(current_rounds, current_baseline_commodity_prod, 'o--', color='#8B4513', alpha=0.5, label='Baseline Commodity')
+            ax2.plot(current_rounds, current_baseline_intermediary_prod, 's--', color='#DAA520', alpha=0.5, label='Baseline Intermediary')
+            ax2.plot(current_rounds, current_baseline_final_goods_prod, '^--', color='#00FF00', alpha=0.5, label='Baseline Final Goods')
         
         ax2.legend(fontsize=7)
         ax2.grid(True, alpha=0.3)
@@ -824,57 +1056,60 @@ def create_animated_supply_chain(visualization_data, simulation_path, baseline_d
         # Overhead plot
         ###################################################
         ax4.set_title('Overhead Costs', fontweight='bold')
-        ax4.set_xlabel('Round')
         ax4.set_ylabel('Overhead ($)')
         
-        # Stressed overhead data
-        commodity_overhead = [visualization_data['overhead_costs'][i].get('commodity', 0) for i in range(frame+1)]
-        intermediary_overhead = [visualization_data['overhead_costs'][i].get('intermediary', 0) for i in range(frame+1)]
-        final_goods_overhead = [visualization_data['overhead_costs'][i].get('final_goods', 0) for i in range(frame+1)]
+        # Use pre-calculated data - just slice to current frame
+        current_commodity_overhead = commodity_overhead[:frame+1]
+        current_intermediary_overhead = intermediary_overhead[:frame+1]
+        current_final_goods_overhead = final_goods_overhead[:frame+1]
         
-        ax4.plot(current_rounds, commodity_overhead, 'o-', color='#8B4513', label='Stressed Commodity', linewidth=2)
-        ax4.plot(current_rounds, intermediary_overhead, 's-', color='#DAA520', label='Stressed Intermediary', linewidth=2)
-        ax4.plot(current_rounds, final_goods_overhead, '^-', color='#00FF00', label='Stressed Final Goods', linewidth=2)
+        ax4.plot(current_rounds, current_commodity_overhead, 'o-', color='#8B4513', label='Stressed Commodity', linewidth=2)
+        ax4.plot(current_rounds, current_intermediary_overhead, 's-', color='#DAA520', label='Stressed Intermediary', linewidth=2)
+        ax4.plot(current_rounds, current_final_goods_overhead, '^-', color='#00FF00', label='Stressed Final Goods', linewidth=2)
         
         # Baseline overhead data
-        if baseline_data:
-            baseline_commodity_overhead = [baseline_data['overhead_costs'][i].get('commodity', 0) for i in range(frame+1)]
-            baseline_intermediary_overhead = [baseline_data['overhead_costs'][i].get('intermediary', 0) for i in range(frame+1)]
-            baseline_final_goods_overhead = [baseline_data['overhead_costs'][i].get('final_goods', 0) for i in range(frame+1)]
+        if time_series_data['baseline']:
+            current_baseline_commodity_overhead = baseline_commodity_overhead[:frame+1]
+            current_baseline_intermediary_overhead = baseline_intermediary_overhead[:frame+1]
+            current_baseline_final_goods_overhead = baseline_final_goods_overhead[:frame+1]
             
-            ax4.plot(current_rounds, baseline_commodity_overhead, 'o--', color='#8B4513', alpha=0.5, label='Baseline Commodity')
-            ax4.plot(current_rounds, baseline_intermediary_overhead, 's--', color='#DAA520', alpha=0.5, label='Baseline Intermediary')
-            ax4.plot(current_rounds, baseline_final_goods_overhead, '^--', color='#00FF00', alpha=0.5, label='Baseline Final Goods')
+            ax4.plot(current_rounds, current_baseline_commodity_overhead, 'o--', color='#8B4513', alpha=0.5, label='Baseline Commodity')
+            ax4.plot(current_rounds, current_baseline_intermediary_overhead, 's--', color='#DAA520', alpha=0.5, label='Baseline Intermediary')
+            ax4.plot(current_rounds, current_baseline_final_goods_overhead, '^--', color='#00FF00', alpha=0.5, label='Baseline Final Goods')
         
         ax4.legend(fontsize=7)
         ax4.grid(True, alpha=0.3)
         ax4.set_xlim(0, num_frames)
         
         ###################################################
-        # WEALTH PLOT 
+        # WEALTH PLOT
         ###################################################
-        ax7.set_title('Average Wealth', fontweight='bold')
+        ax7.set_title('Wealth', fontweight='bold')
         ax7.set_xlabel('Round')
         ax7.set_ylabel('Wealth ($)')
         
-        # Stressed wealth data
-        household_wealth = [visualization_data['wealth_data'][i].get('households', 0) for i in range(frame+1)]
-        firm_wealth = [visualization_data['wealth_data'][i].get('commodity', 0) + 
-                      visualization_data['wealth_data'][i].get('intermediary', 0) + 
-                      visualization_data['wealth_data'][i].get('final_goods', 0) for i in range(frame+1)]
+        # Use pre-calculated data - just slice to current frame
+        current_commodity_wealth = commodity_wealth[:frame+1]
+        current_intermediary_wealth = intermediary_wealth[:frame+1]
+        current_final_goods_wealth = final_goods_wealth[:frame+1]
+        current_household_wealth = household_wealth[:frame+1]
         
-        ax7.plot(current_rounds, household_wealth, 'o-', color='blue', label='Stressed Households', linewidth=2)
-        ax7.plot(current_rounds, firm_wealth, 's-', color='green', label='Stressed Firms', linewidth=2)
+        ax7.plot(current_rounds, current_commodity_wealth, 'o-', color='#8B4513', label='Stressed Commodity', linewidth=2)
+        ax7.plot(current_rounds, current_intermediary_wealth, 's-', color='#DAA520', label='Stressed Intermediary', linewidth=2)
+        ax7.plot(current_rounds, current_final_goods_wealth, '^-', color='#00FF00', label='Stressed Final Goods', linewidth=2)
+        ax7.plot(current_rounds, current_household_wealth, 'd-', color='#4169E1', label='Stressed Households', linewidth=2)
         
-        # Baseline wealth data
-        if baseline_data:
-            baseline_household_wealth = [baseline_data['wealth_data'][i].get('households', 0) for i in range(frame+1)]
-            baseline_firm_wealth = [baseline_data['wealth_data'][i].get('commodity', 0) + 
-                                  baseline_data['wealth_data'][i].get('intermediary', 0) + 
-                                  baseline_data['wealth_data'][i].get('final_goods', 0) for i in range(frame+1)]
+        # Baseline wealth data - individual agent classes
+        if time_series_data['baseline']:
+            current_baseline_commodity_wealth = baseline_commodity_wealth[:frame+1]
+            current_baseline_intermediary_wealth = baseline_intermediary_wealth[:frame+1]
+            current_baseline_final_goods_wealth = baseline_final_goods_wealth[:frame+1]
+            current_baseline_household_wealth = baseline_household_wealth[:frame+1]
             
-            ax7.plot(current_rounds, baseline_household_wealth, 'o--', color='blue', alpha=0.5, label='Baseline Households')
-            ax7.plot(current_rounds, baseline_firm_wealth, 's--', color='green', alpha=0.5, label='Baseline Firms')
+            ax7.plot(current_rounds, current_baseline_commodity_wealth, 'o--', color='#8B4513', alpha=0.5, label='Baseline Commodity')
+            ax7.plot(current_rounds, current_baseline_intermediary_wealth, 's--', color='#DAA520', alpha=0.5, label='Baseline Intermediary')
+            ax7.plot(current_rounds, current_baseline_final_goods_wealth, '^--', color='#00FF00', alpha=0.5, label='Baseline Final Goods')
+            ax7.plot(current_rounds, current_baseline_household_wealth, 'd--', color='#4169E1', alpha=0.5, label='Baseline Households')
         
         ax7.legend(fontsize=7)
         ax7.grid(True, alpha=0.3)
@@ -886,24 +1121,24 @@ def create_animated_supply_chain(visualization_data, simulation_path, baseline_d
         ax3.set_title('Inventory Levels', fontweight='bold')
         ax3.set_ylabel('Inventory')
         
-        # Stressed inventory data
-        commodity_inv = [visualization_data['inventories'][i].get('commodity', 0) for i in range(frame+1)]
-        intermediary_inv = [visualization_data['inventories'][i].get('intermediary', 0) for i in range(frame+1)]
-        final_goods_inv = [visualization_data['inventories'][i].get('final_goods', 0) for i in range(frame+1)]
+        # Use pre-calculated data - just slice to current frame
+        current_commodity_inv = commodity_inv[:frame+1]
+        current_intermediary_inv = intermediary_inv[:frame+1]
+        current_final_goods_inv = final_goods_inv[:frame+1]
         
-        ax3.plot(current_rounds, commodity_inv, 'o-', color='#8B4513', label='Stressed Commodity', linewidth=2)
-        ax3.plot(current_rounds, intermediary_inv, 's-', color='#DAA520', label='Stressed Intermediary', linewidth=2)
-        ax3.plot(current_rounds, final_goods_inv, '^-', color='#00FF00', label='Stressed Final Goods', linewidth=2)
+        ax3.plot(current_rounds, current_commodity_inv, 'o-', color='#8B4513', label='Stressed Commodity', linewidth=2)
+        ax3.plot(current_rounds, current_intermediary_inv, 's-', color='#DAA520', label='Stressed Intermediary', linewidth=2)
+        ax3.plot(current_rounds, current_final_goods_inv, '^-', color='#00FF00', label='Stressed Final Goods', linewidth=2)
         
         # Baseline inventory data
-        if baseline_data:
-            baseline_commodity_inv = [baseline_data['inventories'][i].get('commodity', 0) for i in range(frame+1)]
-            baseline_intermediary_inv = [baseline_data['inventories'][i].get('intermediary', 0) for i in range(frame+1)]
-            baseline_final_goods_inv = [baseline_data['inventories'][i].get('final_goods', 0) for i in range(frame+1)]
+        if time_series_data['baseline']:
+            current_baseline_commodity_inv = baseline_commodity_inv[:frame+1]
+            current_baseline_intermediary_inv = baseline_intermediary_inv[:frame+1]
+            current_baseline_final_goods_inv = baseline_final_goods_inv[:frame+1]
             
-            ax3.plot(current_rounds, baseline_commodity_inv, 'o--', color='#8B4513', alpha=0.5, label='Baseline Commodity')
-            ax3.plot(current_rounds, baseline_intermediary_inv, 's--', color='#DAA520', alpha=0.5, label='Baseline Intermediary')
-            ax3.plot(current_rounds, baseline_final_goods_inv, '^--', color='#00FF00', alpha=0.5, label='Baseline Final Goods')
+            ax3.plot(current_rounds, current_baseline_commodity_inv, 'o--', color='#8B4513', alpha=0.5, label='Baseline Commodity')
+            ax3.plot(current_rounds, current_baseline_intermediary_inv, 's--', color='#DAA520', alpha=0.5, label='Baseline Intermediary')
+            ax3.plot(current_rounds, current_baseline_final_goods_inv, '^--', color='#00FF00', alpha=0.5, label='Baseline Final Goods')
         
         ax3.legend(fontsize=7)
         ax3.grid(True, alpha=0.3)
@@ -915,50 +1150,58 @@ def create_animated_supply_chain(visualization_data, simulation_path, baseline_d
         ax5.set_title('Average Prices', fontweight='bold') 
         ax5.set_ylabel('Price ($)')
         
-        # Stressed price data
-        commodity_price = [visualization_data['pricing'][i].get('commodity', 0) for i in range(frame+1)]
-        intermediary_price = [visualization_data['pricing'][i].get('intermediary', 0) for i in range(frame+1)]
-        final_goods_price = [visualization_data['pricing'][i].get('final_goods', 0) for i in range(frame+1)]
+        # Use pre-calculated data - just slice to current frame
+        current_commodity_price = commodity_price[:frame+1]
+        current_intermediary_price = intermediary_price[:frame+1]
+        current_final_goods_price = final_goods_price[:frame+1]
         
-        ax5.plot(current_rounds, commodity_price, 'o-', color='#8B4513', label='Stressed Commodity', linewidth=2)
-        ax5.plot(current_rounds, intermediary_price, 's-', color='#DAA520', label='Stressed Intermediary', linewidth=2)
-        ax5.plot(current_rounds, final_goods_price, '^-', color='#00FF00', label='Stressed Final Goods', linewidth=2)
+        ax5.plot(current_rounds, current_commodity_price, 'o-', color='#8B4513', label='Stressed Commodity', linewidth=2)
+        ax5.plot(current_rounds, current_intermediary_price, 's-', color='#DAA520', label='Stressed Intermediary', linewidth=2)
+        ax5.plot(current_rounds, current_final_goods_price, '^-', color='#00FF00', label='Stressed Final Goods', linewidth=2)
         
         # Baseline price data
-        if baseline_data:
-            baseline_commodity_price = [baseline_data['pricing'][i].get('commodity', 0) for i in range(frame+1)]
-            baseline_intermediary_price = [baseline_data['pricing'][i].get('intermediary', 0) for i in range(frame+1)]
-            baseline_final_goods_price = [baseline_data['pricing'][i].get('final_goods', 0) for i in range(frame+1)]
+        if time_series_data['baseline']:
+            current_baseline_commodity_price = baseline_commodity_price[:frame+1]
+            current_baseline_intermediary_price = baseline_intermediary_price[:frame+1]
+            current_baseline_final_goods_price = baseline_final_goods_price[:frame+1]
             
-            ax5.plot(current_rounds, baseline_commodity_price, 'o--', color='#8B4513', alpha=0.5, label='Baseline Commodity')
-            ax5.plot(current_rounds, baseline_intermediary_price, 's--', color='#DAA520', alpha=0.5, label='Baseline Intermediary')
-            ax5.plot(current_rounds, baseline_final_goods_price, '^--', color='#00FF00', alpha=0.5, label='Baseline Final Goods')
+            ax5.plot(current_rounds, current_baseline_commodity_price, 'o--', color='#8B4513', alpha=0.5, label='Baseline Commodity')
+            ax5.plot(current_rounds, current_baseline_intermediary_price, 's--', color='#DAA520', alpha=0.5, label='Baseline Intermediary')
+            ax5.plot(current_rounds, current_baseline_final_goods_price, '^--', color='#00FF00', alpha=0.5, label='Baseline Final Goods')
         
         ax5.legend(fontsize=7)
         ax5.grid(True, alpha=0.3)
         ax5.set_xlim(0, num_frames)
         
         ###################################################
-        # DEBT PLOT 
+        # DEBT PLOT
         ###################################################
-        ax8.set_title('Total Debt', fontweight='bold')
+        ax8.set_title('Debt', fontweight='bold')
         ax8.set_xlabel('Round')
         ax8.set_ylabel('Debt ($)')
         
-        # Stressed debt data
-        household_debt = [visualization_data['debt'][i].get('households', 0) for i in range(frame+1)]
-        firm_debt = [visualization_data['debt'][i].get('firms', 0) for i in range(frame+1)]
+        # Use pre-calculated data - just slice to current frame
+        current_commodity_debt = commodity_debt[:frame+1]
+        current_intermediary_debt = intermediary_debt[:frame+1]
+        current_final_goods_debt = final_goods_debt[:frame+1]
+        current_household_debt = household_debt[:frame+1]
         
-        ax8.plot(current_rounds, household_debt, 'o-', color='red', label='Stressed Households', linewidth=2)
-        ax8.plot(current_rounds, firm_debt, 's-', color='orange', label='Stressed Firms', linewidth=2)
+        ax8.plot(current_rounds, current_commodity_debt, 'o-', color='#8B4513', label='Stressed Commodity', linewidth=2)
+        ax8.plot(current_rounds, current_intermediary_debt, 's-', color='#DAA520', label='Stressed Intermediary', linewidth=2)
+        ax8.plot(current_rounds, current_final_goods_debt, '^-', color='#00FF00', label='Stressed Final Goods', linewidth=2)
+        ax8.plot(current_rounds, current_household_debt, 'd-', color='#4169E1', label='Stressed Households', linewidth=2)
         
-        # Baseline debt data
-        if baseline_data:
-            baseline_household_debt = [baseline_data['debt'][i].get('households', 0) for i in range(frame+1)]
-            baseline_firm_debt = [baseline_data['debt'][i].get('firms', 0) for i in range(frame+1)]
+        # Baseline debt data - individual agent classes
+        if time_series_data['baseline']:
+            current_baseline_commodity_debt = baseline_commodity_debt[:frame+1]
+            current_baseline_intermediary_debt = baseline_intermediary_debt[:frame+1]
+            current_baseline_final_goods_debt = baseline_final_goods_debt[:frame+1]
+            current_baseline_household_debt = baseline_household_debt[:frame+1]
             
-            ax8.plot(current_rounds, baseline_household_debt, 'o--', color='red', alpha=0.5, label='Baseline Households')
-            ax8.plot(current_rounds, baseline_firm_debt, 's--', color='orange', alpha=0.5, label='Baseline Firms')
+            ax8.plot(current_rounds, current_baseline_commodity_debt, 'o--', color='#8B4513', alpha=0.5, label='Baseline Commodity')
+            ax8.plot(current_rounds, current_baseline_intermediary_debt, 's--', color='#DAA520', alpha=0.5, label='Baseline Intermediary')
+            ax8.plot(current_rounds, current_baseline_final_goods_debt, '^--', color='#00FF00', alpha=0.5, label='Baseline Final Goods')
+            ax8.plot(current_rounds, current_baseline_household_debt, 'd--', color='#4169E1', alpha=0.5, label='Baseline Households')
         
         ax8.legend(fontsize=7)
         ax8.grid(True, alpha=0.3)
@@ -1081,11 +1324,11 @@ def create_animated_supply_chain(visualization_data, simulation_path, baseline_d
                                         markerfacecolor='#FF0000', markersize=8, 
                                         label='Stressed', markeredgecolor='black', markeredgewidth=0.5))
         
-        ax6.legend(handles=legend_elements, loc='upper right', fontsize=6, 
-                  title='Agent Types', title_fontsize=7, framealpha=0.8, bbox_to_anchor=(0.5, 0 ))
+        ax6.legend(handles=legend_elements, loc='upper right', fontsize=7, 
+                  title='Agent Types', title_fontsize=7, framealpha=0.8, bbox_to_anchor=(0.6, 0.2))
          
         ax6.axis('off')  # Remove axes for cleaner world map look
-        
+    
     # Create animation
     anim = animation.FuncAnimation(fig, animate, frames=num_frames, interval=800, repeat=True)
     
