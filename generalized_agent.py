@@ -4,7 +4,7 @@ A flexible agent class that can be configured for different roles in the economi
 """
 
 from abcEconomics import Agent
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any
 import random
 from abcEconomics.group import Chain
 
@@ -64,6 +64,7 @@ class GeneralizedAgent(Agent):
         self.consumption_preference = consumption_config.get('preference', 'output')
         self.consumption_fraction = consumption_config.get('consumption_fraction', 0.5)
         self.minimum_survival_consumption = consumption_config.get('minimum_survival_consumption', 0.1)
+        self.consumption_budget_scaling = consumption_config.get('budget_scaling', 0.1)
         
         # Labor configuration
         labor_config = agent_parameters.get('labor', {})
@@ -143,13 +144,19 @@ class GeneralizedAgent(Agent):
         if not self.consumption_preference:
             return  # No consumption preference defined
         
-        # Calculate consumption budget
+        # Calculate consumption budget (as a fraction of wealth)
         consumption_budget = self.money * self.consumption_fraction
         
-        # Try to buy preferred consumption good
+        # Try to consume preferred consumption good
         if self.consumption_preference in self.inventory:
             available_amount = self.inventory[self.consumption_preference]
-            consumption_amount = min(available_amount, self.minimum_survival_consumption)
+            
+            # Calculate desired consumption based on budget and preferences
+            # Higher budget = higher desired consumption (up to a reasonable limit)
+            desired_consumption = min(available_amount, self.minimum_survival_consumption + (consumption_budget * self.consumption_budget_scaling))
+            
+            # Consume the desired amount
+            consumption_amount = min(available_amount, desired_consumption)
             
             if consumption_amount > 0:
                 self.inventory[self.consumption_preference] -= consumption_amount

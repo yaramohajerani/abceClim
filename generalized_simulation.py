@@ -8,7 +8,7 @@ import os
 import json
 import random
 import numpy as np
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any, Optional
 import pandas as pd
 import matplotlib.pyplot as plt
 import networkx as nx

@@ -8,8 +8,6 @@ import numpy as np
 import networkx as nx
 from typing import Dict, List, Any, Tuple, Optional
 from dataclasses import dataclass, field
-from abcEconomics import Simulation
-import json
 import os
 from copy import copy
 
@@ -18,21 +16,21 @@ from copy import copy
 class AgentCharacteristics:
     """Individual agent characteristics for heterogeneity"""
     # Climate vulnerability
-    climate_vulnerability_productivity: float = 1.0
-    climate_vulnerability_overhead: float = 1.0
+    climate_vulnerability_productivity: Optional[float] = None
+    climate_vulnerability_overhead: Optional[float] = None
     
     # Efficiency factors
-    production_efficiency: float = 1.0
-    overhead_efficiency: float = 1.0
+    production_efficiency: Optional[float] = None
+    overhead_efficiency: Optional[float] = None
     
     # Behavioral traits
-    risk_tolerance: float = 1.0
-    debt_willingness: float = 1.0
-    consumption_preference: float = 1.0
+    risk_tolerance: Optional[float] = None
+    debt_willingness: Optional[float] = None
+    consumption_behavior: Optional[float] = None 
     
     # Network characteristics
-    network_connectivity: float = 1.0
-    trade_preference: float = 1.0
+    network_connectivity: Optional[float] = None
+    trade_preference: Optional[float] = None
     
     # Geographic adaptation
     geographic_adaptation: Dict[str, float] = field(default_factory=dict)
@@ -228,7 +226,7 @@ class HeterogeneityManager:
         # Behavioral traits
         characteristics.risk_tolerance = self._generate_behavioral_trait('risk_tolerance')
         characteristics.debt_willingness = self._generate_behavioral_trait('debt_willingness')
-        characteristics.consumption_preference = self._generate_behavioral_trait('consumption_preference')
+        characteristics.consumption_behavior = self._generate_behavioral_trait('consumption_behavior')
         
         # Network characteristics
         characteristics.network_connectivity = self._generate_network_trait('network_connectivity')
@@ -726,7 +724,7 @@ class GeneralizedNetworkFramework:
                 'overhead_efficiency': characteristics.overhead_efficiency,
                 'risk_tolerance': characteristics.risk_tolerance,
                 'debt_willingness': characteristics.debt_willingness,
-                'consumption_preference': characteristics.consumption_preference,
+                'consumption_behavior': characteristics.consumption_behavior,
                 'network_connectivity': characteristics.network_connectivity,
                 'trade_preference': characteristics.trade_preference
             })
