@@ -371,32 +371,69 @@ class GeneralizedSimulationRunner:
             plt.savefig(os.path.join(output_dir, 'simulation_results.png'), dpi=300, bbox_inches='tight')
             plt.close()
             
-            # Create network visualization if network exists
+            # ------------------------------------------------------
+            # Improved network visualization
+            # ------------------------------------------------------
             if self.framework.network:
                 plt.figure(figsize=(12, 8))
-                pos = nx.spring_layout(self.framework.network, seed=42)
-                
-                # Color nodes by agent type
-                node_colors = []
-                for node in self.framework.network.nodes():
-                    agent_type = node.split('_')[0]
-                    if agent_type == 'producer':
-                        node_colors.append('red')
-                    elif agent_type == 'consumer':
-                        node_colors.append('blue')
-                    elif agent_type == 'intermediary':
-                        node_colors.append('green')
-                    else:
-                        node_colors.append('gray')
-                
-                nx.draw(self.framework.network, pos, 
-                       node_color=node_colors,
-                       node_size=100,
-                       with_labels=True,
-                       font_size=8,
-                       font_weight='bold')
-                
-                plt.title('Agent Network Structure')
+
+                # Use deterministic layout for reproducibility
+                pos = nx.spring_layout(self.framework.network, seed=42, k=0.35)
+
+                # Prepare node colors & legend handles
+                type_color = {
+                    'producer': 'red',
+                    'intermediary': 'green',
+                    'consumer': 'blue'
+                }
+                node_colors = [type_color.get(node.split('_')[0], 'gray') for node in self.framework.network.nodes]
+
+                # Draw nodes (larger size for better visibility)
+                nx.draw_networkx_nodes(
+                    self.framework.network,
+                    pos,
+                    node_color=node_colors,
+                    node_size=300,
+                    alpha=0.9,
+                    linewidths=0.5,
+                    edgecolors='black')
+
+                # Draw edges with transparency & width scaled by weight
+                weights = [data.get('weight', 1.0) for _, _, data in self.framework.network.edges(data=True)]
+                # Normalize edge widths between 0.5 and 3.0 for readability
+                if weights:
+                    w_min, w_max = min(weights), max(weights)
+                    edge_widths = [0.5 + 2.5 * ((w - w_min) / (w_max - w_min + 1e-9)) for w in weights]
+                else:
+                    edge_widths = 1.0
+
+                nx.draw_networkx_edges(
+                    self.framework.network,
+                    pos,
+                    width=edge_widths,
+                    arrows=False,
+                    alpha=0.25,
+                    edge_color='gray')
+
+                # Draw node labels (agent id only) with small font to reduce clutter
+                simple_labels = {n: n.split('_')[1] for n in self.framework.network.nodes}
+                nx.draw_networkx_labels(
+                    self.framework.network,
+                    pos,
+                    labels=simple_labels,
+                    font_size=6,
+                    font_color='black')
+
+                # Create a custom legend
+                from matplotlib.lines import Line2D
+                legend_elements = [Line2D([0], [0], marker='o', color='w', label=typ.capitalize(),
+                                            markerfacecolor=col, markersize=10, markeredgecolor='black')
+                                    for typ, col in type_color.items()]
+                plt.legend(handles=legend_elements, title='Agent Type', loc='best')
+
+                plt.title('Agent Network Structure (Round 0)')
+                plt.axis('off')
+                plt.tight_layout()
                 plt.savefig(os.path.join(output_dir, 'network_structure.png'), dpi=300, bbox_inches='tight')
                 plt.close()
             
