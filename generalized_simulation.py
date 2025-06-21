@@ -20,6 +20,11 @@ from abcEconomics import Simulation
 from generalized_agent import GeneralizedAgent
 from generalized_network_framework import create_generalized_network_framework
 
+try:
+    import imageio.v2 as imageio  # imageio <= v3 style import
+except ImportError:  # pragma: no cover – optional dependency
+    imageio = None
+
 
 class GeneralizedSimulationRunner:
     """
@@ -41,6 +46,12 @@ class GeneralizedSimulationRunner:
         self.agent_groups = {}
         # Debug flag (from config.simulation.debug)
         self.debug = self.config.get('simulation', {}).get('debug', False)
+        
+        # Optional network animation flag (from config.visualization.animate_network)
+        self.animate_network: bool = self.config.get('visualization', {}).get('animate_network', False)
+        # Internal helpers for animation
+        self._frame_paths = []  # type: list[str]
+        self._network_pos = None  # cached layout for consistent frames
         
         # Set random seed
         seed = self.config.get('simulation', {}).get('random_seed', 42)
@@ -239,9 +250,17 @@ class GeneralizedSimulationRunner:
             # Reset climate stress for next round
             if climate_enabled:
                 self.framework.reset_climate_stress()
+            
+            # Optionally save a network frame for GIF creation
+            if self.animate_network:
+                self._save_network_frame(round_num, results_dir=self.simulation.path)
         
         # Finalize the simulation
         self.simulation.finalize()
+        
+        # Create GIF if animation frames were requested and at least two frames exist
+        if self.animate_network:
+            self._create_network_gif(results_dir=self.simulation.path)
         
         print("Simulation completed")
         
@@ -520,6 +539,68 @@ class GeneralizedSimulationRunner:
         """Print only when self.debug flag is True."""
         if self.debug:
             print(*args, **kwargs)
+
+    # ------------------------------------------------------------------
+    # Network animation helpers
+    # ------------------------------------------------------------------
+
+    def _save_network_frame(self, round_num: int, results_dir: str):
+        """Save a PNG snapshot of the current network state for the given round."""
+        if imageio is None:
+            # imageio not available – silently skip to avoid hard dependency
+            self._dprint("imageio not installed; skipping network frame saving")
+            return
+
+        # Lazily compute deterministic layout once for all frames
+        if self._network_pos is None:
+            self._network_pos = nx.spring_layout(self.framework.network, seed=42)
+
+        plt.figure(figsize=(8, 6))
+
+        # Colour nodes by agent type (prefix before last underscore)
+        node_colors = []
+        for node in self.framework.network.nodes:
+            agent_type = node.split("_")[0]
+            node_colors.append(hash(agent_type) % 20)  # upto 20 unique colours via colormap
+
+        nx.draw(
+            self.framework.network,
+            pos=self._network_pos,
+            node_size=300,
+            node_color=node_colors,
+            cmap=plt.cm.tab20,
+            edge_color="k",
+            alpha=0.7,
+            width=0.5,
+        )
+        plt.title(f"Network – Round {round_num + 1}")
+        plt.axis("off")
+
+        frames_dir = os.path.join(results_dir, "network_frames")
+        os.makedirs(frames_dir, exist_ok=True)
+        frame_path = os.path.join(frames_dir, f"network_round_{round_num + 1:03d}.png")
+        plt.savefig(frame_path, dpi=150, bbox_inches="tight")
+        plt.close()
+
+        self._frame_paths.append(frame_path)
+
+    def _create_network_gif(self, results_dir: str):
+        """Create an animated GIF from saved network frames."""
+        if imageio is None or len(self._frame_paths) < 2:
+            # Either imageio not installed or not enough frames – skip GIF creation
+            self._dprint("Skipping GIF creation – imageio not installed or insufficient frames")
+            return
+
+        gif_path = os.path.join(results_dir, "network_evolution.gif")
+        try:
+            # imageio expects iterable of file paths ordered as desired
+            with imageio.get_writer(gif_path, mode="I", duration=0.7) as writer:
+                for frame_fp in self._frame_paths:
+                    image = imageio.imread(frame_fp)
+                    writer.append_data(image)
+            print(f"Saved network evolution GIF to {gif_path}")
+        except Exception as exc:
+            self._dprint("Failed to create network GIF:", exc)
 
 
 def main():
