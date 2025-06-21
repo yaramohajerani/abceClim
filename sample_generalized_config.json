@@ -1,0 +1,234 @@
+{
+  "simulation": {
+    "name": "generalized_heterogeneous_network",
+    "random_seed": 42,
+    "rounds": 30,
+    "result_path": "result_generalized_network"
+  },
+  "network": {
+    "connection_type": "random",
+    "connection_probability": 0.4,
+    "max_connections_per_agent": 8
+  },
+  "climate": {
+    "stress_enabled": true,
+    "geographical_effects": true,
+    "heterogeneity_enabled": true,
+    "chronic_rules": [
+      {
+        "name": "gradual_climate_change",
+        "agent_types": ["producer", "intermediary", "consumer"],
+        "continents": ["all"],
+        "productivity_stress_factor": 0.98,
+        "overhead_stress_factor": 1.02
+      }
+    ],
+    "shock_rules": [
+      {
+        "name": "extreme_weather_event",
+        "probability": 0.15,
+        "agent_types": ["producer"],
+        "continents": ["Africa", "Asia"],
+        "productivity_stress_factor": 0.6,
+        "overhead_stress_factor": 1.4
+      },
+      {
+        "name": "supply_chain_disruption",
+        "probability": 0.1,
+        "agent_types": ["intermediary", "consumer"],
+        "continents": ["all"],
+        "productivity_stress_factor": 0.8,
+        "overhead_stress_factor": 1.3
+      },
+      {
+        "name": "regional_crisis",
+        "probability": 0.05,
+        "agent_types": ["producer", "intermediary", "consumer"],
+        "continents": ["Europe", "North America"],
+        "productivity_stress_factor": 0.7,
+        "overhead_stress_factor": 1.5
+      }
+    ]
+  },
+  "heterogeneity": {
+    "climate_vulnerability_productivity": {
+      "producer": 1.3,
+      "intermediary": 1.1,
+      "consumer": 0.9,
+      "Africa": 1.2,
+      "Asia": 1.1,
+      "South America": 1.1,
+      "North America": 0.9,
+      "Europe": 0.8,
+      "Oceania": 1.0
+    },
+    "climate_vulnerability_overhead": {
+      "producer": 1.2,
+      "intermediary": 1.0,
+      "consumer": 0.9,
+      "Africa": 1.3,
+      "Asia": 1.1,
+      "South America": 1.1,
+      "North America": 0.9,
+      "Europe": 0.8,
+      "Oceania": 1.0
+    },
+    "production_efficiency_base": 1.0,
+    "production_efficiency_variation": 0.3,
+    "overhead_efficiency_base": 1.0,
+    "overhead_efficiency_variation": 0.2,
+    "risk_tolerance_base": 1.0,
+    "risk_tolerance_variation": 0.4,
+    "debt_willingness_base": 1.0,
+    "debt_willingness_variation": 0.5,
+    "consumption_preference_base": 1.0,
+    "consumption_preference_variation": 0.3,
+    "network_connectivity_base": 1.0,
+    "network_connectivity_variation": 0.2,
+    "trade_preference_base": 1.0,
+    "trade_preference_variation": 0.3,
+    "geographic_adaptation_heat": {
+      "Africa": 1.2,
+      "Asia": 1.1,
+      "South America": 1.0,
+      "North America": 0.9,
+      "Europe": 0.8,
+      "Oceania": 1.0
+    },
+    "geographic_adaptation_drought": {
+      "Africa": 1.1,
+      "Asia": 1.0,
+      "South America": 0.9,
+      "North America": 1.0,
+      "Europe": 0.9,
+      "Oceania": 1.0
+    },
+    "geographic_adaptation_flood": {
+      "Africa": 0.9,
+      "Asia": 1.2,
+      "South America": 1.1,
+      "North America": 1.0,
+      "Europe": 1.1,
+      "Oceania": 1.0
+    },
+    "geographic_adaptation_storm": {
+      "Africa": 1.0,
+      "Asia": 1.1,
+      "South America": 1.0,
+      "North America": 1.1,
+      "Europe": 1.0,
+      "Oceania": 1.2
+    }
+  },
+  "agents": {
+    "producer": {
+      "count": 8,
+      "initial_money": 15.0,
+      "initial_inventory": {
+        "raw_material": 2.0
+      },
+      "production": {
+        "base_output_quantity": 1.2,
+        "profit_margin": 0.15,
+        "base_overhead": 0.08,
+        "inputs": {
+          "labor": 0.8,
+          "raw_material": 0.4
+        },
+        "outputs": ["intermediate_good"]
+      },
+      "consumption": {
+        "preference": "final_good",
+        "consumption_fraction": 0.3,
+        "minimum_survival_consumption": 0.2
+      },
+      "labor": {
+        "endowment": 0.0,
+        "wage": 12.0
+      },
+      "geographical_distribution": ["Africa", "Asia", "South America"],
+      "heterogeneity": {
+        "climate_vulnerability_productivity": 1.3,
+        "climate_vulnerability_overhead": 1.2
+      }
+    },
+    "intermediary": {
+      "count": 6,
+      "initial_money": 12.0,
+      "initial_inventory": {
+        "intermediate_good": 1.0
+      },
+      "production": {
+        "base_output_quantity": 1.8,
+        "profit_margin": 0.12,
+        "base_overhead": 0.06,
+        "inputs": {
+          "labor": 0.6,
+          "intermediate_good": 0.8
+        },
+        "outputs": ["final_good"]
+      },
+      "consumption": {
+        "preference": "final_good",
+        "consumption_fraction": 0.4,
+        "minimum_survival_consumption": 0.3
+      },
+      "labor": {
+        "endowment": 0.0,
+        "wage": 12.0
+      },
+      "geographical_distribution": ["Asia", "South America", "North America"],
+      "heterogeneity": {
+        "climate_vulnerability_productivity": 1.1,
+        "climate_vulnerability_overhead": 1.0
+      }
+    },
+    "consumer": {
+      "count": 12,
+      "initial_money": 8.0,
+      "initial_inventory": {
+        "final_good": 0.5
+      },
+      "production": {
+        "base_output_quantity": 0.0,
+        "profit_margin": 0.0,
+        "base_overhead": 0.0,
+        "inputs": {},
+        "outputs": []
+      },
+      "consumption": {
+        "preference": "final_good",
+        "consumption_fraction": 0.6,
+        "minimum_survival_consumption": 0.4
+      },
+      "labor": {
+        "endowment": 1.0,
+        "wage": 12.0
+      },
+      "geographical_distribution": ["all"],
+      "heterogeneity": {
+        "climate_vulnerability_productivity": 0.9,
+        "climate_vulnerability_overhead": 0.9
+      }
+    }
+  },
+  "data_collection": {
+    "track_goods": {
+      "producer": ["intermediate_good"],
+      "intermediary": ["final_good"],
+      "consumer": ["final_good"]
+    },
+    "track_metrics": [
+      "wealth",
+      "production",
+      "consumption",
+      "trades",
+      "climate_stress"
+    ]
+  },
+  "visualization": {
+    "create_visualizations": true,
+    "create_network_visualization": true,
+    "save_summary_data": true
+  }
+} 
