@@ -191,6 +191,7 @@ class GeneralizedSimulationRunner:
             'total_consumption': [],
             'total_trades': [],
             'climate_events': [],
+            'shock_rounds': [],
             # per-type time series
             'per_type': {}
         }
@@ -215,6 +216,7 @@ class GeneralizedSimulationRunner:
                 climate_events = self.framework.apply_climate_stress()
                 if climate_events:
                     results['climate_events'].append(climate_events)
+                    results['shock_rounds'].append(round_num + 1)
                     print(f"Climate events: {list(climate_events.keys())}")
             
             self._dprint("DEBUG: Available agent groups:", list(self.agent_groups.keys()))
@@ -361,6 +363,9 @@ class GeneralizedSimulationRunner:
             
             # Wealth over time
             axes[0, 0].plot(results['rounds'], results['total_wealth'])
+            # Mark shocks
+            for sr in results.get('shock_rounds', []):
+                axes[0, 0].axvline(sr, color='red', linestyle='--', alpha=0.4)
             axes[0, 0].set_title('Total Wealth Over Time')
             axes[0, 0].set_xlabel('Round')
             axes[0, 0].set_ylabel('Total Wealth')
@@ -368,6 +373,9 @@ class GeneralizedSimulationRunner:
             
             # Production over time
             axes[0, 1].plot(results['rounds'], results['total_production'])
+            # Mark shocks
+            for sr in results.get('shock_rounds', []):
+                axes[0, 1].axvline(sr, color='red', linestyle='--', alpha=0.4)
             axes[0, 1].set_title('Total Production Over Time')
             axes[0, 1].set_xlabel('Round')
             axes[0, 1].set_ylabel('Total Production')
@@ -375,6 +383,9 @@ class GeneralizedSimulationRunner:
             
             # Consumption over time
             axes[1, 0].plot(results['rounds'], results['total_consumption'])
+            # Mark shocks
+            for sr in results.get('shock_rounds', []):
+                axes[1, 0].axvline(sr, color='red', linestyle='--', alpha=0.4)
             axes[1, 0].set_title('Total Consumption Over Time')
             axes[1, 0].set_xlabel('Round')
             axes[1, 0].set_ylabel('Total Consumption')
@@ -382,6 +393,9 @@ class GeneralizedSimulationRunner:
             
             # Trades over time
             axes[1, 1].plot(results['rounds'], results['total_trades'])
+            # Mark shocks
+            for sr in results.get('shock_rounds', []):
+                axes[1, 1].axvline(sr, color='red', linestyle='--', alpha=0.4)
             axes[1, 1].set_title('Total Trades Over Time')
             axes[1, 1].set_xlabel('Round')
             axes[1, 1].set_ylabel('Total Trades')
@@ -390,20 +404,6 @@ class GeneralizedSimulationRunner:
             plt.tight_layout()
             plt.savefig(os.path.join(output_dir, 'simulation_results.png'), dpi=300, bbox_inches='tight')
             plt.close()
-            
-            # Per-type production time series plot
-            if 'per_type' in results and results['per_type']:
-                plt.figure(figsize=(8, 5))
-                for typ, ts in results['per_type'].items():
-                    plt.plot(results['rounds'], ts['production'], label=f"{typ} prod")
-                plt.title('Production by Agent Type')
-                plt.xlabel('Round')
-                plt.ylabel('Output units')
-                plt.grid(True)
-                plt.legend()
-                plt.tight_layout()
-                plt.savefig(os.path.join(output_dir, 'production_by_type.png'), dpi=300, bbox_inches='tight')
-                plt.close()
             
             # Combined 2x2 per-type metrics figure
             fig2, axes2 = plt.subplots(2, 2, figsize=(12, 8))
@@ -421,6 +421,11 @@ class GeneralizedSimulationRunner:
             _plot_metric(axes2[0, 1], 'wealth', 'Wealth by Type', 'Wealth')
             _plot_metric(axes2[1, 0], 'consumption', 'Consumption by Type', 'Units')
             _plot_metric(axes2[1, 1], 'trades', 'Trades by Type', '# Trades')
+
+            # Add shock lines to all subplots
+            for ax in axes2.flatten():
+                for sr in results.get('shock_rounds', []):
+                    ax.axvline(sr, color='red', linestyle='--', alpha=0.4)
 
             # Consolidated legend
             handles, labels = axes2[0, 0].get_legend_handles_labels()
@@ -555,26 +560,91 @@ class GeneralizedSimulationRunner:
         if self._network_pos is None:
             self._network_pos = nx.spring_layout(self.framework.network, seed=42)
 
-        plt.figure(figsize=(8, 6))
+        # --------------------------------------------------
+        # Gather per-agent information: wealth & climate status
+        # --------------------------------------------------
+        wealths = {}
+        status = {}  # 'acute', 'chronic', or 'none'
 
-        # Colour nodes by agent type (prefix before last underscore)
+        # Quick mapping to climate data for chronic status look-up
+        climate_data_map = self.framework.agent_climate_data
+
+        for agent in self.real_agents:
+            key = f"{agent.group}_{agent.agent_id}"
+            w = max(0.0, agent.calculate_wealth())  # avoid negatives for size scaling
+            wealths[key] = w
+
+            # Determine climate status
+            if getattr(agent, "climate_stressed", False):
+                status[key] = "acute"
+            else:
+                cdata = climate_data_map.get((agent.group, agent.agent_id), None)
+                chronic = False
+                if cdata:
+                    chronic_prod = cdata.get("chronic_productivity_stress_accumulated", 1.0)
+                    chronic_over = cdata.get("chronic_overhead_stress_accumulated", 1.0)
+                    chronic = (chronic_prod > 1.0) or (chronic_over > 1.0)
+                status[key] = "chronic" if chronic else "none"
+
+        # Scaling for node sizes
+        if wealths:
+            max_wealth = max(wealths.values()) or 1.0
+        else:
+            max_wealth = 1.0
+        min_size, max_size = 100, 1500  # visual bounds
+
+        node_sizes = []
         node_colors = []
+
+        # Base colours for agent types (fallback)
+        type_color_fallback = {
+            'producer': '#d62728',
+            'intermediary': '#2ca02c',
+            'consumer': '#1f77b4'
+        }
+
         for node in self.framework.network.nodes:
-            agent_type = node.split("_")[0]
-            node_colors.append(hash(agent_type) % 20)  # upto 20 unique colours via colormap
+            # Size scaling
+            size = min_size
+            if node in wealths and max_wealth > 0:
+                size = min_size + (wealths[node] / max_wealth) * (max_size - min_size)
+            node_sizes.append(size)
+
+            # Colour determination
+            st = status.get(node, "none")
+            if st == "acute":
+                node_colors.append("#FF0000")  # red
+            elif st == "chronic":
+                node_colors.append("#FFA500")  # orange
+            else:
+                agent_type = node.split("_")[0]
+                node_colors.append(type_color_fallback.get(agent_type, "gray"))
+
+        # --------------------------------------------------
+        # Plot
+        # --------------------------------------------------
+        plt.figure(figsize=(10, 7))
 
         nx.draw(
             self.framework.network,
             pos=self._network_pos,
-            node_size=300,
+            node_size=node_sizes,
             node_color=node_colors,
-            cmap=plt.cm.tab20,
             edge_color="k",
-            alpha=0.7,
-            width=0.5,
+            alpha=0.8,
+            width=0.4,
         )
         plt.title(f"Network – Round {round_num + 1}")
         plt.axis("off")
+
+        # Custom legend: status colours + size note
+        from matplotlib.lines import Line2D
+        legend_elems = [
+            Line2D([0], [0], marker='o', color='w', label='Acute shock', markerfacecolor='#FF0000', markersize=10),
+            Line2D([0], [0], marker='o', color='w', label='Chronic stress', markerfacecolor='#FFA500', markersize=10),
+            Line2D([0], [0], marker='o', color='w', label='Normal', markerfacecolor='gray', markersize=10)
+        ]
+        plt.legend(handles=legend_elems, loc='lower left')
 
         frames_dir = os.path.join(results_dir, "network_frames")
         os.makedirs(frames_dir, exist_ok=True)
