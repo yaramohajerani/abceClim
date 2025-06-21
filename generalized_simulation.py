@@ -74,11 +74,13 @@ class GeneralizedSimulationRunner:
         
         # Generate network
         self.framework.generate_network()
+        print(f"DEBUG: Network generated with {self.framework.network.number_of_nodes()} nodes and {self.framework.network.number_of_edges()} edges")
         
         # Create agents
         self._create_agents()
         
         # Set up network connections
+        print("DEBUG: About to call _setup_network_connections...")
         self._setup_network_connections()
         
         print("Simulation setup completed")
@@ -108,36 +110,40 @@ class GeneralizedSimulationRunner:
     
     def _setup_network_connections(self):
         """Set up network connections between agents"""
+        print(f"DEBUG: Setting up network connections...")
+        
         if not self.framework.network:
+            print("DEBUG: No network found, skipping connection setup")
             return
         
-        # Get all agent nodes from the network
+        print(f"DEBUG: Network has {self.framework.network.number_of_nodes()} nodes and {self.framework.network.number_of_edges()} edges")
+        
+        # Get all agent nodes from the network using the real agent objects in the scheduler
         agent_nodes = {}
         for agent_type, agent_group in self.agent_groups.items():
             for i in range(agent_group.num_agents):
-                node_id = f"{agent_type}_{i}"
-                agent_nodes[node_id] = (agent_type, i)
+                node_label = f"{agent_type}_{i}"  # Match the network node labels
+                # Get the real agent object from the scheduler
+                agent_name = (agent_group.agent_name_prefix, i)
+                if agent_name in self.simulation.scheduler.agents:
+                    agent = self.simulation.scheduler.agents[agent_name]
+                    agent_nodes[node_label] = agent
+                else:
+                    print(f"DEBUG: Agent {agent_name} not found in scheduler")
         
-        # Set up connections for each agent
-        for node_id, (agent_type, agent_id) in agent_nodes.items():
-            agent = self.agent_groups[agent_type][agent_id]
-            
-            # Get connected agents from network
-            connected_nodes = list(self.framework.network.neighbors(node_id))
-            connected_agents = []
-            
-            for connected_node in connected_nodes:
-                if connected_node in agent_nodes:
-                    connected_agent_type, connected_agent_id = agent_nodes[connected_node]
-                    connected_agent = self.agent_groups[connected_agent_type][connected_agent_id]
-                    connected_agents.append(connected_agent)
-            
-            # Set connected agents for this agent
-            agent.connected_agents = connected_agents
-            
-            # Set network connectivity based on degree
-            degree = self.framework.network.degree(node_id)
-            agent.network_connectivity = min(1.0, degree / 10.0)  # Normalize to 0-1
+        print(f"DEBUG: Found {len(agent_nodes)} agents to assign connections to")
+        
+        # Assign connections to agents
+        for node_label, agent in agent_nodes.items():
+            if node_label in self.framework.network:
+                # Treat network as undirected when determining connections
+                neighbors = set(self.framework.network.successors(node_label))
+                neighbors.update(self.framework.network.predecessors(node_label))
+                neighbors = list(neighbors)
+                connected_agents = [agent_nodes[n] for n in neighbors if n in agent_nodes]
+                agent.connected_agents = connected_agents
+                agent.connections = connected_agents
+                print(f"DEBUG: SETUP {node_label} connections: {len(connected_agents)}")
         
         print(f"Network connections set up for {len(agent_nodes)} agents")
     
@@ -160,7 +166,7 @@ class GeneralizedSimulationRunner:
         print(f"Running simulation for {total_rounds} rounds...")
         
         # Define simulation phases
-        phases = ['production', 'labor_supply', 'trading', 'consumption']
+        phases = ['labor_supply', 'labor_contracting', 'production', 'trading', 'consumption']
         
         results = {
             'rounds': [],
@@ -185,12 +191,23 @@ class GeneralizedSimulationRunner:
                     results['climate_events'].append(climate_events)
                     print(f"Climate events: {list(climate_events.keys())}")
             
-            # Run simulation phases by calling agent group methods
+            # Print available agent group keys in the scheduler
+            print("DEBUG: Available agent groups:", list(self.agent_groups.keys()))
+            
+            # Run simulation phases using abcEconomics standard pattern
             for phase in phases:
-                for agent_type, agent_group in self.agent_groups.items():
-                    phase_method = getattr(agent_group, phase, None)
+                print(f"DEBUG: Running phase: {phase}")
+                # Get all real agent objects from the scheduler
+                all_agents = list(self.simulation.scheduler.agents.values())
+                print(f"DEBUG: Found {len(all_agents)} real agents in scheduler")
+                
+                # Call the phase method on each real agent
+                for agent in all_agents:
+                    phase_method = getattr(agent, phase, None)
                     if callable(phase_method):
                         phase_method()
+                    else:
+                        print(f"DEBUG: {phase} method not found on agent {agent.name}")
             
             # Record performance for all agents
             self._record_round_performance(round_num)

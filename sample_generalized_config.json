@@ -2,7 +2,7 @@
   "simulation": {
     "name": "generalized_heterogeneous_network",
     "random_seed": 42,
-    "rounds": 30,
+    "rounds": 10,
     "result_path": "result_generalized_network"
   },
   "network": {
@@ -187,7 +187,8 @@
       "count": 12,
       "initial_money": 8.0,
       "initial_inventory": {
-        "final_good": 0.5
+        "final_good": 0.5,
+        "labor": 1.0
       },
       "production": {
         "base_output_quantity": 0.0,

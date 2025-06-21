@@ -5,7 +5,7 @@ from builtins import str
 from builtins import object
 from abcEconomics.notenoughgoods import NotEnoughGoods
 from random import shuffle
-from abcEconomics.trader import get_epsilon
+from abcEconomics.agents.trader import get_epsilon
 from .contracts import Contracts
 
 
