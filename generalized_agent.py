@@ -9,9 +9,10 @@ import random
 from abcEconomics.group import Chain
 from abcEconomics.contracts.contracting import Contracting, Contracts
 from collections import defaultdict
+from labor_market_mixin import LaborMarketMixin
 
 
-class GeneralizedAgent(Agent, Contracting):
+class GeneralizedAgent(Agent, LaborMarketMixin, Contracting):
     """
     A generalized agent that can be configured for different economic roles.
     Supports production, consumption, trading, and climate stress effects.
@@ -103,6 +104,9 @@ class GeneralizedAgent(Agent, Contracting):
         self.total_costs = 0.0
         self.wealth_history = []
         
+        # Debug flag
+        self.debug = agent_parameters.get('debug', False)
+        
         # Initialize inventory with initial values
         for good, quantity in self.initial_inventory.items():
             self.inventory[good] = quantity
@@ -167,18 +171,18 @@ class GeneralizedAgent(Agent, Contracting):
         if not can_produce:
             return
         
-        print(f"DEBUG: {self.agent_type} {self.agent_id} starting production")
+        self._dprint(f"{self.agent_type} {self.agent_id} starting production")
         # Consume inputs
         for good, required in self.production_inputs.items():
             self.inventory[good] -= required
-            print(f"DEBUG: {self.agent_type} {self.agent_id} consumed {required} {good}")
+            self._dprint(f"{self.agent_type} {self.agent_id} consumed {required} {good}")
         
         # Produce outputs
         produced_amount = 0.0
         for good, amount in self.production_outputs.items():
             self.inventory[good] = self.inventory.get(good, 0) + amount
             produced_amount += amount
-            print(f"DEBUG: {self.agent_type} {self.agent_id} produced {amount} {good}")
+            self._dprint(f"{self.agent_type} {self.agent_id} produced {amount} {good}")
         
         # Deduct overhead costs
         if self.money >= self.current_overhead:
@@ -211,23 +215,6 @@ class GeneralizedAgent(Agent, Contracting):
                 self.inventory[self.consumption_preference] -= consumption_amount
                 self.total_consumption += consumption_amount
                 print(f"{self.agent_type} {self.agent_id}: Consumed {consumption_amount:.2f} {self.consumption_preference}")
-    
-    def labor_supply(self):
-        """Supply labor to the market"""
-        if self.labor_endowment <= 0:
-            return
-        
-        # Calculate labor supply based on preferences and market conditions
-        labor_supply = self.labor_endowment * self.trade_preference
-        
-        # Regenerate labor endowment each round (treat labor as a service)
-        if labor_supply > 0:
-            # Add labor units to inventory for potential contracting
-            self.inventory['labor'] = self.inventory.get('labor', 0) + labor_supply
-            if isinstance(self._haves, dict):
-                self._haves['labor'] = self.inventory['labor']
-            # Offer labor (debug / placeholder)
-            self.offer_labor(labor_supply, self.labor_wage)
     
     def trading(self):
         """Engage in trading with other agents"""
@@ -368,106 +355,6 @@ class GeneralizedAgent(Agent, Contracting):
             'climate_stressed': self.climate_stressed,
             'inventory': self.inventory.copy()
         }
-    
-    def labor_contracting(self):
-        """Handle labor contracting between producers/intermediaries and consumers"""
-        # Debug: show connected consumer count
-        if hasattr(self, 'connected_agents'):
-            consumer_count_debug = sum(1 for a in self.connected_agents if getattr(a, 'group', None) == 'consumer')
-        else:
-            consumer_count_debug = 0
-        # Only print for producers/intermediaries on first round maybe
-        if self.time == 0 and self.group in ['producer', 'intermediary']:
-            print(f"DEBUG-CONTRACT {self.group} {self.agent_id}: Connected consumers = {consumer_count_debug}")
-        contract_actions = []
-        
-        # Producers/intermediaries request labor contracts
-        if self.group in ['producer', 'intermediary']:
-            if not self.production_inputs or 'labor' not in self.production_inputs:
-                return
-            
-            required_labor = self.production_inputs['labor']
-            current_labor = self.inventory.get('labor', 0)
-            needed_labor = max(0, required_labor - current_labor)
-            
-            if needed_labor > 0 and hasattr(self, 'connected_agents') and self.connected_agents:
-                # Find consumer agents among connected agents
-                consumers = [agent for agent in self.connected_agents if getattr(agent, 'group', None) == 'consumer']
-                
-                for consumer in consumers:
-                    if needed_labor <= 0:
-                        break
-
-                    available_labor = consumer.inventory.get('labor', 0)
-                    if available_labor <= 0:
-                        continue
-
-                    transfer_qty = min(needed_labor, available_labor)
-
-                    # Transfer money from producer to consumer
-                    payment = transfer_qty * self.labor_wage
-                    if self.money < payment:
-                        continue  # not enough funds
-
-                    self.money -= payment
-                    consumer.money += payment
-
-                    # Transfer labor from consumer to producer
-                    consumer.inventory['labor'] -= transfer_qty
-                    self.inventory['labor'] = self.inventory.get('labor', 0) + transfer_qty
-
-                    # Update _haves alias if present
-                    if isinstance(consumer._haves, dict):
-                        consumer._haves['labor'] = consumer.inventory['labor']
-                    if isinstance(self._haves, dict):
-                        self._haves['labor'] = self.inventory['labor']
-
-                    # Update needed labor
-                    needed_labor -= transfer_qty
-
-                    contract_actions.append(f"Directly hired {transfer_qty} labor from consumer {consumer.id}")
-            
-            # Pay for active labor contracts each round
-            if hasattr(self, 'active_labor_contracts') and self.active_labor_contracts:
-                for contract in list(self.active_labor_contracts):
-                    try:
-                        self.pay_contract(contract)
-                        contract_actions.append(f"Paid for labor contract {contract.id}")
-                        # Remove contract after payment (single-round contracts)
-                        self.active_labor_contracts.remove(contract)
-                    except Exception as e:
-                        contract_actions.append(f"Failed to pay contract {contract.id}: {e}")
-        
-        # Consumers accept and deliver labor contracts
-        elif self.group == 'consumer':
-            # Get labor contract offers
-            try:
-                offers = self.get_contract_offers('labor')
-                for offer in offers:
-                    available_labor = self.inventory.get('labor', 0)
-                    if available_labor >= offer.quantity:
-                        self.accept_contract(offer)
-                        if not hasattr(self, 'active_labor_contracts'):
-                            self.active_labor_contracts = []
-                        self.active_labor_contracts.append(offer)
-                        contract_actions.append(f"Accepted labor contract {offer.id} from {offer.sender_id}")
-            except Exception as e:
-                contract_actions.append(f"Failed to get contract offers: {e}")
-            
-            # Deliver on active labor contracts each round
-            if hasattr(self, 'active_labor_contracts') and self.active_labor_contracts:
-                for contract in list(self.active_labor_contracts):
-                    try:
-                        self.deliver_contract(contract)
-                        self.inventory['labor'] -= contract.quantity
-                        contract_actions.append(f"Delivered {contract.quantity} labor for contract {contract.id}")
-                        # Remove contract after delivery (single-round contracts)
-                        self.active_labor_contracts.remove(contract)
-                    except Exception as e:
-                        contract_actions.append(f"Failed to deliver contract {contract.id}: {e}")
-        
-        if contract_actions:
-            print(f"[CONTRACT] {self.group} {self.agent_id}: " + "; ".join(contract_actions))
 
     # ------------------------------------------------------------------
     # abcEconomics lifecycle hooks
@@ -478,3 +365,11 @@ class GeneralizedAgent(Agent, Contracting):
         super()._advance_round(time, str_time)
         # The Contracting mix-in expects the current round in `self.round`
         self.round = time 
+
+    # ------------------------------------------------------------------
+    # Helper util for conditional debug printing
+    # ------------------------------------------------------------------
+
+    def _dprint(self, *args, **kwargs):
+        if self.debug:
+            print(*args, **kwargs) 

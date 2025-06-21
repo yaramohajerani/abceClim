@@ -39,6 +39,8 @@ class GeneralizedSimulationRunner:
         self.framework = create_generalized_network_framework(self.config)
         self.simulation = None
         self.agent_groups = {}
+        # Debug flag (from config.simulation.debug)
+        self.debug = self.config.get('simulation', {}).get('debug', False)
         
         # Set random seed
         seed = self.config.get('simulation', {}).get('random_seed', 42)
@@ -80,7 +82,7 @@ class GeneralizedSimulationRunner:
         self._create_agents()
         
         # Set up network connections
-        print("DEBUG: About to call _setup_network_connections...")
+        self._dprint("DEBUG: About to call _setup_network_connections...")
         self._setup_network_connections()
         
         print("Simulation setup completed")
@@ -110,13 +112,13 @@ class GeneralizedSimulationRunner:
     
     def _setup_network_connections(self):
         """Set up network connections between agents"""
-        print(f"DEBUG: Setting up network connections...")
+        self._dprint("DEBUG: Setting up network connections...")
         
         if not self.framework.network:
-            print("DEBUG: No network found, skipping connection setup")
+            self._dprint("DEBUG: No network found, skipping connection setup")
             return
         
-        print(f"DEBUG: Network has {self.framework.network.number_of_nodes()} nodes and {self.framework.network.number_of_edges()} edges")
+        self._dprint(f"DEBUG: Network has {self.framework.network.number_of_nodes()} nodes and {self.framework.network.number_of_edges()} edges")
         
         # Get all agent nodes from the network using the real agent objects in the scheduler
         agent_nodes = {}
@@ -129,9 +131,9 @@ class GeneralizedSimulationRunner:
                     agent = self.simulation.scheduler.agents[agent_name]
                     agent_nodes[node_label] = agent
                 else:
-                    print(f"DEBUG: Agent {agent_name} not found in scheduler")
+                    self._dprint(f"DEBUG: Agent {agent_name} not found in scheduler")
         
-        print(f"DEBUG: Found {len(agent_nodes)} agents to assign connections to")
+        self._dprint(f"DEBUG: Found {len(agent_nodes)} agents to assign connections to")
         
         # Assign connections to agents
         for node_label, agent in agent_nodes.items():
@@ -143,9 +145,12 @@ class GeneralizedSimulationRunner:
                 connected_agents = [agent_nodes[n] for n in neighbors if n in agent_nodes]
                 agent.connected_agents = connected_agents
                 agent.connections = connected_agents
-                print(f"DEBUG: SETUP {node_label} connections: {len(connected_agents)}")
+                self._dprint(f"DEBUG: SETUP {node_label} connections: {len(connected_agents)}")
         
-        print(f"Network connections set up for {len(agent_nodes)} agents")
+        self._dprint(f"Network connections set up for {len(agent_nodes)} agents")
+        
+        # Cache real agents list for faster access in run loop
+        self.real_agents = list(self.simulation.scheduler.agents.values())
     
     def run_simulation(self, rounds: Optional[int] = None) -> Dict[str, Any]:
         """
@@ -191,29 +196,21 @@ class GeneralizedSimulationRunner:
                     results['climate_events'].append(climate_events)
                     print(f"Climate events: {list(climate_events.keys())}")
             
-            # Print available agent group keys in the scheduler
-            print("DEBUG: Available agent groups:", list(self.agent_groups.keys()))
+            self._dprint("DEBUG: Available agent groups:", list(self.agent_groups.keys()))
             
             # Run simulation phases using abcEconomics standard pattern
             for phase in phases:
-                print(f"DEBUG: Running phase: {phase}")
-                # Get all real agent objects from the scheduler
-                all_agents = list(self.simulation.scheduler.agents.values())
-                print(f"DEBUG: Found {len(all_agents)} real agents in scheduler")
+                self._dprint(f"DEBUG: Running phase: {phase}")
                 
-                # Call the phase method on each real agent
-                for agent in all_agents:
+                for agent in self.real_agents:
                     phase_method = getattr(agent, phase, None)
                     if callable(phase_method):
                         phase_method()
                     else:
-                        print(f"DEBUG: {phase} method not found on agent {agent.name}")
+                        self._dprint(f"DEBUG: {phase} method not found on agent {agent.name}")
             
-            # Record performance for all agents
-            self._record_round_performance(round_num)
-            
-            # Collect round statistics
-            round_stats = self._collect_round_statistics()
+            # Collect statistics directly from real_agents
+            round_stats = self._collect_round_statistics_inline(round_num)
             results['rounds'].append(round_num + 1)
             results['total_wealth'].append(round_stats['total_wealth'])
             results['total_production'].append(round_stats['total_production'])
@@ -266,6 +263,26 @@ class GeneralizedSimulationRunner:
                 total_production += agent.total_production
                 total_consumption += agent.total_consumption
                 total_trades += agent.total_trades
+        
+        return {
+            'total_wealth': total_wealth,
+            'total_production': total_production,
+            'total_consumption': total_consumption,
+            'total_trades': total_trades
+        }
+    
+    def _collect_round_statistics_inline(self, round_num: int) -> Dict[str, float]:
+        """Collect statistics for the current round directly from real_agents"""
+        total_wealth = 0.0
+        total_production = 0.0
+        total_consumption = 0.0
+        total_trades = 0
+        
+        for agent in self.real_agents:
+            total_wealth += agent.calculate_wealth()
+            total_production += agent.total_production
+            total_consumption += agent.total_consumption
+            total_trades += agent.total_trades
         
         return {
             'total_wealth': total_wealth,
@@ -472,6 +489,15 @@ class GeneralizedSimulationRunner:
         
         print("Complete simulation finished")
         return results
+
+    # --------------------------------------------------------------
+    # Utility: conditional debug print
+    # --------------------------------------------------------------
+
+    def _dprint(self, *args, **kwargs):
+        """Print only when self.debug flag is True."""
+        if self.debug:
+            print(*args, **kwargs)
 
 
 def main():
