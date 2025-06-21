@@ -549,6 +549,9 @@ class GeneralizedNetworkFramework:
         
         climate_data = self.agent_climate_data[agent_key]
         climate_data['climate_stressed'] = True
+        # Also mark on the agent object so visualizations can use it
+        if hasattr(agent, 'climate_stressed'):
+            agent.climate_stressed = True
         
         if stress_target == 'productivity':
             base_output = climate_data['base_output_quantity']
@@ -617,16 +620,18 @@ class GeneralizedNetworkFramework:
                     climate_data = self.agent_climate_data[agent_key]
                     
                     if climate_data.get('climate_stressed', False):
-                        climate_data['climate_stressed'] = False
-                        
-                        # Get the real agent object from the scheduler
+                        # Get the real agent object from the scheduler first
                         agent_name = (agent_group.agent_name_prefix, i)
-                        
                         if hasattr(scheduler, 'agents') and agent_name in scheduler.agents:
                             real_agent = scheduler.agents[agent_name]
                         else:
                             # Fallback: try to get agent through group indexing
                             real_agent = agent_group[i]
+
+                        # Now clear flags
+                        climate_data['climate_stressed'] = False
+                        if hasattr(real_agent, 'climate_stressed'):
+                            real_agent.climate_stressed = False
                         
                         base_output = climate_data['base_output_quantity']
                         chronic_accumulated = climate_data['chronic_productivity_stress_accumulated']

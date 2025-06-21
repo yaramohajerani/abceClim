@@ -249,13 +249,13 @@ class GeneralizedSimulationRunner:
                   f"Production={round_stats['production']:.2f}, "
                   f"Trades={round_stats['trades']}")
             
-            # Reset climate stress for next round
-            if climate_enabled:
-                self.framework.reset_climate_stress()
-            
-            # Optionally save a network frame for GIF creation
+            # Optionally save a network frame BEFORE resetting acute stress
             if self.animate_network:
                 self._save_network_frame(round_num, results_dir=self.simulation.path)
+
+            # Reset climate stress for next round (clears acute effects after snapshot)
+            if climate_enabled:
+                self.framework.reset_climate_stress()
         
         # Finalize the simulation
         self.simulation.finalize()
@@ -564,7 +564,8 @@ class GeneralizedSimulationRunner:
         # Gather per-agent information: wealth & climate status
         # --------------------------------------------------
         wealths = {}
-        status = {}  # 'acute', 'chronic', or 'none'
+        acute_flags = {}
+        chronic_flags = {}
 
         # Quick mapping to climate data for chronic status look-up
         climate_data_map = self.framework.agent_climate_data
@@ -574,18 +575,17 @@ class GeneralizedSimulationRunner:
             w = max(0.0, agent.calculate_wealth())  # avoid negatives for size scaling
             wealths[key] = w
 
-            # Determine climate status
-            if getattr(agent, "climate_stressed", False):
-                status[key] = "acute"
-            else:
-                cdata = climate_data_map.get((agent.group, agent.agent_id), None)
-                chronic = False
-                if cdata:
-                    chronic_prod = cdata.get("chronic_productivity_stress_accumulated", 1.0)
-                    chronic_over = cdata.get("chronic_overhead_stress_accumulated", 1.0)
-                    chronic = (chronic_prod > 1.0) or (chronic_over > 1.0)
-                status[key] = "chronic" if chronic else "none"
+            # Determine climate status (acute and/or chronic independently)
+            acute_flags[key] = getattr(agent, "climate_stressed", False)
 
+            cdata = climate_data_map.get((agent.group, agent.agent_id), None)
+            chronic = False
+            if cdata:
+                chronic_prod = cdata.get("chronic_productivity_stress_accumulated", 1.0)
+                chronic_over = cdata.get("chronic_overhead_stress_accumulated", 1.0)
+                chronic = (chronic_prod > 1.0) or (chronic_over > 1.0)
+            chronic_flags[key] = chronic
+        
         # Scaling for node sizes
         if wealths:
             max_wealth = max(wealths.values()) or 1.0
@@ -611,14 +611,8 @@ class GeneralizedSimulationRunner:
             node_sizes.append(size)
 
             # Colour determination
-            st = status.get(node, "none")
-            if st == "acute":
-                node_colors.append("#FF0000")  # red
-            elif st == "chronic":
-                node_colors.append("#FFA500")  # orange
-            else:
-                agent_type = node.split("_")[0]
-                node_colors.append(type_color_fallback.get(agent_type, "gray"))
+            agent_type = node.split("_")[0]
+            node_colors.append(type_color_fallback.get(agent_type, "gray"))
 
         # --------------------------------------------------
         # Plot
@@ -637,14 +631,57 @@ class GeneralizedSimulationRunner:
         plt.title(f"Network – Round {round_num + 1}")
         plt.axis("off")
 
-        # Custom legend: status colours + size note
+        # --------------------------------------------------
+        # Overlay outlines for stress indicators
+        # --------------------------------------------------
+        acute_nodes = [n for n in self.framework.network.nodes if acute_flags.get(n, False)]
+        chronic_nodes = [n for n in self.framework.network.nodes if chronic_flags.get(n, False)]
+
+        # Map node -> size for convenience
+        size_map = {n: s for n, s in zip(self.framework.network.nodes, node_sizes)}
+
+        # Chronic outline (orange, solid, thinner)
+        if chronic_nodes:
+            sizes_chronic = [size_map[n] * 1.15 for n in chronic_nodes]  # slightly larger to be visible
+            coll_chronic = nx.draw_networkx_nodes(
+                self.framework.network,
+                pos=self._network_pos,
+                nodelist=chronic_nodes,
+                node_size=sizes_chronic,
+                node_color='none',
+                edgecolors='#FFA500',
+                linewidths=2.0,
+            )
+            # ensure solid line style
+            coll_chronic.set_linestyle('solid')
+
+        # Acute outline (red, dashed, thicker)
+        if acute_nodes:
+            sizes_acute = [size_map[n] * 1.25 for n in acute_nodes]  # slightly larger than chronic
+            coll_acute = nx.draw_networkx_nodes(
+                self.framework.network,
+                pos=self._network_pos,
+                nodelist=acute_nodes,
+                node_size=sizes_acute,
+                node_color='none',
+                edgecolors='#FF0000',
+                linewidths=3.0,
+            )
+            try:
+                coll_acute.set_linestyle('dashed')
+            except Exception:
+                pass  # some matplotlib versions may not support dashed nodes
+
+        # Custom legend reflecting outlines
         from matplotlib.lines import Line2D
         legend_elems = [
-            Line2D([0], [0], marker='o', color='w', label='Acute shock', markerfacecolor='#FF0000', markersize=10),
-            Line2D([0], [0], marker='o', color='w', label='Chronic stress', markerfacecolor='#FFA500', markersize=10),
-            Line2D([0], [0], marker='o', color='w', label='Normal', markerfacecolor='gray', markersize=10)
+            Line2D([0], [0], marker='o', color='w', label='Producer', markerfacecolor=type_color_fallback['producer'], markersize=10, markeredgecolor='black'),
+            Line2D([0], [0], marker='o', color='w', label='Intermediary', markerfacecolor=type_color_fallback['intermediary'], markersize=10, markeredgecolor='black'),
+            Line2D([0], [0], marker='o', color='w', label='Consumer', markerfacecolor=type_color_fallback['consumer'], markersize=10, markeredgecolor='black'),
+            Line2D([0], [0], marker='o', color='w', label='Chronic stress', markerfacecolor='none', markeredgecolor='#FFA500', markersize=10, markeredgewidth=2),
+            Line2D([0], [0], marker='o', color='w', label='Acute shock', markerfacecolor='none', markeredgecolor='#FF0000', markersize=10, markeredgewidth=3, linestyle='--'),
         ]
-        plt.legend(handles=legend_elems, loc='lower left')
+        plt.legend(handles=legend_elems, loc='lower left', framealpha=0.9)
 
         frames_dir = os.path.join(results_dir, "network_frames")
         os.makedirs(frames_dir, exist_ok=True)
