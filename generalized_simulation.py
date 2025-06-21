@@ -179,8 +179,18 @@ class GeneralizedSimulationRunner:
             'total_production': [],
             'total_consumption': [],
             'total_trades': [],
-            'climate_events': []
+            'climate_events': [],
+            # per-type time series
+            'per_type': {}
         }
+        # initialise per_type structure
+        for t in self.agent_groups.keys():
+            results['per_type'][t] = {
+                'production': [],
+                'wealth': [],
+                'consumption': [],
+                'trades': []
+            }
         
         for round_num in range(total_rounds):
             print(f"\n--- Round {round_num + 1} ---")
@@ -210,16 +220,21 @@ class GeneralizedSimulationRunner:
                         self._dprint(f"DEBUG: {phase} method not found on agent {agent.name}")
             
             # Collect statistics directly from real_agents
-            round_stats = self._collect_round_statistics_inline(round_num)
+            round_stats, per_type_stats = self._collect_round_statistics_inline()
             results['rounds'].append(round_num + 1)
-            results['total_wealth'].append(round_stats['total_wealth'])
-            results['total_production'].append(round_stats['total_production'])
-            results['total_consumption'].append(round_stats['total_consumption'])
-            results['total_trades'].append(round_stats['total_trades'])
+            results['total_wealth'].append(round_stats['wealth'])
+            results['total_production'].append(round_stats['production'])
+            results['total_consumption'].append(round_stats['consumption'])
+            results['total_trades'].append(round_stats['trades'])
             
-            print(f"Round {round_num + 1} stats: Wealth={round_stats['total_wealth']:.2f}, "
-                  f"Production={round_stats['total_production']:.2f}, "
-                  f"Trades={round_stats['total_trades']}")
+            # append per type
+            for typ, stats in per_type_stats.items():
+                for key, val in stats.items():
+                    results['per_type'][typ][key].append(val)
+            
+            print(f"Round {round_num + 1} stats: Wealth={round_stats['wealth']:.2f}, "
+                  f"Production={round_stats['production']:.2f}, "
+                  f"Trades={round_stats['trades']}")
             
             # Reset climate stress for next round
             if climate_enabled:
@@ -235,61 +250,30 @@ class GeneralizedSimulationRunner:
         
         return results
     
-    def _record_round_performance(self, round_num: int):
-        """Record performance metrics for all agents"""
-        for agent_type, agent_group in self.agent_groups.items():
-            for i in range(agent_group.num_agents):
-                agent = agent_group[i]
-                agent.round = round_num
-                agent.record_performance()
-    
-    def _collect_round_statistics(self) -> Dict[str, float]:
-        """Collect statistics for the current round"""
-        total_wealth = 0.0
-        total_production = 0.0
-        total_consumption = 0.0
-        total_trades = 0
-        
-        for agent_type, agent_group in self.agent_groups.items():
-            for i in range(agent_group.num_agents):
-                # Always get the real agent object from the scheduler
-                agent_name = (agent_group.agent_name_prefix, i)
-                scheduler = agent_group._scheduler
-                if hasattr(scheduler, 'agents') and agent_name in scheduler.agents:
-                    agent = scheduler.agents[agent_name]
-                else:
-                    agent = agent_group[i]
-                total_wealth += agent.calculate_wealth()
-                total_production += agent.total_production
-                total_consumption += agent.total_consumption
-                total_trades += agent.total_trades
-        
-        return {
-            'total_wealth': total_wealth,
-            'total_production': total_production,
-            'total_consumption': total_consumption,
-            'total_trades': total_trades
-        }
-    
-    def _collect_round_statistics_inline(self, round_num: int) -> Dict[str, float]:
-        """Collect statistics for the current round directly from real_agents"""
-        total_wealth = 0.0
-        total_production = 0.0
-        total_consumption = 0.0
-        total_trades = 0
-        
+    def _collect_round_statistics_inline(self):
+        """Collect totals and per-type stats from self.real_agents."""
+        total = dict(wealth=0.0, production=0.0, consumption=0.0, trades=0)
+        per_type = {}
         for agent in self.real_agents:
-            total_wealth += agent.calculate_wealth()
-            total_production += agent.total_production
-            total_consumption += agent.total_consumption
-            total_trades += agent.total_trades
-        
-        return {
-            'total_wealth': total_wealth,
-            'total_production': total_production,
-            'total_consumption': total_consumption,
-            'total_trades': total_trades
-        }
+            typ = agent.group
+            if typ not in per_type:
+                per_type[typ] = dict(wealth=0.0, production=0.0, consumption=0.0, trades=0)
+            w = agent.calculate_wealth()
+            p = agent.total_production
+            c = agent.total_consumption
+            tr = agent.total_trades
+            # totals
+            total['wealth'] += w
+            total['production'] += p
+            total['consumption'] += c
+            total['trades'] += tr
+            # per type
+            per_type[typ]['wealth'] += w
+            per_type[typ]['production'] += p
+            per_type[typ]['consumption'] += c
+            per_type[typ]['trades'] += tr
+
+        return total, per_type
     
     def _export_results(self, results: Dict[str, Any], output_dir: str = None):
         """Export simulation results to files"""
@@ -387,6 +371,44 @@ class GeneralizedSimulationRunner:
             plt.tight_layout()
             plt.savefig(os.path.join(output_dir, 'simulation_results.png'), dpi=300, bbox_inches='tight')
             plt.close()
+            
+            # Per-type production time series plot
+            if 'per_type' in results and results['per_type']:
+                plt.figure(figsize=(8, 5))
+                for typ, ts in results['per_type'].items():
+                    plt.plot(results['rounds'], ts['production'], label=f"{typ} prod")
+                plt.title('Production by Agent Type')
+                plt.xlabel('Round')
+                plt.ylabel('Output units')
+                plt.grid(True)
+                plt.legend()
+                plt.tight_layout()
+                plt.savefig(os.path.join(output_dir, 'production_by_type.png'), dpi=300, bbox_inches='tight')
+                plt.close()
+            
+            # Combined 2x2 per-type metrics figure
+            fig2, axes2 = plt.subplots(2, 2, figsize=(12, 8))
+
+            # Helper to plot lines
+            def _plot_metric(ax, metric_key, title, ylabel):
+                for typ, ts in results['per_type'].items():
+                    ax.plot(results['rounds'], ts[metric_key], label=typ)
+                ax.set_title(title)
+                ax.set_xlabel('Round')
+                ax.set_ylabel(ylabel)
+                ax.grid(True)
+
+            _plot_metric(axes2[0, 0], 'production', 'Production by Type', 'Units')
+            _plot_metric(axes2[0, 1], 'wealth', 'Wealth by Type', 'Wealth')
+            _plot_metric(axes2[1, 0], 'consumption', 'Consumption by Type', 'Units')
+            _plot_metric(axes2[1, 1], 'trades', 'Trades by Type', '# Trades')
+
+            # Consolidated legend
+            handles, labels = axes2[0, 0].get_legend_handles_labels()
+            fig2.legend(handles, labels, loc='lower center', ncol=len(labels))
+            plt.tight_layout(rect=[0, 0.05, 1, 1])
+            fig2.savefig(os.path.join(output_dir, 'metrics_by_type.png'), dpi=300, bbox_inches='tight')
+            plt.close(fig2)
             
             # ------------------------------------------------------
             # Improved network visualization

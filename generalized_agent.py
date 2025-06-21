@@ -19,7 +19,9 @@ class GeneralizedAgent(Agent, LaborMarketMixin, Contracting):
     """
     
     def __init__(self, id, agent_parameters, simulation_parameters):
-        super().__init__(id, agent_parameters, simulation_parameters)
+        # Pass a sanitized copy to abcEconomics.Agent to avoid shadowing warnings later in .init()
+        _params_for_super = {k: v for k, v in agent_parameters.items() if k not in {'production', 'consumption'}}
+        super().__init__(id, _params_for_super, simulation_parameters)
         
         # Basic agent properties
         self.agent_type = agent_parameters.get('agent_type', 'generalized')
@@ -149,7 +151,7 @@ class GeneralizedAgent(Agent, LaborMarketMixin, Contracting):
         forbidden = {"production", "consumption", "trading", "labor_supply"}
         for k, v in kwargs.items():
             if k in forbidden:
-                print(f"Warning: Skipping attribute '{k}' to avoid shadowing a method.")
+                self._dprint(f"Skipping attribute '{k}' to avoid shadowing method name")
                 continue
             setattr(self, k, v)
         # Optionally, add any post-initialization logic here

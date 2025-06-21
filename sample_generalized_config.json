@@ -229,7 +229,6 @@
   },
   "visualization": {
     "create_visualizations": true,
-    "create_network_visualization": true,
-    "save_summary_data": true
+    "animate_network": true
   }
 } 
