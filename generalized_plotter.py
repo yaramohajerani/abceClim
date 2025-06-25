@@ -247,12 +247,26 @@ def create_network_gif(results_dir: str, duration: float = 0.7):
         print("           Try 'pip install imageio[ffmpeg]' and rerun.")
         return
 
+    # Read all frames into memory
+    images = []
+    for fname in frame_files:
+        fp = os.path.join(frames_dir, fname)
+        images.append(imageio.imread(fp))
+
+    # Calculate FPS from duration. Ensure it's at least 1 to avoid ZeroDivisionError.
+    fps = 1 / duration if duration > 0 else 1
+
+    # Add a pause at the end by duplicating the last frame.
+    # A 2-second pause means adding 2 * fps frames.
+    if images:
+        num_pause_frames = int(2 * fps)
+        images.extend([images[-1]] * num_pause_frames)
+
     gif_path = os.path.join(results_dir, "network_evolution.gif")
     try:
-        with imageio.get_writer(gif_path, mode="I", duration=duration) as writer:
-            for fname in frame_files:
-                fp = os.path.join(frames_dir, fname)
-                writer.append_data(imageio.imread(fp))
+        # Use the `fps` argument, which is often more reliable than `duration`.
+        # loop=0 means the GIF will loop indefinitely.
+        imageio.mimwrite(gif_path, images, fps=fps, loop=0)
         print(f"[Plotter] Network GIF saved to {gif_path}")
     except Exception as exc:
         print(f"[Plotter] Failed to create GIF: {exc}")
