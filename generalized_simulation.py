@@ -348,6 +348,28 @@ class GeneralizedSimulationRunner:
                 climate_df = pd.DataFrame(climate_events)
                 climate_df.to_csv(os.path.join(output_dir, 'climate_events.csv'), index=False)
         
+        if results['per_type']:
+            # Flatten per-type time series into long-form DataFrame
+            per_type_rows = []
+            rounds = results['rounds']
+            for agent_type, metrics in results['per_type'].items():
+                for idx, rnd in enumerate(rounds):
+                    per_type_rows.append({
+                        'round': rnd,
+                        'agent_type': agent_type,
+                        'production': metrics['production'][idx],
+                        'wealth': metrics['wealth'][idx],
+                        'consumption': metrics['consumption'][idx],
+                        'trades': metrics['trades'][idx]
+                    })
+            per_type_df = pd.DataFrame(per_type_rows)
+            per_type_df.to_csv(os.path.join(output_dir, 'per_type_timeseries.csv'), index=False)
+        
+        # Export shock rounds as separate CSV for convenience
+        if results.get('shock_rounds'):
+            shock_df = pd.DataFrame({'round': results['shock_rounds']})
+            shock_df.to_csv(os.path.join(output_dir, 'shock_rounds.csv'), index=False)
+        
         print(f"Results exported to {output_dir}")
     
     def create_visualizations(self, results: Dict[str, Any], output_dir: str = None):
