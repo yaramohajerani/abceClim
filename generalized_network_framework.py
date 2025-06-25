@@ -472,25 +472,19 @@ class GeneralizedNetworkFramework:
                 continue
             
             agent_group = self.agent_groups[agent_type]
-            agent_count = agent_group.num_agents
-            
-            # Access real agents through the scheduler's agent storage
             scheduler = agent_group._scheduler
-            
-            for i in range(agent_count):
-                # Check if agent is in target continent (support wildcard 'all')
+
+            for agent_name in list(agent_group.names):
+                i = agent_name[1]  # numeric id
+                # Check continent filter
                 agent_continent = self.geographical_assignments.get(agent_type, {}).get(i, {}).get('continent')
                 if ('all' not in target_continents) and (agent_continent not in target_continents):
                     continue
-                
-                # Get the real agent object from the scheduler
-                agent_name = (agent_group.agent_name_prefix, i)
-                
-                if hasattr(scheduler, 'agents') and agent_name in scheduler.agents:
-                    real_agent = scheduler.agents[agent_name]
-                else:
-                    # Fallback: try to get agent through group indexing
-                    real_agent = agent_group[i]
+
+                if agent_name not in scheduler.agents:
+                    continue  # agent has been removed
+
+                real_agent = scheduler.agents[agent_name]
                 
                 # Initialize climate data if needed
                 self._initialize_agent_climate_data(agent_type, i, real_agent)
@@ -610,10 +604,11 @@ class GeneralizedNetworkFramework:
         print("  Resetting acute climate stress...")
         
         for agent_type, agent_group in self.agent_groups.items():
-            agent_count = agent_group.num_agents
+            agent_group = self.agent_groups[agent_type]
             scheduler = agent_group._scheduler
             
-            for i in range(agent_count):
+            for agent_name in list(agent_group.names):
+                i = agent_name[1]  # numeric id
                 agent_key = (agent_type, i)
                 
                 if agent_key in self.agent_climate_data:
@@ -621,12 +616,7 @@ class GeneralizedNetworkFramework:
                     
                     if climate_data.get('climate_stressed', False):
                         # Get the real agent object from the scheduler first
-                        agent_name = (agent_group.agent_name_prefix, i)
-                        if hasattr(scheduler, 'agents') and agent_name in scheduler.agents:
-                            real_agent = scheduler.agents[agent_name]
-                        else:
-                            # Fallback: try to get agent through group indexing
-                            real_agent = agent_group[i]
+                        real_agent = agent_group[i]
 
                         # Now clear flags
                         climate_data['climate_stressed'] = False

@@ -272,10 +272,11 @@ class GeneralizedSimulationRunner:
                         phase_method()
                     else:
                         self._dprint(f"DEBUG: {phase} method not found on agent {agent.name}")
-            
-            # After overhead payments, remove bankrupt agents and create replacements
-            if phase == 'overhead_payment':
-                self._handle_bankruptcies()
+
+                # After executing the overhead payment phase for all agents,
+                # immediately process bankruptcies (removal + replacement)
+                if phase == 'overhead_payment':
+                    self._handle_bankruptcies()
             
             # Collect statistics directly from real_agents
             round_stats, per_type_stats = self._collect_round_statistics_inline()
@@ -381,11 +382,8 @@ class GeneralizedSimulationRunner:
         
         # Export agent performance summaries
         agent_summaries = []
-        for agent_type, agent_group in self.agent_groups.items():
-            for i in range(agent_group.num_agents):
-                agent = agent_group[i]
-                summary = agent.get_performance_summary()
-                agent_summaries.append(summary)
+        for agent in self.real_agents:
+            agent_summaries.append(agent.get_performance_summary())
         
         if agent_summaries:
             agent_df = pd.DataFrame(agent_summaries)
@@ -832,20 +830,59 @@ class GeneralizedSimulationRunner:
             # Delete from scheduler & group
             group_obj = self.agent_groups.get(agent.group)
             if group_obj is not None:
+                # Remove node from network and climate bookkeeping
+                old_label = f"{agent.group}_{agent.agent_id}"
+                if old_label in self.framework.network:
+                    self.framework.network.remove_node(old_label)
+                # Remove climate data & geo assignments
+                self.framework.agent_climate_data.pop((agent.group, agent.agent_id), None)
+                self.framework.geographical_assignments.get(agent.group, {}).pop(agent.agent_id, None)
+
+                # Delete from scheduler & group
                 group_obj.delete_agents([agent.name])
 
-                # Create replacement
-                new_names = group_obj.create_agents(GeneralizedAgent, agent_parameters=[template.copy()])
+                # Determine next unique id (avoid collision with existing) – use max id + 1
+                current_ids = [name[1] for name in group_obj.names]
+                next_id = max(current_ids) + 1 if current_ids else 0
+                group_obj.num_agents = next_id  # guides create_agents enumeration
+
+                # Create replacement agent
+                new_names = group_obj.create_agents(
+                    GeneralizedAgent,
+                    agent_parameters=[template.copy()]
+                )
                 new_name = next(iter(new_names))
                 new_agent = self.simulation.scheduler.agents[new_name]
 
-                # Insert into real_agents list (will rebuild later)
-                self._dprint(f"Spawned replacement agent {new_name}")
+                # Network & geography for new node --------------------------------
+                continent = random.choice(self.framework.continents)
+                self.framework.geographical_assignments.setdefault(agent.group, {})[next_id] = {'continent': continent}
+
+                node_label = f"{agent.group}_{next_id}"
+                self.framework.network.add_node(node_label, agent_type=agent.group, agent_id=next_id)
+
+                # Random edges to existing nodes
+                existing_nodes = [n for n in self.framework.network.nodes if n != node_label]
+                if existing_nodes:
+                    conn_prob = self.framework.network_generator.network_params.get('connection_probability', 0.3)
+                    max_conn = self.framework.network_generator.network_params.get('max_connections_per_agent', 5)
+                    num_conn = min(np.random.poisson(conn_prob * len(existing_nodes)), max_conn)
+                    targets = random.sample(existing_nodes, min(num_conn, len(existing_nodes)))
+                    for tgt in targets:
+                        self.framework.network.add_edge(node_label, tgt, weight=random.uniform(0.1, 1.0))
+
+                self._dprint(f"Spawned replacement agent {new_name} as network node {node_label}")
 
         # Recompute real_agents list and update all_agents references
         self.real_agents = list(self.simulation.scheduler.agents.values())
         for ag in self.real_agents:
             ag.all_agents = self.real_agents
+
+        # Rebuild agent connected_agents lists since network changed
+        self._setup_network_connections()
+
+        # Force network layout recalc for animation
+        self._network_pos = None
 
 
 def main():

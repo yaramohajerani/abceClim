@@ -9,8 +9,8 @@
         "name": "gradual_climate_change",
         "agent_types": ["producer", "intermediary", "consumer"],
         "continents": ["all"],
-        "productivity_stress_factor": 0.94,
-        "overhead_stress_factor": 1.2
+        "productivity_stress_factor": 0.95,
+        "overhead_stress_factor": 1.1
       }
     ],
     "shock_rules": []
