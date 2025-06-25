@@ -1,0 +1,39 @@
+{
+  "extends": "stable_economy_config.json",
+  "climate": {
+    "stress_enabled": true,
+    "geographical_effects": true,
+    "heterogeneity_enabled": false,
+    "chronic_rules": [],
+    "shock_rules": [
+      {
+        "name": "extreme_weather_event",
+        "probability": 0.08,
+        "agent_types": ["producer"],
+        "continents": ["Africa", "Asia"],
+        "productivity_stress_factor": 0.5,
+        "overhead_stress_factor": 1.5
+      },
+      {
+        "name": "supply_chain_disruption",
+        "probability": 0.05,
+        "agent_types": ["intermediary", "consumer"],
+        "continents": ["all"],
+        "productivity_stress_factor": 0.6,
+        "overhead_stress_factor": 1.3
+      },
+      {
+        "name": "regional_crisis",
+        "probability": 0.03,
+        "agent_types": ["producer", "intermediary", "consumer"],
+        "continents": ["Europe", "North America"],
+        "productivity_stress_factor": 0.65,
+        "overhead_stress_factor": 1.5
+      }
+    ]
+  },
+  "simulation": {
+    "name": "acute_stress_network",
+    "result_path": "result_acute_economy"
+  }
+} 

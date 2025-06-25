@@ -58,12 +58,41 @@ class GeneralizedSimulationRunner:
         if seed:
             random.seed(seed)
             np.random.seed(seed)
+        
+        # Ensure real_agents exists even before setup to avoid attribute errors
+        self.real_agents = []
     
     def _load_config(self, config_file: str) -> Dict[str, Any]:
-        """Load configuration from JSON file"""
+        """Load configuration, supporting optional inheritance via an `extends` field."""
+
+        def _read(path: str) -> Dict[str, Any]:
+            with open(path, 'r') as fh:
+                return json.load(fh)
+
+        def _deep_merge(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:
+            """Recursively merge two dicts (updates overwrite base)."""
+            result = dict(base)
+            for k, v in updates.items():
+                if k in result and isinstance(result[k], dict) and isinstance(v, dict):
+                    result[k] = _deep_merge(result[k], v)
+                else:
+                    result[k] = v
+            return result
+
         try:
-            with open(config_file, 'r') as f:
-                config = json.load(f)
+            # First read the primary config
+            config_dir = os.path.dirname(os.path.abspath(config_file))
+            config = _read(config_file)
+
+            # Handle inheritance chain (single string path)
+            if 'extends' in config:
+                base_rel_path = config.pop('extends')
+                # Allow relative paths relative to current config file dir
+                base_path = base_rel_path if os.path.isabs(base_rel_path) else os.path.join(config_dir, base_rel_path)
+
+                base_config = self._load_config(base_path)  # recurse
+                config = _deep_merge(base_config, config)
+
             print(f"Configuration loaded from {config_file}")
             return config
         except Exception as e:

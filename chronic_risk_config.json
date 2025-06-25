@@ -1,0 +1,22 @@
+{
+  "extends": "stable_economy_config.json",
+  "climate": {
+    "stress_enabled": true,
+    "geographical_effects": true,
+    "heterogeneity_enabled": false,
+    "chronic_rules": [
+      {
+        "name": "gradual_climate_change",
+        "agent_types": ["producer", "intermediary", "consumer"],
+        "continents": ["all"],
+        "productivity_stress_factor": 0.94,
+        "overhead_stress_factor": 1.2
+      }
+    ],
+    "shock_rules": []
+  },
+  "simulation": {
+    "name": "chronic_stress_network",
+    "result_path": "result_chronic_economy"
+  }
+} 
