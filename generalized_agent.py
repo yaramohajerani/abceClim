@@ -63,13 +63,15 @@ class GeneralizedAgent(Agent, LaborMarketMixin, Contracting):
         if 'outputs' not in production_config:
             raise ValueError(f"Agent {self.agent_type} {id} missing required 'outputs' in production config")
         prod_outputs_cfg = production_config['outputs']
-        # Convert outputs list -> dict mapping each good to base_output_quantity
         if isinstance(prod_outputs_cfg, list):
-            self.production_outputs = {good: self.base_output_quantity for good in prod_outputs_cfg}
+            self.base_production_outputs = {good: self.base_output_quantity for good in prod_outputs_cfg}
         elif isinstance(prod_outputs_cfg, dict):
-            self.production_outputs = prod_outputs_cfg
+            self.base_production_outputs = prod_outputs_cfg
         else:
             raise ValueError("production.outputs must be list or dict")
+        
+        # Initialize mutable production_outputs with base copy (may be scaled per round)
+        self.production_outputs = self.base_production_outputs.copy()
         
         # Consumption configuration
         consumption_config = agent_parameters.get('consumption', {})
@@ -179,12 +181,22 @@ class GeneralizedAgent(Agent, LaborMarketMixin, Contracting):
             self.inventory[good] -= required
             self._dprint(f"{self.agent_type} {self.agent_id} consumed {required} {good}")
         
-        # Produce outputs
+        # Determine scaling factor based on climate-adjusted output quantity
+        try:
+            scale = self.current_output_quantity / self.base_output_quantity if self.base_output_quantity else 1.0
+        except ZeroDivisionError:
+            scale = 1.0  # avoid crash; treat as unchanged
+
+        # Produce outputs (scaled)
         produced_amount = 0.0
-        for good, amount in self.production_outputs.items():
-            self.inventory[good] = self.inventory.get(good, 0) + amount
-            produced_amount += amount
-            self._dprint(f"{self.agent_type} {self.agent_id} produced {amount} {good}")
+        for good, base_amt in self.base_production_outputs.items():
+            amt = base_amt * scale
+            self.inventory[good] = self.inventory.get(good, 0) + amt
+            produced_amount += amt
+            self._dprint(f"{self.agent_type} {self.agent_id} produced {amt:.2f} {good} (scale {scale:.2f})")
+        
+        # Update production_outputs for downstream uses if any
+        self.production_outputs = {g: self.base_production_outputs[g] * scale for g in self.base_production_outputs}
         
         # Deduct overhead costs
         if self.money >= self.current_overhead:
@@ -308,14 +320,15 @@ class GeneralizedAgent(Agent, LaborMarketMixin, Contracting):
             modified_factor = stress_factor * self.climate_vulnerability_overhead
             self.current_overhead = self.base_overhead * modified_factor
             print(f"{self.agent_type} {self.agent_id}: Climate stress applied to overhead (factor: {modified_factor:.2f})")
+        
+        # Restore production_outputs to base values
+        self.production_outputs = self.base_production_outputs.copy()
     
     def reset_climate_stress(self):
         """Reset climate stress effects"""
-        if self.climate_stressed:
-            self.current_output_quantity = self.base_output_quantity
-            self.current_overhead = self.base_overhead
-            self.climate_stressed = False
-            print(f"{self.agent_type} {self.agent_id}: Climate stress reset")
+        # Deprecated – framework now handles resetting while respecting chronic stress.
+        # Left blank intentionally to avoid overriding framework's values.
+        self.climate_stressed = False
     
     def calculate_wealth(self) -> float:
         wealth = getattr(self, 'money', 0.0)

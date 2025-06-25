@@ -2,7 +2,7 @@
   "simulation": {
     "name": "generalized_heterogeneous_network",
     "random_seed": 42,
-    "rounds": 10,
+    "rounds": 30,
     "result_path": "result_generalized_network"
   },
   "network": {
@@ -19,14 +19,14 @@
         "name": "gradual_climate_change",
         "agent_types": ["producer", "intermediary", "consumer"],
         "continents": ["all"],
-        "productivity_stress_factor": 0.98,
-        "overhead_stress_factor": 1.02
+        "productivity_stress_factor": 0.995,
+        "overhead_stress_factor": 1.005
       }
     ],
     "shock_rules": [
       {
         "name": "extreme_weather_event",
-        "probability": 0.15,
+        "probability": 0.08,
         "agent_types": ["producer"],
         "continents": ["Africa", "Asia"],
         "productivity_stress_factor": 0.6,
@@ -34,7 +34,7 @@
       },
       {
         "name": "supply_chain_disruption",
-        "probability": 0.1,
+        "probability": 0.05,
         "agent_types": ["intermediary", "consumer"],
         "continents": ["all"],
         "productivity_stress_factor": 0.8,
@@ -42,7 +42,7 @@
       },
       {
         "name": "regional_crisis",
-        "probability": 0.05,
+        "probability": 0.03,
         "agent_types": ["producer", "intermediary", "consumer"],
         "continents": ["Europe", "North America"],
         "productivity_stress_factor": 0.7,
@@ -123,14 +123,14 @@
   "agents": {
     "producer": {
       "count": 8,
-      "initial_money": 15.0,
+      "initial_money": 50.0,
       "initial_inventory": {
         "raw_material": 2.0
       },
       "production": {
-        "base_output_quantity": 1.2,
-        "profit_margin": 0.15,
-        "base_overhead": 0.08,
+        "base_output_quantity": 4.0,
+        "profit_margin": 0.12,
+        "base_overhead": 0.05,
         "inputs": {
           "labor": 0.8,
           "raw_material": 0.4
@@ -154,14 +154,14 @@
     },
     "intermediary": {
       "count": 6,
-      "initial_money": 12.0,
+      "initial_money": 35.0,
       "initial_inventory": {
         "intermediate_good": 1.0
       },
       "production": {
-        "base_output_quantity": 1.8,
-        "profit_margin": 0.12,
-        "base_overhead": 0.06,
+        "base_output_quantity": 6.0,
+        "profit_margin": 0.1,
+        "base_overhead": 0.04,
         "inputs": {
           "labor": 0.6,
           "intermediate_good": 0.8

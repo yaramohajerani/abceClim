@@ -75,9 +75,9 @@ def plot_time_series(results: Dict[str, Any], output_dir: str):
     os.makedirs(output_dir, exist_ok=True)
 
     # --------------------------------------------------
-    # 2×2 aggregated metrics figure
+    # 3×2 aggregated metrics figure
     # --------------------------------------------------
-    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+    fig, axes = plt.subplots(3, 2, figsize=(15, 15))
 
     def _add_shock_lines(ax):
         for sr in shock_rounds:
@@ -115,6 +115,16 @@ def plot_time_series(results: Dict[str, Any], output_dir: str):
     axes[1, 1].set_ylabel('Total Trades')
     axes[1, 1].grid(True)
 
+    # Overhead (separate row)
+    axes[2, 0].plot(results_df['round'], results_df['total_overhead'])
+    _add_shock_lines(axes[2, 0])
+    axes[2, 0].set_title('Total Overhead Over Time')
+    axes[2, 0].set_xlabel('Round')
+    axes[2, 0].set_ylabel('Total Overhead')
+    axes[2, 0].grid(True)
+
+    fig.delaxes(axes[2, 1])  # Remove unused subplot
+
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'simulation_results.png'), dpi=300, bbox_inches='tight')
     plt.close(fig)
@@ -123,7 +133,7 @@ def plot_time_series(results: Dict[str, Any], output_dir: str):
     # Per-type metrics (if available)
     # --------------------------------------------------
     if per_type_df is not None and not per_type_df.empty:
-        fig2, axes2 = plt.subplots(2, 2, figsize=(12, 8))
+        fig2, axes2 = plt.subplots(3, 2, figsize=(12, 12))
 
         def _plot_metric(ax, metric_key, title, ylabel):
             for agent_type, group_df in per_type_df.groupby('agent_type'):
@@ -138,6 +148,9 @@ def plot_time_series(results: Dict[str, Any], output_dir: str):
         _plot_metric(axes2[0, 1], 'wealth', 'Wealth by Type', 'Wealth')
         _plot_metric(axes2[1, 0], 'consumption', 'Consumption by Type', 'Units')
         _plot_metric(axes2[1, 1], 'trades', 'Trades by Type', '# Trades')
+        _plot_metric(axes2[2, 0], 'overhead', 'Overhead by Type', 'Overhead')
+
+        fig2.delaxes(axes2[2, 1])
 
         handles, labels = axes2[0, 0].get_legend_handles_labels()
         fig2.legend(handles, labels, loc='lower center', ncol=len(labels))

@@ -190,6 +190,7 @@ class GeneralizedSimulationRunner:
             'total_production': [],
             'total_consumption': [],
             'total_trades': [],
+            'total_overhead': [],
             'climate_events': [],
             'shock_rounds': [],
             # per-type time series
@@ -201,7 +202,8 @@ class GeneralizedSimulationRunner:
                 'production': [],
                 'wealth': [],
                 'consumption': [],
-                'trades': []
+                'trades': [],
+                'overhead': []
             }
         
         for round_num in range(total_rounds):
@@ -239,6 +241,7 @@ class GeneralizedSimulationRunner:
             results['total_production'].append(round_stats['production'])
             results['total_consumption'].append(round_stats['consumption'])
             results['total_trades'].append(round_stats['trades'])
+            results['total_overhead'].append(round_stats['overhead'])
             
             # append per type
             for typ, stats in per_type_stats.items():
@@ -273,26 +276,41 @@ class GeneralizedSimulationRunner:
     
     def _collect_round_statistics_inline(self):
         """Collect totals and per-type stats from self.real_agents."""
-        total = dict(wealth=0.0, production=0.0, consumption=0.0, trades=0)
+        total = dict(wealth=0.0, production=0.0, consumption=0.0, trades=0, overhead=0.0)
         per_type = {}
         for agent in self.real_agents:
             typ = agent.group
             if typ not in per_type:
-                per_type[typ] = dict(wealth=0.0, production=0.0, consumption=0.0, trades=0)
+                per_type[typ] = dict(wealth=0.0, production=0.0, consumption=0.0, trades=0, overhead=0.0)
             w = agent.calculate_wealth()
-            p = agent.total_production
-            c = agent.total_consumption
-            tr = agent.total_trades
+
+            # --- per-round deltas instead of cumulative values ---
+            prev_prod = getattr(agent, '_prev_total_production', 0.0)
+            prev_cons = getattr(agent, '_prev_total_consumption', 0.0)
+            prev_trades = getattr(agent, '_prev_total_trades', 0)
+
+            p = agent.total_production - prev_prod
+            c = agent.total_consumption - prev_cons
+            tr = agent.total_trades - prev_trades
+
+            # store current totals for next round
+            agent._prev_total_production = agent.total_production
+            agent._prev_total_consumption = agent.total_consumption
+            agent._prev_total_trades = agent.total_trades
+
+            over = getattr(agent, 'current_overhead', getattr(agent, 'base_overhead', 0.0))
             # totals
             total['wealth'] += w
             total['production'] += p
             total['consumption'] += c
             total['trades'] += tr
+            total['overhead'] += over
             # per type
             per_type[typ]['wealth'] += w
             per_type[typ]['production'] += p
             per_type[typ]['consumption'] += c
             per_type[typ]['trades'] += tr
+            per_type[typ]['overhead'] += over
 
         return total, per_type
     
@@ -313,7 +331,8 @@ class GeneralizedSimulationRunner:
             'total_wealth': results['total_wealth'],
             'total_production': results['total_production'],
             'total_consumption': results['total_consumption'],
-            'total_trades': results['total_trades']
+            'total_trades': results['total_trades'],
+            'total_overhead': results['total_overhead']
         })
         results_df.to_csv(os.path.join(output_dir, 'simulation_results.csv'), index=False)
         
@@ -360,7 +379,8 @@ class GeneralizedSimulationRunner:
                         'production': metrics['production'][idx],
                         'wealth': metrics['wealth'][idx],
                         'consumption': metrics['consumption'][idx],
-                        'trades': metrics['trades'][idx]
+                        'trades': metrics['trades'][idx],
+                        'overhead': metrics['overhead'][idx]
                     })
             per_type_df = pd.DataFrame(per_type_rows)
             per_type_df.to_csv(os.path.join(output_dir, 'per_type_timeseries.csv'), index=False)
@@ -422,6 +442,19 @@ class GeneralizedSimulationRunner:
             axes[1, 1].set_xlabel('Round')
             axes[1, 1].set_ylabel('Total Trades')
             axes[1, 1].grid(True)
+            
+            # New figure for overhead
+            fig_over, ax_over = plt.subplots(figsize=(7, 4))
+            ax_over.plot(results['rounds'], results['total_overhead'])
+            for sr in results.get('shock_rounds', []):
+                ax_over.axvline(sr, color='red', linestyle='--', alpha=0.4)
+            ax_over.set_title('Total Overhead Over Time')
+            ax_over.set_xlabel('Round')
+            ax_over.set_ylabel('Total Overhead')
+            ax_over.grid(True)
+            fig_over.tight_layout()
+            fig_over.savefig(os.path.join(output_dir, 'total_overhead.png'), dpi=300, bbox_inches='tight')
+            plt.close(fig_over)
             
             plt.tight_layout()
             plt.savefig(os.path.join(output_dir, 'simulation_results.png'), dpi=300, bbox_inches='tight')
