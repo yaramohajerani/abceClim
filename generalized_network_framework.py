@@ -478,9 +478,9 @@ class GeneralizedNetworkFramework:
             scheduler = agent_group._scheduler
             
             for i in range(agent_count):
-                # Check if agent is in target continent
+                # Check if agent is in target continent (support wildcard 'all')
                 agent_continent = self.geographical_assignments.get(agent_type, {}).get(i, {}).get('continent')
-                if agent_continent not in target_continents:
+                if ('all' not in target_continents) and (agent_continent not in target_continents):
                     continue
                 
                 # Get the real agent object from the scheduler
