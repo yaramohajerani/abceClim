@@ -1,0 +1,101 @@
+{
+  "simulation": {
+    "name": "stable_generalized_network",
+    "random_seed": 42,
+    "rounds": 40,
+    "result_path": "result_stable_economy"
+  },
+  "network": {
+    "connection_type": "random",
+    "connection_probability": 0.4,
+    "max_connections_per_agent": 8
+  },
+  "climate": {
+    "stress_enabled": false,
+    "geographical_effects": false,
+    "heterogeneity_enabled": false,
+    "chronic_rules": [],
+    "shock_rules": []
+  },
+  "agents": {
+    "producer": {
+      "count": 8,
+      "initial_money": 100.0,
+      "initial_inventory": {
+        "raw_material": 4.0
+      },
+      "production": {
+        "base_output_quantity": 5.0,
+        "profit_margin": 0.2,
+        "base_overhead": 10.0,
+        "inputs": {},
+        "outputs": ["intermediate_good"]
+      },
+      "consumption": {
+        "preference": "final_good",
+        "consumption_fraction": 0.25,
+        "minimum_survival_consumption": 0.2
+      },
+      "labor": {
+        "endowment": 0.0,
+        "wage": 12.0
+      },
+      "geographical_distribution": ["all"]
+    },
+    "intermediary": {
+      "count": 6,
+      "initial_money": 80.0,
+      "initial_inventory": {
+        "intermediate_good": 2.0
+      },
+      "production": {
+        "base_output_quantity": 6.0,
+        "profit_margin": 0.2,
+        "base_overhead": 8.0,
+        "inputs": {
+          "intermediate_good": 1.0
+        },
+        "outputs": ["final_good"]
+      },
+      "consumption": {
+        "preference": "final_good",
+        "consumption_fraction": 0.3,
+        "minimum_survival_consumption": 0.25
+      },
+      "labor": {
+        "endowment": 0.0,
+        "wage": 12.0
+      },
+      "geographical_distribution": ["all"]
+    },
+    "consumer": {
+      "count": 12,
+      "initial_money": 200.0,
+      "initial_inventory": {
+        "final_good": 1.0,
+        "labor": 1.0
+      },
+      "production": {
+        "base_output_quantity": 0.0,
+        "profit_margin": 0.0,
+        "base_overhead": 0.0,
+        "inputs": {},
+        "outputs": []
+      },
+      "consumption": {
+        "preference": "final_good",
+        "consumption_fraction": 0.5,
+        "minimum_survival_consumption": 0.4
+      },
+      "labor": {
+        "endowment": 1.0,
+        "wage": 12.0
+      },
+      "geographical_distribution": ["all"]
+    }
+  },
+  "visualization": {
+    "create_visualizations": true,
+    "animate_network": true
+  }
+} 
