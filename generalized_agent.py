@@ -160,17 +160,18 @@ class GeneralizedAgent(Agent, LaborMarketMixin, Contracting):
     
     def production(self):
         """Produce goods based on production inputs and outputs"""
+        # If no inputs are required, we can immediately proceed to production
         if not self.production_inputs:
-            return
-        
-        # Check if we have enough inputs for production
-        can_produce = True
-        for good, required in self.production_inputs.items():
-            available = self.inventory.get(good, 0)
-            if available < required:
-                can_produce = False
-                print(f"DEBUG: {self.agent_type} {self.agent_id} cannot produce - needs {required} {good}, has {available}")
-                break
+            can_produce = True
+        else:
+            # Check if we have enough inputs for production
+            can_produce = True
+            for good, required in self.production_inputs.items():
+                available = self.inventory.get(good, 0)
+                if available < required:
+                    can_produce = False
+                    self._dprint(f"DEBUG: {self.agent_type} {self.agent_id} cannot produce - needs {required} {good}, has {available}")
+                    break
         
         if not can_produce:
             return
