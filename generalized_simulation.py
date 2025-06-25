@@ -162,6 +162,12 @@ class GeneralizedSimulationRunner:
         
         # Cache real agents list for faster access in run loop
         self.real_agents = list(self.simulation.scheduler.agents.values())
+        
+        # Provide each agent with a reference to the complete list so they
+        # can pick overhead-service providers even if they lack direct
+        # connections.
+        for ag in self.real_agents:
+            ag.all_agents = self.real_agents
     
     def run_simulation(self, rounds: Optional[int] = None) -> Dict[str, Any]:
         """
@@ -181,8 +187,8 @@ class GeneralizedSimulationRunner:
         
         print(f"Running simulation for {total_rounds} rounds...")
         
-        # Define simulation phases
-        phases = ['labor_supply', 'labor_contracting', 'production', 'trading', 'consumption']
+        # Define simulation phases (including new overhead payment stage)
+        phases = ['labor_supply', 'labor_contracting', 'overhead_payment', 'production', 'trading', 'consumption']
         
         results = {
             'rounds': [],
@@ -227,12 +233,20 @@ class GeneralizedSimulationRunner:
             for phase in phases:
                 self._dprint(f"DEBUG: Running phase: {phase}")
                 
-                for agent in self.real_agents:
+                for agent in list(self.real_agents):
+                    # Skip agents flagged as bankrupt before handling removal
+                    if getattr(agent, "bankrupt", False):
+                        continue
+
                     phase_method = getattr(agent, phase, None)
                     if callable(phase_method):
                         phase_method()
                     else:
                         self._dprint(f"DEBUG: {phase} method not found on agent {agent.name}")
+            
+            # After overhead payments, remove bankrupt agents and create replacements
+            if phase == 'overhead_payment':
+                self._handle_bankruptcies()
             
             # Collect statistics directly from real_agents
             round_stats, per_type_stats = self._collect_round_statistics_inline()
@@ -763,6 +777,46 @@ class GeneralizedSimulationRunner:
             print(f"Saved network evolution GIF to {gif_path}")
         except Exception as exc:
             self._dprint("Failed to create network GIF:", exc)
+
+    def _handle_bankruptcies(self):
+        """Remove bankrupt agents and spawn replacements of the same type."""
+        bankrupt_agents = [a for a in self.real_agents if getattr(a, "bankrupt", False)]
+
+        if not bankrupt_agents:
+            return
+
+        if not hasattr(self, "agent_templates"):
+            self.agent_templates = {}
+
+        for agent in bankrupt_agents:
+            self._dprint(f"Removing bankrupt agent {agent.name} (money={agent.money:.2f})")
+
+            # Determine template for this type
+            template = self.agent_templates.get(agent.group)
+            if template is None:
+                # Build template from original parameters if not cached
+                # Attempt to retrieve from config
+                template = self.config['agents'][agent.group].copy()
+                template.pop('count', None)
+                self.agent_templates[agent.group] = template
+
+            # Delete from scheduler & group
+            group_obj = self.agent_groups.get(agent.group)
+            if group_obj is not None:
+                group_obj.delete_agents([agent.name])
+
+                # Create replacement
+                new_names = group_obj.create_agents(GeneralizedAgent, agent_parameters=[template.copy()])
+                new_name = next(iter(new_names))
+                new_agent = self.simulation.scheduler.agents[new_name]
+
+                # Insert into real_agents list (will rebuild later)
+                self._dprint(f"Spawned replacement agent {new_name}")
+
+        # Recompute real_agents list and update all_agents references
+        self.real_agents = list(self.simulation.scheduler.agents.values())
+        for ag in self.real_agents:
+            ag.all_agents = self.real_agents
 
 
 def main():

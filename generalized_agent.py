@@ -199,11 +199,6 @@ class GeneralizedAgent(Agent, LaborMarketMixin, Contracting):
         # Update production_outputs for downstream uses if any
         self.production_outputs = {g: self.base_production_outputs[g] * scale for g in self.base_production_outputs}
         
-        # Deduct overhead costs
-        if self.money >= self.current_overhead:
-            self.money -= self.current_overhead
-            self.total_costs += self.current_overhead
-        
         # Record production
         self.total_production += produced_amount
     
@@ -305,6 +300,69 @@ class GeneralizedAgent(Agent, LaborMarketMixin, Contracting):
         # For now, just track the offer
         self.labor_supplied = quantity
         print(f"{self.agent_type} {self.agent_id}: Offered {quantity:.2f} labor at wage {wage:.2f}")
+
+    # ------------------------------------------------------------------
+    # Overhead payment phase
+    # ------------------------------------------------------------------
+
+    def overhead_payment(self):
+        """Pay fixed overhead costs to another agent.
+
+        The payment is treated like purchasing an infinitely supplied
+        "overhead service" from another agent.  This ensures money
+        circulates in the economy instead of disappearing.  A provider
+        is chosen at random from the agent's network connections; if no
+        connections exist, we fall back to a random agent in the global
+        simulation list (when available).  If no provider can be found
+        or the agent lacks sufficient funds, the payment is skipped for
+        this round.
+        """
+        amount = getattr(self, "current_overhead", self.base_overhead)
+
+        if amount <= 0:
+            return  # Nothing to pay
+
+        # If agent cannot afford, mark bankrupt and exit (payment fails)
+        if self.money < amount:
+            self.bankrupt = True
+            self._dprint(f"{self.agent_type} {self.agent_id} CANNOT pay overhead {amount:.2f} -> BANKRUPT")
+            return
+
+        provider = self._select_overhead_provider()
+
+        # If no provider is found (e.g., isolated node), we simply do not
+        # execute a transfer.  This avoids removing money from the system
+        # without a corresponding receiver.
+        if provider is None or provider is self:
+            return
+
+        # Execute the transfer
+        self.money -= amount
+        provider.money += amount
+
+        # Book-keeping
+        self.total_costs += amount
+        provider.total_revenue += amount
+
+        self._dprint(
+            f"{self.agent_type} {self.agent_id} paid overhead {amount:.2f} to "
+            f"{provider.agent_type} {provider.agent_id}")
+
+
+    def _select_overhead_provider(self):
+        """Return an agent instance that will receive the overhead payment."""
+        # Prefer directly connected agents if they exist
+        if self.connected_agents:
+            return random.choice(self.connected_agents)
+
+        # Fall back to any other agent in the simulation (if the runner
+        # injected the list via `all_agents` attribute).
+        if hasattr(self, "all_agents") and self.all_agents:
+            others = [a for a in self.all_agents if a is not self]
+            if others:
+                return random.choice(others)
+
+        return None
     
     def apply_climate_stress(self, stress_factor: float, stress_target: str):
         """Apply climate stress to the agent"""
