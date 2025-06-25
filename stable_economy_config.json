@@ -21,14 +21,14 @@
     "producer": {
       "count": 8,
       "initial_money": 100.0,
-      "initial_inventory": {
-        "raw_material": 4.0
-      },
+      "initial_inventory": {},
       "production": {
         "base_output_quantity": 5.0,
         "profit_margin": 0.2,
-        "base_overhead": 10.0,
-        "inputs": {},
+        "base_overhead": 8.0,
+        "inputs": {
+          "labor": 1.0
+        },
         "outputs": ["intermediate_good"]
       },
       "consumption": {
@@ -51,9 +51,10 @@
       "production": {
         "base_output_quantity": 6.0,
         "profit_margin": 0.2,
-        "base_overhead": 8.0,
+        "base_overhead": 5.0,
         "inputs": {
-          "intermediate_good": 1.0
+          "labor": 0.5,
+          "intermediate_good": 0.5
         },
         "outputs": ["final_good"]
       },
